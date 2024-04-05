@@ -1,0 +1,26 @@
+{
+  "collectionName": "components_products_price_progresses",
+  "info": {
+    "displayName": "Price Progress"
+  },
+  "options": {},
+  "attributes": {
+    "date": {
+      "type": "datetime"
+    },
+    "wholesale": {
+      "type": "decimal",
+      "required": true
+    },
+    "in_offer": {
+      "type": "boolean",
+      "default": false
+    },
+    "discount": {
+      "type": "decimal"
+    },
+    "initial_wholesale": {
+      "type": "decimal"
+    }
+  }
+}

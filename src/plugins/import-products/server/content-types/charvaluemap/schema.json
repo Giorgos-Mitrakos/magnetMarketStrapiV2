@@ -1,0 +1,29 @@
+{
+  "kind": "collectionType",
+  "collectionName": "charvaluemaps",
+  "info": {
+    "singularName": "charvaluemap",
+    "pluralName": "charvaluemaps",
+    "displayName": "charvaluemap"
+  },
+  "options": {
+    "draftAndPublish": false,
+    "comment": ""
+  },
+  "attributes": {
+    "name": {
+      "type": "string",
+      "required": true
+    },
+    "value": {
+      "type": "string",
+      "required": true
+    },
+    "related_import": {
+        "type": "relation",
+        "relation": "manyToOne",
+        "target": "plugin::import-products.importxml",
+        "inversedBy": "char_value_map"
+    }
+  }
+}

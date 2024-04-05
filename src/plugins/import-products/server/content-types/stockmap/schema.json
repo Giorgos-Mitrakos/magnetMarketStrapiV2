@@ -1,0 +1,25 @@
+{
+  "kind": "collectionType",
+  "collectionName": "stockmaps",
+  "info": {
+    "singularName": "stockmap",
+    "pluralName": "stockmaps",
+    "displayName": "stockmap"
+  },
+  "options": {
+    "draftAndPublish": false,
+    "comment": ""
+  },
+  "attributes": {
+    "name": {
+      "type": "string",
+      "required": true
+    },
+    "related_import": {
+        "type": "relation",
+        "relation": "manyToOne",
+        "target": "plugin::import-products.importxml",
+        "inversedBy": "stock_map"
+    }
+  }
+}

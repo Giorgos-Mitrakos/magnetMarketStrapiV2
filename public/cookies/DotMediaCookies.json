@@ -1,0 +1,73 @@
+[
+  {
+    "name": "Preferences",
+    "value": "userid=17967&password=&trbid=07221502",
+    "domain": "www.dot-media.gr",
+    "path": "/",
+    "expires": 1712395335.051366,
+    "size": 48,
+    "httpOnly": false,
+    "secure": false,
+    "session": false,
+    "priority": "Medium",
+    "sameParty": false,
+    "sourceScheme": "Secure"
+  },
+  {
+    "name": "WebStat5State",
+    "value": "1|1|17967",
+    "domain": "www.dot-media.gr",
+    "path": "/",
+    "expires": 1712395334.501813,
+    "size": 22,
+    "httpOnly": false,
+    "secure": false,
+    "session": false,
+    "priority": "Medium",
+    "sameParty": false,
+    "sourceScheme": "Secure"
+  },
+  {
+    "name": "ASP.NET_SessionId",
+    "value": "hdgm2m35xgv4zahy1ovwehsv",
+    "domain": "www.dot-media.gr",
+    "path": "/",
+    "expires": -1,
+    "size": 41,
+    "httpOnly": true,
+    "secure": false,
+    "session": true,
+    "sameSite": "Lax",
+    "priority": "Medium",
+    "sameParty": false,
+    "sourceScheme": "Secure"
+  },
+  {
+    "name": "WebStat5Lang",
+    "value": "lang=1",
+    "domain": "www.dot-media.gr",
+    "path": "/",
+    "expires": 1712395325.043639,
+    "size": 18,
+    "httpOnly": false,
+    "secure": false,
+    "session": false,
+    "priority": "Medium",
+    "sameParty": false,
+    "sourceScheme": "Secure"
+  },
+  {
+    "name": "WebStat5Tree",
+    "value": "",
+    "domain": "www.dot-media.gr",
+    "path": "/",
+    "expires": 1712395325.043807,
+    "size": 12,
+    "httpOnly": false,
+    "secure": false,
+    "session": false,
+    "priority": "Medium",
+    "sameParty": false,
+    "sourceScheme": "Secure"
+  }
+]

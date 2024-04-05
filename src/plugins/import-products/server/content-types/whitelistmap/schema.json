@@ -1,0 +1,36 @@
+{
+  "kind": "collectionType",
+  "collectionName": "whitelistmaps",
+  "info": {
+    "singularName": "whitelistmap",
+    "pluralName": "whitelistmaps",
+    "displayName": "whitelistmap"
+  },
+  "options": {
+    "draftAndPublish": false,
+    "comment": ""
+  },
+  "attributes": {
+    "name": {
+      "type": "string"
+    },
+    "related_import": {
+        "type": "relation",
+        "relation": "manyToOne",
+        "target": "plugin::import-products.importxml",
+        "inversedBy": "whitelist_map"
+    },
+    "parentcategory": {
+        "type": "relation",
+        "relation": "manyToOne",
+        "target": "plugin::import-products.whitelistmap",
+        "inversedBy": "subcategory"
+    },
+    "subcategory": {
+        "type": "relation",
+        "relation": "oneToMany",
+        "target": "plugin::import-products.whitelistmap",
+        "mappedBy": "parentcategory"
+    }
+  }
+}

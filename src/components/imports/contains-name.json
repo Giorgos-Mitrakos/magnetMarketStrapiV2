@@ -1,0 +1,17 @@
+{
+  "collectionName": "components_imports_contains_names",
+  "info": {
+    "displayName": "contains-name"
+  },
+  "options": {},
+  "attributes": {
+    "name": {
+      "type": "string",
+      "required": true
+    },
+    "value": {
+      "type": "string",
+      "required": true
+    }
+  }
+}

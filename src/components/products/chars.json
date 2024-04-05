@@ -1,0 +1,16 @@
+{
+  "collectionName": "components_products_chars",
+  "info": {
+    "displayName": "Chars"
+  },
+  "options": {},
+  "attributes": {
+    "name": {
+      "type": "string",
+      "required": true
+    },
+    "value": {
+      "type": "string"
+    }
+  }
+}

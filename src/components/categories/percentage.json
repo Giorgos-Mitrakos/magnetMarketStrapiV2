@@ -1,0 +1,33 @@
+{
+  "collectionName": "components_categories_percentages",
+  "info": {
+    "displayName": "percentage",
+    "description": ""
+  },
+  "options": {},
+  "attributes": {
+    "percentage": {
+      "type": "decimal"
+    },
+    "brand_perc": {
+      "displayName": "brand_percent",
+      "type": "component",
+      "repeatable": true,
+      "component": "categories.brand-percent"
+    },
+    "add_to_price": {
+      "type": "decimal",
+      "required": true,
+      "default": 0,
+      "min": 0
+    },
+    "name": {
+      "type": "enumeration",
+      "enum": [
+        "general",
+        "skroutz",
+        "shopflix"
+      ]
+    }
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "kind": "collectionType",
+  "collectionName": "charnamemaps",
+  "info": {
+    "singularName": "charnamemap",
+    "pluralName": "charnamemaps",
+    "displayName": "charnamemap"
+  },
+  "options": {
+    "draftAndPublish": false,
+    "comment": ""
+  },
+  "attributes": {
+    "name": {
+      "type": "string",
+      "required": true
+    },
+    "value": {
+      "type": "string",
+      "required": true
+    },
+    "related_import": {
+        "type": "relation",
+        "relation": "manyToOne",
+        "target": "plugin::import-products.importxml",
+        "inversedBy": "char_name_map"
+    }
+  }
+}
