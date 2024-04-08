@@ -682,23 +682,21 @@ module.exports = ({ strapi }) => ({
     },
 
     updateSupplierInfo(entryCheck, product, data, dbChange, importRef) {
-        dbChange = 'skipped'
-
         let foundNotExistedSupplier = false
 
         let supplierInfo = entryCheck.supplierInfo.map(sup => {
             let container = sup
-            
+
             if (importRef.suppliers.findIndex(s => s.name.toLowerCase() === sup.name.toLowerCase()) === -1) {
                 container.in_stock = false
                 foundNotExistedSupplier = true
             }
             return container
         })
-
+        
         if (foundNotExistedSupplier) {
             data.supplierInfo = supplierInfo
-            dbChange = 'updated'
+            dbChange.typeOfChange = 'updated'
         }
 
         // Αναζητώ τον προμηθευτή
@@ -715,14 +713,14 @@ module.exports = ({ strapi }) => ({
                     supplierInfo[supplierInfoUpdate].wholesale = parseFloat(product.wholesale)
                     supplierInfo[supplierInfoUpdate].in_stock = true
                     data.supplierInfo = supplierInfo
-                    dbChange = 'updated'
+                    dbChange.typeOfChange = 'updated'
                 }
                 else {
                     if (product.entry.name.toLowerCase() !== 'dotmedia')
                         if (supplierInfo[supplierInfoUpdate].in_stock === true) {
                             supplierInfo[supplierInfoUpdate].in_stock = false
                             data.supplierInfo = supplierInfo
-                            dbChange = 'updated'
+                            dbChange.typeOfChange = 'updated'
                         }
                 }
             }
@@ -743,13 +741,13 @@ module.exports = ({ strapi }) => ({
 
                     supplierInfo[supplierInfoUpdate] = this.createSupplierInfoData(product, price_progress)
                     data.supplierInfo = supplierInfo
-                    dbChange = 'updated'
+                    dbChange.typeOfChange = 'updated'
                 }
                 else {
                     if (supplierInfo[supplierInfoUpdate].in_stock === false) {
                         supplierInfo[supplierInfoUpdate].in_stock = true
                         data.supplierInfo = supplierInfo
-                        dbChange = 'republished'
+                        dbChange.typeOfChange = 'republished'
                     }
                 }
             }
@@ -759,7 +757,7 @@ module.exports = ({ strapi }) => ({
 
             supplierInfo.push(this.createSupplierInfoData(product, price_progress_data))
 
-            dbChange = 'created'
+            dbChange.typeOfChange = 'created'
             data.supplierInfo = supplierInfo
         }
 

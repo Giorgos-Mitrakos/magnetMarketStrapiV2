@@ -314,7 +314,7 @@ module.exports = ({ strapi }) => ({
     async updateEntry(entryCheck, product, importRef) {
 
         try {
-            let dbChange = '' //Εδώ αποθηκεύω το είδος της αλλαγής
+            let dbChange = { typeOfChange: "Skipped" } //Εδώ αποθηκεύω το είδος της αλλαγής
             const data = {}   //Εδώ αποθηκεύω τα δεδομένα που χρειάζονται αλλαγή
 
             // Να το δώ καλυτερα αυτό
@@ -357,35 +357,35 @@ module.exports = ({ strapi }) => ({
             // μελλοντικά θα συμβαίνει και όταν θα διορθώνω τις κατηγορίες μέσω το σκρουτζ
             if (!entryCheck.category || entryCheck.category.id !== categoryInfo.id) {
                 data.category = categoryInfo.id
-                dbChange = 'updated'
+                dbChange.typeOfChange = 'updated'
             }
 
             // Αν δεν υπάρχει slug το δημιουργώ
             if (entryCheck.slug.includes("undefined")) {
                 data.slug = this.createSlug(product.name, product.mpn)
-                dbChange = 'updated'
+                dbChange.typeOfChange = 'updated'
             }
 
             // Αν δεν υπάρχει barcode και έχει barcode στο import τότε το ενημερώνω
             if (!entryCheck.barcode && product.barcode) {
                 data.barcode = product.barcode
-                dbChange = 'updated'
+                dbChange.typeOfChange = 'updated'
             }
 
             // Αν δεν υπάρχουν διαστάσεις και έχει στο import τότε το ενημερώνω
             if (!entryCheck.length && product.length) {
                 data.length = parseInt(product.length)
-                dbChange = 'updated'
+                dbChange.typeOfChange = 'updated'
             }
 
             if (!entryCheck.width && product.width) {
                 data.width = parseInt(product.width)
-                dbChange = 'updated'
+                dbChange.typeOfChange = 'updated'
             }
 
             if (!entryCheck.height && product.height) {
                 data.height = (product.height)
-                dbChange = 'updated'
+                dbChange.typeOfChange = 'updated'
             }
 
             //Εδώ κάνω έλεγχο Κατασκευαστή
@@ -393,12 +393,12 @@ module.exports = ({ strapi }) => ({
                 if (entryCheck.brand) {
                     if (entryCheck.brand.id !== product.brand.id) {
                         data.brand = product.brand.id
-                        dbChange = 'updated'
+                        dbChange.typeOfChange = 'updated'
                     }
                 }
                 else {
                     data.brand = product.brand.id
-                    dbChange = 'updated'
+                    dbChange.typeOfChange = 'updated'
                 }
 
             }
@@ -417,30 +417,30 @@ module.exports = ({ strapi }) => ({
                     if (parseInt(product.weight) === 0) {
                         if (categoryInfo.average_weight) {
                             data.weight = parseInt(categoryInfo.average_weight)
-                            dbChange = 'updated'
+                            dbChange.typeOfChange = 'updated'
                         }
                     }
                     else if (parseInt(product.weight) !== 0) {
                         data.weight = parseInt(product.weight)
-                        dbChange = 'updated'
+                        dbChange.typeOfChange = 'updated'
                     }
                 }
                 else {
                     data.weight = categoryInfo.average_weight ? parseInt(categoryInfo.average_weight) : parseInt(0)
-                    dbChange = 'updated'
+                    dbChange.typeOfChange = 'updated'
                 }
             }
             else {
                 if (product.weight && product.weight > 0) {
                     if (parseInt(entryCheck.weight) !== parseInt(product.weight)) {
                         data.weight = parseInt(product.weight)
-                        dbChange = 'updated'
+                        dbChange.typeOfChange = 'updated'
                     }
                 }
                 else {
                     if (categoryInfo.average_weight && parseInt(categoryInfo.average_weight) !== parseInt(entryCheck.weight)) {
                         data.weight = parseInt(categoryInfo.average_weight)
-                        dbChange = 'updated'
+                        dbChange.typeOfChange = 'updated'
                     }
                 }
             }
@@ -449,7 +449,7 @@ module.exports = ({ strapi }) => ({
             strapi
                 .plugin('import-products')
                 .service('productHelpers')
-                .updateSupplierInfo(entryCheck, product, data, dbChange,importRef)
+                .updateSupplierInfo(entryCheck, product, data, dbChange, importRef)
 
             const skroutz = entryCheck.platforms.find(x => x.platform === "Skroutz")
             const shopflix = entryCheck.platforms.find(x => x.platform === "Shopflix")
@@ -484,18 +484,18 @@ module.exports = ({ strapi }) => ({
                     productPrices.skroutzPrice,
                     productPrices.shopflixPrice
                 ]
-                dbChange = 'updated'
+                dbChange.typeOfChange = 'updated'
             }
 
             if (entryCheck.publishedAt === null) {
                 if (product.entry.name.toLowerCase() === "globalsat") {
                     data.need_verify = true
-                    dbChange = 'updated'
+                    dbChange.typeOfChange = 'updated'
                 }
                 else {
                     data.publishedAt = new Date()
                     data.deletedAt = null
-                    dbChange = 'republished'
+                    dbChange.typeOfChange = 'republished'
                 }
             }
 
@@ -505,7 +505,7 @@ module.exports = ({ strapi }) => ({
                 });
             }
 
-            switch (dbChange) {
+            switch (dbChange.typeOfChange) {
                 case 'republished':
                     importRef.republished += 1
                     break;
@@ -628,7 +628,6 @@ module.exports = ({ strapi }) => ({
             return slugify(`${name}`, { lower: true, replacement: '-', trim: true, remove: /[^A-Za-z0-9-_.~]/g })
 
         const slug = slugify(`${name}-${mpn}`, { lower: true, replacement: '-', trim: true, remove: /[^A-Za-z0-9-_.~]/g })
-        console.log(slug)
         return slug
     }
 });

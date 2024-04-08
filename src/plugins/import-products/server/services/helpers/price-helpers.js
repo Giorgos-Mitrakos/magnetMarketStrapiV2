@@ -130,7 +130,8 @@ module.exports = ({ strapi }) => ({
       return prices
 
     } catch (error) {
-      console.log(error)
+      console.log("product>>>>>", existedProduct, "minSupplierPrice>>>>>>>", minSupplierPrice,
+        "supplier>>>>>>", supplier, error)
     }
   },
 
