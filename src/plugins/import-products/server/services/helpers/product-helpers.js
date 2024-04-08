@@ -681,10 +681,25 @@ module.exports = ({ strapi }) => ({
         }
     },
 
-    updateSupplierInfo(entryCheck, product, data, dbChange) {
-        let supplierInfo = entryCheck.supplierInfo;
-
+    updateSupplierInfo(entryCheck, product, data, dbChange, importRef) {
         dbChange = 'skipped'
+
+        let foundNotExistedSupplier = false
+
+        let supplierInfo = entryCheck.supplierInfo.map(sup => {
+            let container = sup
+            
+            if (importRef.suppliers.findIndex(s => s.name.toLowerCase() === sup.name.toLowerCase()) === -1) {
+                container.in_stock = false
+                foundNotExistedSupplier = true
+            }
+            return container
+        })
+
+        if (foundNotExistedSupplier) {
+            data.supplierInfo = supplierInfo
+            dbChange = 'updated'
+        }
 
         // Αναζητώ τον προμηθευτή
         let supplierInfoUpdate = supplierInfo.findIndex(o => o.name === product.entry.name)

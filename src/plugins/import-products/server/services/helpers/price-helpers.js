@@ -9,12 +9,15 @@ module.exports = ({ strapi }) => ({
       // Βρίσκω τους προμηθευτές που έχουν το προϊόν διαθέσιμο
       const filteredSupplierInfo = supplierInfo.filter(x => x.in_stock === true)
 
+      // console.log("filteredSupplierInfo:", filteredSupplierInfo)
       let recycleTax = product.recycleTax ? parseFloat(product.recycleTax) : 0
 
       // Βρίσκω τον προμηθευτή που έχει διαθέσιμο το προϊόν και έχει τη μικρότερη τιμή χονδρικής
       let minSupplierPrice = filteredSupplierInfo?.reduce((prev, current) => {
         return (prev.wholesale < current.wholesale) ? prev : current
       })
+
+      // console.log("minSupplierPrice:", minSupplierPrice)
 
       // Αναζητώ στη βάση τον προμηθευτή με τη μικρότερη τιμή για να βρώ το κόστος των μεταφορικών
       const supplier = await strapi.db.query('plugin::import-products.importxml').findOne({

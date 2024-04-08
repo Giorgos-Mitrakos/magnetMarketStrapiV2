@@ -92,7 +92,7 @@ export default {
                     $and: [
                         { category: result.id },
                         { publishedAt: { $notNull: true, } }
-                    ]
+                    ],
                 },
                 populate: {
                     supplierInfo: true,

@@ -128,6 +128,10 @@ module.exports = ({ strapi }) => ({
             .service('charnameService')
             .parseCharsToMap(importRef.categoryMap.char_name_map, importRef.categoryMap.char_value_map);
 
+        importRef.suppliers = await strapi.entityService.findMany('plugin::import-products.importxml', {
+            fields: ['name', 'shipping'],
+        });
+
         return importRef
 
     },
@@ -445,11 +449,10 @@ module.exports = ({ strapi }) => ({
             strapi
                 .plugin('import-products')
                 .service('productHelpers')
-                .updateSupplierInfo(entryCheck, product, data, dbChange)
+                .updateSupplierInfo(entryCheck, product, data, dbChange,importRef)
 
             const skroutz = entryCheck.platforms.find(x => x.platform === "Skroutz")
             const shopflix = entryCheck.platforms.find(x => x.platform === "Shopflix")
-
 
             let info = data.supplierInfo ? data.supplierInfo : supplierInfo
 
