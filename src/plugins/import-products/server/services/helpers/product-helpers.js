@@ -682,83 +682,89 @@ module.exports = ({ strapi }) => ({
     },
 
     updateSupplierInfo(entryCheck, product, data, dbChange, importRef) {
-        let foundNotExistedSupplier = false
+        try {
+            let foundNotExistedSupplier = false
 
-        let supplierInfo = entryCheck.supplierInfo.map(sup => {
-            let container = sup
+            let supplierInfo = entryCheck.supplierInfo.map(sup => {
+                let container = sup
 
-            if (importRef.suppliers.findIndex(s => s.name.toLowerCase() === sup.name.toLowerCase()) === -1) {
-                container.in_stock = false
-                foundNotExistedSupplier = true
+                if (importRef.suppliers.findIndex(s => s.name.toLowerCase() === sup.name.toLowerCase()) === -1) {
+                    container.in_stock = false
+                    foundNotExistedSupplier = true
+                }
+                return container
+            })
+
+            if (foundNotExistedSupplier) {
+                data.supplierInfo = supplierInfo
+                dbChange.typeOfChange = 'updated'
             }
-            return container
-        })
-        
-        if (foundNotExistedSupplier) {
-            data.supplierInfo = supplierInfo
-            dbChange.typeOfChange = 'updated'
-        }
 
-        // Αναζητώ τον προμηθευτή
-        let supplierInfoUpdate = supplierInfo.findIndex(o => o.name === product.entry.name)
+            // Αναζητώ τον προμηθευτή
+            let supplierInfoUpdate = supplierInfo.findIndex(o => o.name === product.entry.name)
 
-        // αν υπάρχει ο προμηθευτής
-        // αλλίως δημιουργώ τον προμηθευτή για το προϊόν και κρατάω ιστορικό
-        if (supplierInfoUpdate !== -1) {
-            // ελέγχω αν η αποθηκευμένη τιμή χονδρικής είναι μηδενική
-            if (parseFloat(supplierInfo[supplierInfoUpdate].wholesale) <= 0) {
-                // Αν η τιμή χονδρικής είναι μεγαλύτερη από μηδεν, την αποθηκεύω στον προμηθευτή
-                // αλλιώς βάζω το προϊόν μη διαθέσιμο από τον προμηθευτή
-                if (parseFloat(product.wholesale) > 0) {
-                    supplierInfo[supplierInfoUpdate].wholesale = parseFloat(product.wholesale)
-                    supplierInfo[supplierInfoUpdate].in_stock = true
-                    data.supplierInfo = supplierInfo
-                    dbChange.typeOfChange = 'updated'
-                }
-                else {
-                    if (product.entry.name.toLowerCase() !== 'dotmedia')
-                        if (supplierInfo[supplierInfoUpdate].in_stock === true) {
-                            supplierInfo[supplierInfoUpdate].in_stock = false
-                            data.supplierInfo = supplierInfo
-                            dbChange.typeOfChange = 'updated'
-                        }
-                }
-            }
-            else {
-                // Αν υπάρχει τιμή χονδρικής και είναι διαφορετική από την τιμή που έχω
-                // αποθηκευμένη στη βάση τότε κρατάω ιστορικό και ενημερώνω με τη νέα τιμη
-                // αλλιώς αν
-                if (strapi
-                    .plugin('import-products')
-                    .service('priceHelpers')
-                    .is_not_equal(supplierInfo[supplierInfoUpdate].wholesale, product.wholesale)) {
-
-                    const price_progress = supplierInfo[supplierInfoUpdate].price_progress;
-
-                    const price_progress_data = this.createPriceProgress(product)
-
-                    price_progress.push(price_progress_data)
-
-                    supplierInfo[supplierInfoUpdate] = this.createSupplierInfoData(product, price_progress)
-                    data.supplierInfo = supplierInfo
-                    dbChange.typeOfChange = 'updated'
-                }
-                else {
-                    if (supplierInfo[supplierInfoUpdate].in_stock === false) {
+            // αν υπάρχει ο προμηθευτής
+            // αλλίως δημιουργώ τον προμηθευτή για το προϊόν και κρατάω ιστορικό
+            if (supplierInfoUpdate !== -1) {
+                // ελέγχω αν η αποθηκευμένη τιμή χονδρικής είναι μηδενική
+                if (parseFloat(supplierInfo[supplierInfoUpdate].wholesale) <= 0) {
+                    // Αν η τιμή χονδρικής είναι μεγαλύτερη από μηδεν, την αποθηκεύω στον προμηθευτή
+                    // αλλιώς βάζω το προϊόν μη διαθέσιμο από τον προμηθευτή
+                    if (parseFloat(product.wholesale) > 0) {
+                        supplierInfo[supplierInfoUpdate].wholesale = parseFloat(product.wholesale)
                         supplierInfo[supplierInfoUpdate].in_stock = true
                         data.supplierInfo = supplierInfo
-                        dbChange.typeOfChange = 'republished'
+                        dbChange.typeOfChange = 'updated'
+                    }
+                    else {
+                        if (product.entry.name.toLowerCase() !== 'dotmedia')
+                            if (supplierInfo[supplierInfoUpdate].in_stock === true) {
+                                supplierInfo[supplierInfoUpdate].in_stock = false
+                                data.supplierInfo = supplierInfo
+                                dbChange.typeOfChange = 'updated'
+                            }
+                    }
+                }
+                else {
+                    // Αν υπάρχει τιμή χονδρικής και είναι διαφορετική από την τιμή που έχω
+                    // αποθηκευμένη στη βάση τότε κρατάω ιστορικό και ενημερώνω με τη νέα τιμη
+                    // αλλιώς αν
+                    if (strapi
+                        .plugin('import-products')
+                        .service('priceHelpers')
+                        .is_not_equal(supplierInfo[supplierInfoUpdate].wholesale, product.wholesale)) {
+
+                        const price_progress = supplierInfo[supplierInfoUpdate].price_progress;
+
+                        const price_progress_data = this.createPriceProgress(product)
+
+                        price_progress.push(price_progress_data)
+
+                        supplierInfo[supplierInfoUpdate] = this.createSupplierInfoData(product, price_progress)
+                        data.supplierInfo = supplierInfo
+                        dbChange.typeOfChange = 'updated'
+                    }
+                    else {
+                        if (supplierInfo[supplierInfoUpdate].in_stock === false) {
+                            supplierInfo[supplierInfoUpdate].in_stock = true
+                            data.supplierInfo = supplierInfo
+                            dbChange.typeOfChange = 'republished'
+                        }
                     }
                 }
             }
-        }
-        else {
-            const price_progress_data = this.createPriceProgress(product)
+            else {
+                const price_progress_data = this.createPriceProgress(product)
 
-            supplierInfo.push(this.createSupplierInfoData(product, price_progress_data))
+                supplierInfo.push(this.createSupplierInfoData(product, price_progress_data))
 
-            dbChange.typeOfChange = 'created'
-            data.supplierInfo = supplierInfo
+                dbChange.typeOfChange = 'created'
+                data.supplierInfo = supplierInfo
+            }
+
+
+        } catch (error) {
+            console.log(error)
         }
 
     },

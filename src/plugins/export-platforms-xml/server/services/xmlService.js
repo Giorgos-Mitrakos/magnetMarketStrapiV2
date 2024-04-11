@@ -33,13 +33,7 @@ module.exports = ({ strapi }) => ({
                             },
                             products: {
                                 where: {
-                                    $or: [
-                                        {
-                                            $not: {
-                                                publishedAt: null
-                                            }
-                                        }
-                                    ]
+                                    publishedAt: { $notNull: true },
                                 },
                                 populate: {
                                     image: true,
@@ -58,8 +52,6 @@ module.exports = ({ strapi }) => ({
                 name: entries.name,
                 order_time: entries.order_time
             }
-
-            let finalEntries = []
 
             switch (platform.toLowerCase()) {
                 case "skroutz":

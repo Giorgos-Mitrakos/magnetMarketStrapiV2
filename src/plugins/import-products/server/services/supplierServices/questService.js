@@ -21,20 +21,20 @@ module.exports = ({ strapi }) => ({
         const response = await this.scrapQuest(importRef, entry);
 
         if (response && response.message === "error") {
-            await strapi.entityService.update('plugin::import-products.importxml', entry.id,
-                {
-                    data: {
-                        lastRun: new Date(),
-                        report: `Created: ${importRef.created}, Updated: ${importRef.updated},Republished: ${importRef.republished} Skipped: ${importRef.skipped}, Deleted: ${importRef.deleted},
+          await strapi.entityService.update('plugin::import-products.importxml', entry.id,
+            {
+              data: {
+                lastRun: new Date(),
+                report: `Created: ${importRef.created}, Updated: ${importRef.updated},Republished: ${importRef.republished} Skipped: ${importRef.skipped}, Deleted: ${importRef.deleted},
                     Δημιουργήθηκε κάποιο σφάλμα κατά τη διαδικάσία. Ξαναπροσπαθήστε!`,
-                    },
-                })
+              },
+            })
         }
         else {
-            await strapi
-                .plugin('import-products')
-                .service('importHelpers')
-                .deleteEntry(entry, importRef);
+          await strapi
+            .plugin('import-products')
+            .service('importHelpers')
+            .deleteEntry(entry, importRef);
         }
       }
       console.log("End of Import")
@@ -52,7 +52,6 @@ module.exports = ({ strapi }) => ({
       const acceptCookiesButton = await page.$('#CybotCookiebotDialogBodyButtonAccept')
       acceptCookiesButton.click();
     }
-    // await page.waitForTimeout(1500)
 
     await strapi
       .plugin('import-products')
@@ -148,7 +147,14 @@ module.exports = ({ strapi }) => ({
         );
 
       const pageUrl = page.url();
-      // await page.waitForTimeout(1500)
+
+      await strapi
+        .plugin('import-products')
+        .service('scrapHelpers')
+        .sleep(strapi
+          .plugin('import-products')
+          .service('scrapHelpers')
+          .randomWait(1500, 2000))
 
       if (pageUrl === "https://www.questonline.gr/Special-Pages/Logon?ReturnUrl=%2f") {
         page = await this.loginQuest(page, entry.name)
@@ -475,7 +481,7 @@ module.exports = ({ strapi }) => ({
         } else {
           product.in_offer = false
           product.discount = 0
-        } 
+        }
 
         const imageWrapper = element.querySelectorAll('.box-two .thumbnails li img')
         product.imagesSrc = []
@@ -485,7 +491,7 @@ module.exports = ({ strapi }) => ({
           if (src.startsWith('/')) {
             product.imagesSrc.push({ url: `https://www.questonline.gr${src}?maxsidesize=1024` })
           }
-          else if (!src.endsWith('.jpg.aspx') && !src.endsWith('.png.aspx')) {
+          else if (!src.endsWith('.jpg.aspx') && !src.endsWith('.jpeg.aspx') && !src.endsWith('.png.aspx')) {
             product.imagesSrc.push({ url: `${src}?maxsidesize=1024` })
           }
         }
@@ -554,10 +560,12 @@ module.exports = ({ strapi }) => ({
       // await this.importQuestProduct(scrapProduct, category, subcategory, sub2category,
       //         importRef, entry, auth)
 
-      await strapi
-        .plugin('import-products')
-        .service('scrapHelpers')
-        .importScrappedProduct(scrapProduct, importRef)
+      if (scrapProduct.imagesSrc.length !== 0) {
+        await strapi
+          .plugin('import-products')
+          .service('scrapHelpers')
+          .importScrappedProduct(scrapProduct, importRef)
+      }
 
     } catch (error) {
       console.log(error)

@@ -12,13 +12,13 @@ const sharp = require('sharp');
 module.exports = ({ strapi }) => ({
     async getAndConvertImgToWep(product) {
 
-        try { 
+        try {
             let productName = product.name.replace(/[^A-Za-z0-9-_\s.~]/g, "");
 
             let index = 0
             const imageIDS = { mainImage: [], additionalImages: [], imgUrls: [] }
 
-            for (let imgUrl of product.imagesSrc) { 
+            for (let imgUrl of product.imagesSrc) {
                 index += 1;
                 const sharpStream = sharp({
                     failOnError: false
@@ -55,7 +55,7 @@ module.exports = ({ strapi }) => ({
                                 : imageIDS.additionalImages.push(image.id)
                         })
                         .catch(err => {
-                            console.error("Error processing files, let's clean it up", err, "File:", product.name, "supplier Code:", product.supplierCode);
+                            console.error("Error processing files, let's clean it up", err, "File:", product.name, imgUrl, "supplier Code:", product.supplierCode);
                             try {
                                 if (fs.existsSync(`./public/tmp/${productName}_${index}.webp`)) {
                                     fs.unlinkSync(`./public/tmp/${productName}_${index}.webp`);

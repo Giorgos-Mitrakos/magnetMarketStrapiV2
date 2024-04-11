@@ -282,7 +282,7 @@ module.exports = ({ strapi }) => ({
                         },
                     });
 
-                    if (checkIfEntry) {                        
+                    if (checkIfEntry) {
 
                         const brandID = await strapi
                             .plugin('import-products')
@@ -316,8 +316,7 @@ module.exports = ({ strapi }) => ({
 
     async importScrappedProduct(product, importRef) {
         try {
-            console.log(product)
-            if (!product.wholesale || isNaN(product.wholesale))
+            if (!product.wholesale || isNaN(product.wholesale) || product.imagesSrc.length === 0)
                 return;
 
             // Αν δεν είναι Διαθέσιμο τότε προχώρα στο επόμενο

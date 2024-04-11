@@ -533,23 +533,28 @@ module.exports = ({ strapi }) => ({
                             filters: {
                                 $and: [
                                     {
-                                        $not: {
-                                            publishedAt: null
-                                        }
+                                        publishedAt: { $notNull: true, }
                                     },
                                     {
-                                        supplierInfo: {
-                                            $and: [
-                                                { name: entry.name },
-                                                { in_stock: true },
-                                            ]
-                                        }
+                                        $and: [
+                                            {
+                                                supplierInfo: {
+                                                    name: entry.name
+                                                },
+                                            },
+                                            {
+                                                supplierInfo: {
+                                                    in_stock: true
+                                                },
+                                            }]
                                     },
                                 ]
                             },
                         }
                     },
                 });
+
+            console.log(importXmlFile)
 
             for (let product of importXmlFile.related_products) {
 

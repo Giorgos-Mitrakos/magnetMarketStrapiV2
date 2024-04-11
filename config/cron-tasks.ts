@@ -334,7 +334,7 @@ module.exports = {
                 .createXml('Skroutz');
         },
         options: {
-            rule: "0 * * * *",
+            rule: "30 * * * *",
         },
     },
  
@@ -348,7 +348,7 @@ module.exports = {
                 .createXml('Shopflix');
         },
         options: {
-            rule: "58 * * * *",
+            rule: "32 * * * *",
         },
     },
 };
