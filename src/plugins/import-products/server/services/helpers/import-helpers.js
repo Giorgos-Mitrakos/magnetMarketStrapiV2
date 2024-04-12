@@ -554,8 +554,6 @@ module.exports = ({ strapi }) => ({
                     },
                 });
 
-            console.log(importXmlFile)
-
             for (let product of importXmlFile.related_products) {
 
                 if (!importRef.related_entries.includes(product.id)) {
