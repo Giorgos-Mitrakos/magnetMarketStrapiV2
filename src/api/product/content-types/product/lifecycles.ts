@@ -76,4 +76,18 @@ export default {
         }
 
     },
+    async beforeUpdate(event) {
+        const { data, where, select, populate } = event.params;
+
+        const entry = await strapi.entityService.findOne('api::product.product', where.id, {
+            // populate: { supplierInfo: true }
+        });
+        
+        if (data.publishedAt) {
+            data.need_verify=false            
+        }
+        else if(entry.publishedAt){
+            data.need_verify=false 
+        }
+    },
 };

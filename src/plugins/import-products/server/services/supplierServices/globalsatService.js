@@ -30,7 +30,7 @@ module.exports = ({ strapi }) => ({
             else {
                 await strapi
                     .plugin('import-products')
-                    .service('helpers')
+                    .service('importHelpers')
                     .deleteEntry(entry, importRef);
             }
         }

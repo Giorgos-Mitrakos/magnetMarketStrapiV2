@@ -488,15 +488,15 @@ module.exports = ({ strapi }) => ({
             }
 
             if (entryCheck.publishedAt === null) {
-                if (product.entry.name.toLowerCase() === "globalsat") {
-                    data.need_verify = true
-                    dbChange.typeOfChange = 'updated'
-                }
-                else {
-                    data.publishedAt = new Date()
-                    data.deletedAt = null
-                    dbChange.typeOfChange = 'republished'
-                }
+                // if (product.entry.name.toLowerCase() === "globalsat") {
+                data.need_verify = false
+                //     dbChange.typeOfChange = 'updated'
+                // }
+                // else {
+                data.publishedAt = new Date()
+                data.deletedAt = null
+                dbChange.typeOfChange = 'republished'
+                // }
             }
 
             if (Object.keys(data).length !== 0) {
@@ -630,9 +630,9 @@ module.exports = ({ strapi }) => ({
 
     createSlug(name, mpn) {
         if (!mpn)
-            return slugify(`${name}`, { lower: true, replacement: '-', trim: true, remove: /[^A-Za-z0-9-_.~]/g })
+            return slugify(`${name}`, { lower: true, trim: true, remove: /[^A-Za-z0-9-_.~]/g })
 
-        const slug = slugify(`${name}-${mpn}`, { lower: true, replacement: '-', trim: true, remove: /[^A-Za-z0-9-_.~]/g })
+        const slug = slugify(`${name}-${mpn}`, { lower: true, trim: true, remove: /[^A-Za-z0-9-_.~]/g })
         return slug
     }
 });
