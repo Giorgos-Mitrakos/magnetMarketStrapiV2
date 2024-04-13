@@ -1,4 +1,4 @@
-module.exports = {
+export default {
     scrapQUEST: {
         task: async ({ strapi }) => {
             // Add your own logic here (e.g. send a queue of email, create a database backup, etc.).
@@ -334,7 +334,7 @@ module.exports = {
                 .createXml('Skroutz');
         },
         options: {
-            rule: "30 * * * *",
+            rule: "0 * * * *",
         },
     },
  
@@ -348,7 +348,7 @@ module.exports = {
                 .createXml('Shopflix');
         },
         options: {
-            rule: "32 * * * *",
+            rule: "58 * * * *",
         },
     },
 };

@@ -1,4 +1,4 @@
-const cronTasks = require("./cron-tasks");
+import cronTasks from "./cron-tasks";
 
 export default ({ env }) => ({
   host: env('HOST', '0.0.0.0'),
@@ -10,7 +10,7 @@ export default ({ env }) => ({
     populateRelations: env.bool('WEBHOOKS_POPULATE_RELATIONS', false),
   },
   cron: {
-    enabled: false, 
+    enabled: true, 
     tasks: cronTasks,
   },
 });
