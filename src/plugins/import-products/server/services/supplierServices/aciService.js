@@ -117,10 +117,10 @@ module.exports = ({ strapi }) => ({
     try {
       const url = `${entry.importedURL}`
       const postData = {
-        email: "demo",
-        password: "d3m0Acc0unT",
-        // email: process.env.ACI_USERNAME,
-        // password: process.env.ACI_PASSWORD,
+        // email: "demo",
+        // password: "d3m0Acc0unT",
+        email: process.env.ACI_USERNAME,
+        password: process.env.ACI_PASSWORD,
         english: false
       }
       const config = {
@@ -137,7 +137,7 @@ module.exports = ({ strapi }) => ({
         .plugin('import-products')
         .service('importHelpers')
         .postXmlData(url, postData, config)
-
+        
       const { data } = await response
 
       if (message === 'Error')

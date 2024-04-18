@@ -116,7 +116,7 @@ module.exports = ({ strapi }) => ({
         // }
         else if (ctx.request.body.entry.name.toLowerCase() === 'acihellas') {
             ctx.body = await strapi
-                .plugin('export-platforms-xml')
+                .plugin('import-products')
                 .service('aciService')
                 .parseAciJson(ctx.request.body);
         }

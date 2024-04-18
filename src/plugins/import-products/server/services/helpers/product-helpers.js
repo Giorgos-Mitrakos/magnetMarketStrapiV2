@@ -523,11 +523,11 @@ module.exports = ({ strapi }) => ({
                     return { brandId }
                 }
             }
-
+            
             const brandCheck = await strapi.db.query('api::brand.brand').findOne({
                 where: { name: brand },
             });
-
+            
             brandId = brandCheck?.id
 
             if (!brandCheck && brand) {

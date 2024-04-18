@@ -43,7 +43,7 @@ module.exports = ({ strapi }) => ({
     async loginGlobalsat(page, supplier) {
         try {
 
-            const body = await page.$('body');            
+            const body = await page.$('body');
 
             await strapi
                 .plugin('import-products')
@@ -246,10 +246,10 @@ module.exports = ({ strapi }) => ({
                 // const productLinksList = []
 
                 const productList = await listContainer.evaluate(() => {
-                    const productsList = document.querySelectorAll(".product_box")
+                    const listOfProducts = document.querySelectorAll(".product_box")
 
                     let products = []
-                    for (let prod of productsList) {
+                    for (let prod of listOfProducts) {
                         const product = {}
 
                         const productInfoWrapper = prod.querySelector('.product_info');
@@ -287,18 +287,22 @@ module.exports = ({ strapi }) => ({
                     return products
                 })
 
-                productList.forEach(prod => {
+                const newProductList = productList.map(prod => {
                     const brandFound = sortedBrandArray.find(x => prod.name?.toLowerCase().startsWith(x.name.toLowerCase()))
-
                     if (brandFound) {
                         prod.brand = brandFound.name
                     }
+                    else if (prod.name?.toLowerCase().startsWith("Redmi")) {
+                        prod.brand = "Xiaomi"
+                    }
+                    return prod
                 })
 
                 const products = await strapi
                     .plugin('import-products')
                     .service('scrapHelpers')
-                    .updateAndFilterScrapProducts(productList, category.title, subcategory.title, sub2category.title, importRef, entry)
+                    .updateAndFilterScrapProducts(newProductList, category.title, subcategory.title, sub2category.title, importRef, entry)
+
 
                 for (let product of products) {
                     await strapi
@@ -426,6 +430,7 @@ module.exports = ({ strapi }) => ({
             scrapProduct.category = category
             scrapProduct.subcategory = subcategory
             scrapProduct.sub2category = sub2category
+            scrapProduct.link = page.url()
 
             if (scrapProduct.prod_chars) {
                 if (scrapProduct.prod_chars.find(x => x.name.toLowerCase().includes("βάρος") ||
@@ -437,10 +442,10 @@ module.exports = ({ strapi }) => ({
                                 let result = weightChar.value.toLowerCase().match(/\d{1,3}(.|,|\s)?\d{0,3}\s*kg/gmi)
                                 if (result) {
                                     if (result[result.length - 1].match(/\d{1,3}(.|\s)?\d{0,3}\s*kg/gmi)) {
-                                        scrapProduct.weight = parseFloat(result[result.length - 1].replace("kg", "").replace(",", ".").trim()) * 1000                                        
+                                        scrapProduct.weight = parseFloat(result[result.length - 1].replace("kg", "").replace(",", ".").trim()) * 1000
                                     }
                                     else {
-                                        scrapProduct.weight = parseFloat(result[result.length - 1].replace("kg", "").replace(".", "").replace(",", ".").trim()) * 1000                                       
+                                        scrapProduct.weight = parseFloat(result[result.length - 1].replace("kg", "").replace(".", "").replace(",", ".").trim()) * 1000
                                     }
 
                                 }
@@ -463,10 +468,10 @@ module.exports = ({ strapi }) => ({
                                 let result = weightChar.value.toLowerCase().match(/\d{1,3}(.|,|\s)?\d{0,3}\s*kg/gmi)
                                 if (result) {
                                     if (result[result.length - 1].match(/\d{1,3}(.|\s)?\d{0,3}\s*kg/gmi)) {
-                                        scrapProduct.weight = parseFloat(result[result.length - 1].replace("kg", "").replace(",", ".").trim()) * 1000                                        
+                                        scrapProduct.weight = parseFloat(result[result.length - 1].replace("kg", "").replace(",", ".").trim()) * 1000
                                     }
                                     else {
-                                        scrapProduct.weight = parseFloat(result[result.length - 1].replace("kg", "").replace(".", "").replace(",", ".").trim()) * 1000                                       
+                                        scrapProduct.weight = parseFloat(result[result.length - 1].replace("kg", "").replace(".", "").replace(",", ".").trim()) * 1000
                                     }
 
                                 }
@@ -474,10 +479,10 @@ module.exports = ({ strapi }) => ({
                             else if (weightChar.value.toLowerCase().includes("gr")) {
                                 let result = weightChar.value.toLowerCase().match(/\d*(.|,|\s)?\d{0,3}\s*gr/gmi)
                                 if (result[result.length - 1].match(/\d*.\d{3}\s*gr/gmi)) {
-                                    scrapProduct.weight = parseFloat(result[result.length - 1].replace("gr", "").replace(".", "").trim())                                    
+                                    scrapProduct.weight = parseFloat(result[result.length - 1].replace("gr", "").replace(".", "").trim())
                                 }
                                 else {
-                                    scrapProduct.weight = parseFloat(result[result.length - 1].replace("gr", "").replace(",", ".").trim())                                    
+                                    scrapProduct.weight = parseFloat(result[result.length - 1].replace("gr", "").replace(",", ".").trim())
                                 }
                             }
                         }
@@ -496,10 +501,10 @@ module.exports = ({ strapi }) => ({
                     }
                 }
             }
-            
+
             await strapi
                 .plugin('import-products')
-                .service('scrapHelpers') 
+                .service('scrapHelpers')
                 .importScrappedProduct(scrapProduct, importRef)
 
         } catch (error) {

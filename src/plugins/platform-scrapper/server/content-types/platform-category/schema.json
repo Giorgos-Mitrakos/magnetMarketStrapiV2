@@ -1,0 +1,33 @@
+{
+  "kind": "collectionType",
+  "collectionName": "platform_categories",
+  "info": {
+    "singularName": "platform-category",
+    "pluralName": "platform-categories",
+    "displayName": "platform-category"
+  },
+  "options": {
+    "draftAndPublish": false,
+    "comment": ""
+  },
+  "attributes": {
+    "name": {
+      "type": "string"
+    },
+    "link": {
+      "type": "string"
+    },
+    "numberOfProducts": {
+      "type": "integer"
+    },
+    "isChecked": {
+      "type": "boolean"
+    },
+    "marketPlaceFee": {
+      "type": "decimal"
+    },
+    "cpsFee": {
+      "type": "decimal"
+    }
+  }
+}

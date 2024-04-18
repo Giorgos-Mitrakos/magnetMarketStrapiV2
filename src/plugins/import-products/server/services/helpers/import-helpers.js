@@ -1,6 +1,7 @@
 'use strict';
 
 const Axios = require('axios');
+const { update } = require('lodash');
 const slugify = require('slugify');
 const xml2js = require('xml2js');
 
@@ -9,10 +10,10 @@ module.exports = ({ strapi }) => ({
     async updateAll() {
 
         await scrapNOVATRON()
-            .then(async () => { return updateZEGETRON() })
-            .then(async () => { return updateOKTABIT() })
-            .then(async () => { return updateWESTNET() })
-            .then(async () => { return scrapQUEST() })
+            .then(async () => {return await updateZEGETRON() })
+            .then(async () => {return await updateOKTABIT() })
+            .then(async () => {return await updateWESTNET() })
+            .then(async () => {return await scrapQUEST() })
 
         async function scrapNOVATRON() {
             const entry = await strapi.db.query('plugin::import-products.importxml').findOne({
@@ -47,7 +48,7 @@ module.exports = ({ strapi }) => ({
             await strapi
                 .plugin('import-products')
                 .service('zegetronService')
-                .parseZegetronXml({ entry, auth });
+                .parseZegetronXml({ entry });
         }
 
         async function updateOKTABIT() {
@@ -101,7 +102,7 @@ module.exports = ({ strapi }) => ({
             await strapi
                 .plugin('import-products')
                 .service('questService')
-                .parseQuest({ entry, auth });
+                .parseQuest({ entry });
         }
 
     },
@@ -400,7 +401,6 @@ module.exports = ({ strapi }) => ({
                     data.brand = product.brand.id
                     dbChange.typeOfChange = 'updated'
                 }
-
             }
 
             //Υπολογισμός βάρους
@@ -632,5 +632,35 @@ module.exports = ({ strapi }) => ({
 
         const slug = slugify(`${name}-${mpn}`, { lower: true, trim: true, remove: /[^A-Za-z0-9-_.~]/g })
         return slug
+    },
+
+    async deleteNonRelatedProducts() {
+        const nonRelatedProducts = await strapi.entityService.findMany('api::product.product', {
+            filters: { supplierInfo: { name: { $eqi: "QUEST" } } },
+            populate: {
+                supplierInfo: true
+            }
+        });
+
+        for (let product of nonRelatedProducts) {
+            const data = {}
+            const newSuppliers = []
+            product.supplierInfo.forEach(element => {
+                if (element.name !== "QUEST") { newSuppliers.push(element) }
+            });
+
+            if (newSuppliers.length > 0) { data.supplierInfo = newSuppliers }
+            else {
+                await strapi.entityService.delete('api::product.product', product.id);
+            }
+
+            if (Object.keys(data).length !== 0 && product.supplierInfo.length !== newSuppliers.length) {
+                await strapi.entityService.update('api::product.product', product.id, {
+                    data
+                });
+            }
+        }
+
+
     }
 });

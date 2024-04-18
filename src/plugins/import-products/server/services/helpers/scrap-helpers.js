@@ -283,19 +283,19 @@ module.exports = ({ strapi }) => ({
                     });
 
                     if (checkIfEntry) {
-
-                        const brandID = await strapi
+                        const { brandId } = await strapi
                             .plugin('import-products')
                             .service('productHelpers')
                             .brandIdCheck(product.brand, product.name)
 
-                        if (brandID) {
+                        if (brandId) {
                             product.brand = {
-                                id: brandID
+                                id: brandId
                             }
-                        }
+                        } 
 
-                        if (checkIfEntry.brand && !checkIfEntry.brand.name.toLowerCase().includes("dahua"))
+                        if ((checkIfEntry.brand && !checkIfEntry.brand.name.toLowerCase().includes("dahua")) ||
+                            !checkIfEntry.brand)
                             await strapi
                                 .plugin('import-products')
                                 .service('importHelpers')

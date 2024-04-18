@@ -4,7 +4,6 @@ const xml2js = require('xml2js');
 const slugify = require("slugify");
 const fs = require('fs');
 const Axios = require('axios');
-const { platform } = require('os');
 
 module.exports = ({ strapi }) => ({
     async createXml(platform) {
@@ -296,9 +295,11 @@ module.exports = ({ strapi }) => ({
 
         availableSuppliers.forEach(x => {
             const supplierAvailability = suppliers.find(supplier => supplier.name === x.name)
-            x.availability = supplierAvailability.availability
-            x.order_time = supplierAvailability.order_time
-            x.shipping = supplierAvailability.shipping
+            if (supplierAvailability) {
+                x.availability = supplierAvailability.availability
+                x.order_time = supplierAvailability.order_time
+                x.shipping = supplierAvailability.shipping
+            }
         })
 
         const cheaperAvailableSupplier = availableSuppliers.reduce((previous, current) => {

@@ -7,6 +7,10 @@ export default () => ({
       enabled: true,
       resolve: './src/plugins/export-platforms-xml'
     },
+    'platform-scrapper': {
+      enabled: true,
+      resolve: './src/plugins/platform-scrapper'
+    },
     upload: {
         config: {
           providerOptions: {

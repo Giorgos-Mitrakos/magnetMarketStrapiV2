@@ -8,16 +8,13 @@ module.exports = ({ strapi }) => ({
 
       // Βρίσκω τους προμηθευτές που έχουν το προϊόν διαθέσιμο
       const filteredSupplierInfo = supplierInfo.filter(x => x.in_stock === true)
-
-      // console.log("filteredSupplierInfo:", filteredSupplierInfo)
+      
       let recycleTax = product.recycleTax ? parseFloat(product.recycleTax) : 0
 
       // Βρίσκω τον προμηθευτή που έχει διαθέσιμο το προϊόν και έχει τη μικρότερη τιμή χονδρικής
       let minSupplierPrice = filteredSupplierInfo?.reduce((prev, current) => {
         return (prev.wholesale < current.wholesale) ? prev : current
       })
-
-      // console.log("minSupplierPrice:", minSupplierPrice)
 
       // Αναζητώ στη βάση τον προμηθευτή με τη μικρότερη τιμή για να βρώ το κόστος των μεταφορικών
       const supplier = await strapi.db.query('plugin::import-products.importxml').findOne({
@@ -276,7 +273,7 @@ module.exports = ({ strapi }) => ({
         }
       }
       else {
-        const general = this.updatePrices(existedProduct.price, existedProduct.isFixed, minPrices.general, suggestedPrice, minPrices.wholesale)
+        const general = this.updatePrices(existedProduct.price, existedProduct.is_fixed_price, minPrices.general, suggestedPrice, minPrices.wholesale)
         prices.generalPrice = {
           price: general.price,
           isFixed: general.isFixed
@@ -346,7 +343,7 @@ module.exports = ({ strapi }) => ({
   updatePrices(existed, is_fixed_price, min, suggested, wholesale) {
 
     const existedPrice = existed ? existed : null
-    const minPrice = min && this.is_a_greaterthan_b(min, 0) ? min : null
+    const minPrice = min && this.is_a_greaterthan_b(wholesale, 0) ? min : null
     const suggestedPrice = suggested ? suggested : null
     const isFixed = is_fixed_price ? is_fixed_price : false
 
@@ -385,7 +382,7 @@ module.exports = ({ strapi }) => ({
             else {
               if (this.is_a_greaterthan_b(wholesale, 0)) {
                 return {
-                  price: minPrice.toFixed(2),
+                  price: suggestedPrice.toFixed(2),
                   isFixed: false
                 }
               }
@@ -437,7 +434,6 @@ module.exports = ({ strapi }) => ({
           }
         }
         else {
-
           return {
             price: suggestedPrice.toFixed(2),
             isFixed: false
@@ -490,7 +486,7 @@ module.exports = ({ strapi }) => ({
 
   is_not_equal(a, b) {
     const first = typeof a === 'number' ? a : parseFloat(a)
-    const second = typeof b === 'number' ? b : parseFloat(a)
+    const second = typeof b === 'number' ? b : parseFloat(b)
     if (Math.round(first * 100) !== Math.round(second * 100)) { return true }
     else {
       return false
