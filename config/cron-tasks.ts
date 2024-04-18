@@ -334,7 +334,7 @@ export default {
                 .createXml('Skroutz');
         },
         options: {
-            rule: "46 * * * *",
+            rule: "0 * * * *",
         },
     },
  
@@ -348,7 +348,7 @@ export default {
                 .createXml('Shopflix');
         },
         options: {
-            rule: "44 * * * *",
+            rule: "58 * * * *",
         },
     },
 };
