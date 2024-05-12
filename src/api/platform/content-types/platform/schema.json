@@ -35,6 +35,12 @@
     "order_time": {
       "type": "time",
       "default": "11:50"
+    },
+    "platformCategories": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "plugin::platform-scrapper.platformcategory",
+      "mappedBy": "platform"
     }
   }
 }

@@ -10,9 +10,9 @@ module.exports = ({ strapi }) => ({
         try {
             puppeteer.use(StealthPlugin())
             return await puppeteer.launch({
-                headless: false,
-                executablePath: 'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-                args: ['--no-sandbox', '--disable-setuid-sandbox']
+                headless: true,
+                // executablePath: 'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+                // args: ['--no-sandbox', '--disable-setuid-sandbox']
             });
         } catch (error) {
             console.log(error)
@@ -78,6 +78,22 @@ module.exports = ({ strapi }) => ({
                 throw error;
             }
             return await this.retry(promiseFactory, retryCount - 1, true);
+        }
+    },
+
+    async retryClick(promiseFactory, page, retryCount) {
+        try {
+            await promiseFactory.click()
+            return await page.waitForResponse((response) => {
+                return response.url().startsWith("https://www.globalsat.gr/b2b/catalog/list-product")
+            },
+                { timeout: 10000 }); 
+        } catch (error) {
+            console.log("ERROR")
+            if (retryCount <= 0) {
+                throw error;
+            }
+            return await this.retryClick(promiseFactory, page, retryCount - 1);
         }
     },
 
@@ -292,7 +308,7 @@ module.exports = ({ strapi }) => ({
                             product.brand = {
                                 id: brandId
                             }
-                        } 
+                        }
 
                         if ((checkIfEntry.brand && !checkIfEntry.brand.name.toLowerCase().includes("dahua")) ||
                             !checkIfEntry.brand)

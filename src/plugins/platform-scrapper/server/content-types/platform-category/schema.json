@@ -1,10 +1,10 @@
 {
   "kind": "collectionType",
-  "collectionName": "platform_categories",
+  "collectionName": "platformcategory",
   "info": {
-    "singularName": "platform-category",
-    "pluralName": "platform-categories",
-    "displayName": "platform-category"
+    "singularName": "platformcategory",
+    "pluralName": "platformcategories",
+    "displayName": "platformcategory"
   },
   "options": {
     "draftAndPublish": false,
@@ -28,6 +28,12 @@
     },
     "cpsFee": {
       "type": "decimal"
+    },
+    "platform": {
+        "type": "relation",
+        "relation": "manyToOne",
+        "target": "api::platform.platform",
+        "inversedBy": "platformCategories"
     }
   }
 }

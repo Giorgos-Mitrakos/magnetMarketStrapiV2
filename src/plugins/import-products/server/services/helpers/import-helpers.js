@@ -10,10 +10,10 @@ module.exports = ({ strapi }) => ({
     async updateAll() {
 
         await scrapNOVATRON()
-            .then(async () => {return await updateZEGETRON() })
-            .then(async () => {return await updateOKTABIT() })
-            .then(async () => {return await updateWESTNET() })
-            .then(async () => {return await scrapQUEST() })
+            .then(async () => { return await updateZEGETRON() })
+            .then(async () => { return await updateOKTABIT() })
+            .then(async () => { return await updateWESTNET() })
+            .then(async () => { return await scrapQUEST() })
 
         async function scrapNOVATRON() {
             const entry = await strapi.db.query('plugin::import-products.importxml').findOne({
@@ -635,8 +635,8 @@ module.exports = ({ strapi }) => ({
     },
 
     async deleteNonRelatedProducts() {
+
         const nonRelatedProducts = await strapi.entityService.findMany('api::product.product', {
-            filters: { supplierInfo: { name: { $eqi: "QUEST" } } },
             populate: {
                 supplierInfo: true
             }
@@ -645,19 +645,40 @@ module.exports = ({ strapi }) => ({
         for (let product of nonRelatedProducts) {
             const data = {}
             const newSuppliers = []
-            product.supplierInfo.forEach(element => {
-                if (element.name !== "QUEST") { newSuppliers.push(element) }
-            });
+            if (product.supplierInfo) {
+                product.supplierInfo.forEach(element => {
+                    element.in_stock = false
+                    newSuppliers.push(element)
+                });
 
-            if (newSuppliers.length > 0) { data.supplierInfo = newSuppliers }
+                if (newSuppliers.length > 0) {
+                    data.supplierInfo = newSuppliers
+                    // Ελέγχω αν δεν υπάρχει διαθέσιμο σε κανένα προμηθευτή
+                    const isAllSuppliersOutOfStock = data.supplierInfo.every(supplier => supplier.in_stock === false)
+
+                    // Αν υπάρχει ακόμα διαθέσιμο σε κάποιον τότε ενημερώνω τη βάση
+                    // με τη διαθεσιμότητα του προϊόντος στους προμηθευτές
+                    // αλλίως ενημερώνω τη βάση με τη διαθεσιμότητα του προϊόντος στους προμηθευτές
+                    // προσθέτω ημερομηνία διαγραφής (δεν υπάρχει διαθέσιμο σε κανένα προμηθευτή)
+                    // και ελέγχω αν υπάρχει στην αποθήκη μας, αν όχι τότε κάνω το προϊόν draft
+                    if (isAllSuppliersOutOfStock) {
+                        data.deletedAt = new Date();
+                        data.publishedAt = null
+                        // if (!checkProduct.inventory || checkProduct.inventory !== 0) { data.publishedAt = null }
+                    }
+                }
+                else {
+                    await strapi.entityService.delete('api::product.product', product.id);
+                }
+
+                if (Object.keys(data).length !== 0) {
+                    await strapi.entityService.update('api::product.product', product.id, {
+                        data
+                    });
+                }
+            }
             else {
                 await strapi.entityService.delete('api::product.product', product.id);
-            }
-
-            if (Object.keys(data).length !== 0 && product.supplierInfo.length !== newSuppliers.length) {
-                await strapi.entityService.update('api::product.product', product.id, {
-                    data
-                });
             }
         }
 

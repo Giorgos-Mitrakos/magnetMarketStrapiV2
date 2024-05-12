@@ -137,11 +137,11 @@ module.exports = ({ strapi }) => ({
         .plugin('import-products')
         .service('importHelpers')
         .postXmlData(url, postData, config)
-        
+
       const { data } = await response
 
-      if (message === 'Error')
-        return { message }
+      if (response.data.Success === 0)
+        return { message: "Error" }
 
       const availableProducts = strapi
         .plugin('import-products')
@@ -204,10 +204,10 @@ module.exports = ({ strapi }) => ({
       else {
         const url = `https://www.acihellas.gr/api/stockquantities`
         const postData = {
-          email: "demo",
-          password: "d3m0Acc0unT",
-          // email: process.env.ACI_USERNAME,
-          // password: process.env.ACI_PASSWORD,
+          // email: "demo",
+          // password: "d3m0Acc0unT",
+          email: process.env.ACI_USERNAME,
+          password: process.env.ACI_PASSWORD,
           english: false
         }
         const config = {
@@ -227,8 +227,8 @@ module.exports = ({ strapi }) => ({
 
         const { data } = await response
 
-        if (message === 'Error')
-          return { message }
+        if (response.data.Success === 0)
+          return { message: "Error" }
 
         const products = data.Data
           .filter(filterStock)
@@ -343,10 +343,10 @@ module.exports = ({ strapi }) => ({
       else {
         const url = `https://www.acihellas.gr/api/productspecs`
         const postData = {
-          email: "demo",
-          password: "d3m0Acc0unT",
-          // email: process.env.ACI_USERNAME,
-          // password: process.env.ACI_PASSWORD,
+          // email: "demo",
+          // password: "d3m0Acc0unT",
+          email: process.env.ACI_USERNAME,
+          password: process.env.ACI_PASSWORD,
           english: false
         }
         const config = {
@@ -366,8 +366,8 @@ module.exports = ({ strapi }) => ({
 
         const { data } = await response
 
-        if (message === 'Error')
-          return { message }
+        if (response.data.Success === 0)
+          return { message: "Error" }
 
         const products = data.Data
 

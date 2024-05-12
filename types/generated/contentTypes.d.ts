@@ -936,6 +936,47 @@ export interface PluginImportProductsStockmap extends Schema.CollectionType {
   };
 }
 
+export interface PluginPlatformScrapperPlatformcategory
+  extends Schema.CollectionType {
+  collectionName: 'platformcategory';
+  info: {
+    singularName: 'platformcategory';
+    pluralName: 'platformcategories';
+    displayName: 'platformcategory';
+  };
+  options: {
+    draftAndPublish: false;
+    comment: '';
+  };
+  attributes: {
+    name: Attribute.String;
+    link: Attribute.String;
+    numberOfProducts: Attribute.Integer;
+    isChecked: Attribute.Boolean;
+    marketPlaceFee: Attribute.Decimal;
+    cpsFee: Attribute.Decimal;
+    platform: Attribute.Relation<
+      'plugin::platform-scrapper.platformcategory',
+      'manyToOne',
+      'api::platform.platform'
+    >;
+    createdAt: Attribute.DateTime;
+    updatedAt: Attribute.DateTime;
+    createdBy: Attribute.Relation<
+      'plugin::platform-scrapper.platformcategory',
+      'oneToOne',
+      'admin::user'
+    > &
+      Attribute.Private;
+    updatedBy: Attribute.Relation<
+      'plugin::platform-scrapper.platformcategory',
+      'oneToOne',
+      'admin::user'
+    > &
+      Attribute.Private;
+  };
+}
+
 export interface PluginI18NLocale extends Schema.CollectionType {
   collectionName: 'i18n_locale';
   info: {
@@ -1283,6 +1324,11 @@ export interface ApiPlatformPlatform extends Schema.CollectionType {
       'api::category.category'
     >;
     order_time: Attribute.Time & Attribute.DefaultTo<'11:50'>;
+    platformCategories: Attribute.Relation<
+      'api::platform.platform',
+      'oneToMany',
+      'plugin::platform-scrapper.platformcategory'
+    >;
     createdAt: Attribute.DateTime;
     updatedAt: Attribute.DateTime;
     publishedAt: Attribute.DateTime;
@@ -1425,6 +1471,7 @@ declare module '@strapi/types' {
       'plugin::import-products.charnamemap': PluginImportProductsCharnamemap;
       'plugin::import-products.charvaluemap': PluginImportProductsCharvaluemap;
       'plugin::import-products.stockmap': PluginImportProductsStockmap;
+      'plugin::platform-scrapper.platformcategory': PluginPlatformScrapperPlatformcategory;
       'plugin::i18n.locale': PluginI18NLocale;
       'plugin::users-permissions.permission': PluginUsersPermissionsPermission;
       'plugin::users-permissions.role': PluginUsersPermissionsRole;

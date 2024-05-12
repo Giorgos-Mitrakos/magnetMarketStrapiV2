@@ -10,7 +10,6 @@ import { Textarea } from '@strapi/design-system/Textarea';
 import { Typography } from '@strapi/design-system/Typography';
 import { VisuallyHidden } from '@strapi/design-system/VisuallyHidden';
 import { Button } from '@strapi/design-system/Button';
-// import { exportToXML, getImportedFile, ImportedFileSuccess, postParseToJson, saveURL } from '../../utils/api';
 import { Loader } from '@strapi/design-system/Loader';
 import { ProgressBar } from '@strapi/design-system/ProgressBar';
 import { useFetchClient } from '@strapi/helper-plugin';

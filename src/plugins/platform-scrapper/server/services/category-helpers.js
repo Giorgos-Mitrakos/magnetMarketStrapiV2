@@ -1,7 +1,7 @@
 'use strict';
 
 const puppeteer = require('puppeteer');
-const xlsx = require('xlsx')
+// const xlsx = require('xlsx')
 const userAgent = require('user-agents');
 
 module.exports = ({ strapi }) => ({
@@ -63,43 +63,43 @@ module.exports = ({ strapi }) => ({
     }
   },
 
-  async updateCategoriesMerchantFee({ name }) {
-    try {
-      const platform = await strapi.db.query('api::platform.platform').findOne({
-        where: { name: name },
-        populate: {
-          categories: true,
-          merchantFeeCatalogue: true
-        }
-      })
+  // async updateCategoriesMerchantFee({ name }) {
+  //   try {
+  //     const platform = await strapi.db.query('api::platform.platform').findOne({
+  //       where: { name: name },
+  //       populate: {
+  //         categories: true,
+  //         merchantFeeCatalogue: true
+  //       }
+  //     })
 
-      if (!platform.merchantFeeCatalogue)
-        return
+  //     if (!platform.merchantFeeCatalogue)
+  //       return
 
-      const wb = xlsx.readFile(`./public${platform.merchantFeeCatalogue.url}`)
-      const ws = wb.Sheets['Τιμοκατάλογος προμηθειών']
-      const data = xlsx.utils.sheet_to_json(ws)
+  //     const wb = xlsx.readFile(`./public${platform.merchantFeeCatalogue.url}`)
+  //     const ws = wb.Sheets['Τιμοκατάλογος προμηθειών']
+  //     const data = xlsx.utils.sheet_to_json(ws)
 
-      for (let category of platform.categories) {
-        const filteredCategories = data.filter(x => x['Κατηγορία'] === category.name)
-        const filteredCategory = filteredCategories[0]
-        console.log(filteredCategory)
-        console.log(filteredCategory['Προμήθεια Marketplace (%)'],
-          filteredCategory['Προμήθεια CPS (%)'])
+  //     for (let category of platform.categories) {
+  //       const filteredCategories = data.filter(x => x['Κατηγορία'] === category.name)
+  //       const filteredCategory = filteredCategories[0]
+  //       console.log(filteredCategory)
+  //       console.log(filteredCategory['Προμήθεια Marketplace (%)'],
+  //         filteredCategory['Προμήθεια CPS (%)'])
 
-        const updatedCategory = await strapi.db.query('plugin::platforms-scraper.platform-category').update({
-          where: { name: category.name },
-          data: {
-            marketPlaceFee: parseFloat(filteredCategory['Προμήθεια Marketplace (%)']),
-            cpsFee: filteredCategory['Προμήθεια CPS (%)'] === "-" ? null : parseFloat(filteredCategory['Προμήθεια CPS (%)'])
-          },
-        });
+  //       const updatedCategory = await strapi.db.query('plugin::platforms-scraper.platform-category').update({
+  //         where: { name: category.name },
+  //         data: {
+  //           marketPlaceFee: parseFloat(filteredCategory['Προμήθεια Marketplace (%)']),
+  //           cpsFee: filteredCategory['Προμήθεια CPS (%)'] === "-" ? null : parseFloat(filteredCategory['Προμήθεια CPS (%)'])
+  //         },
+  //       });
 
-        console.log(updatedCategory)
-      }
-      // console.log(filteredData.length)
-    } catch (error) {
-      console.log(error)
-    }
-  },
+  //       console.log(updatedCategory)
+  //     }
+  //     // console.log(filteredData.length)
+  //   } catch (error) {
+  //     console.log(error)
+  //   }
+  // },
 });

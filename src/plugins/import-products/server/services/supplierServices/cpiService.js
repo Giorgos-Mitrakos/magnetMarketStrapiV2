@@ -68,6 +68,10 @@ module.exports = ({ strapi }) => ({
                         .service('productHelpers')
                         .createProductFields(entry, dt, importRef)
 
+                    product.wholesale = product.wholesale.replace(".", "").replace(",", ".")
+                    product.retail_price = product.retail_price ? product.retail_price.replace(".", "").replace(",", ".") : null
+                    product.recycle_tax = product.recycle_tax ? product.recycle_tax.replace(".", "").replace(",", ".") : 0
+
                     // Αν δεν υπάρχει ούτε mpn ούτε barcode προχώρα στην επόμενη εγγραφή
                     if (!product.mpn && !product.barcode)
                         continue

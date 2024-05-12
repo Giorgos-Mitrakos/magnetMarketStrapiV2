@@ -1,6 +1,9 @@
 'use strict';
 
+const index = require("@strapi/plugin-users-permissions/strapi-admin");
+
 module.exports = ({ strapi }) => ({
+
     async parseGlobalsat({ entry }) {
         const importRef = await strapi
             .plugin('import-products')
@@ -50,10 +53,16 @@ module.exports = ({ strapi }) => ({
                 .service('scrapHelpers')
                 .sleep(1500)
 
-            const loginForm = await body.$('.form')
+            const acceptCookiesBtn = await body.$(' #onetrust-button-group  #onetrust-accept-btn-handler')
+            if (acceptCookiesBtn) {
+                await acceptCookiesBtn.click()
+            }
 
-            const username = await loginForm.$('#UserName');
-            const password = await loginForm.$('#Password');
+            const mainContent = await body.$('.main-content')
+            const loginForm = await mainContent.$('.b2bLogin')
+
+            const username = await loginForm.$('#login-email_address');
+            const password = await loginForm.$('#login-password');
             await username.type(process.env.GLOBALSAT_USERNAME, {
                 delay: strapi
                     .plugin('import-products')
@@ -67,7 +76,13 @@ module.exports = ({ strapi }) => ({
                     .randomWait(300, 700)
             })
 
+            await strapi
+                .plugin('import-products')
+                .service('scrapHelpers')
+                .sleep(1500)
+
             const submitLogin = await loginForm.$('button')
+            await submitLogin.scrollIntoView({ behavior: 'smooth' });
 
             await Promise.all([
                 submitLogin.click('#loginSubmit'),
@@ -116,7 +131,7 @@ module.exports = ({ strapi }) => ({
                 .plugin('import-products')
                 .service('scrapHelpers')
                 .retry(
-                    () => page.goto('https://b2b.globalsat.gr/', { waitUntil: "networkidle0" }),
+                    () => page.goto('https://www.globalsat.gr/b2b/', { waitUntil: "networkidle0" }),
                     10, // retry this 10 times,
                     false
                 );
@@ -125,11 +140,7 @@ module.exports = ({ strapi }) => ({
                 .service('scrapHelpers')
                 .sleep(1500)
 
-            const pageUrl = page.url();
-
-            if (pageUrl === "https://b2b.globalsat.gr/account/login/") {
-                await this.loginGlobalsat(page, entry.name)
-            }
+            await this.loginGlobalsat(page, entry.name)
 
             const newBody = await page.$('body');
 
@@ -158,7 +169,7 @@ module.exports = ({ strapi }) => ({
                                 .plugin('import-products')
                                 .service('scrapHelpers')
                                 .randomWait(5000, 10000))
-                        await this.scrapGlobalsatCategory(page, category, subCategory, sub2Category, sortedBrandArray, importRef, entry)
+                        await this.scrapGlobalsatCategory(browser, category, subCategory, sub2Category, sortedBrandArray, importRef, entry)
                     }
                 }
             }
@@ -174,47 +185,39 @@ module.exports = ({ strapi }) => ({
     async scrapGlobalsatCategories(body) {
         try {
             let scrap = await body.evaluate(() => {
-                const categoriesNav = document.querySelector('nav.main_nav');
-                const productsNav = categoriesNav.querySelector('li.first_li');
-                const productsNavList = productsNav.querySelector('ul.level2');
-                const productsNavList1 = productsNavList.querySelectorAll('li.level2_1');
+                const categoriesNav = document.querySelectorAll('.menu-content>ul>.parent>ul>li');
 
                 const categories = []
 
+                for (let li of categoriesNav) {
+                    const anchor = li.querySelector('a');
+                    const link = anchor.getAttribute('href')
+                    const titleAnchor = anchor.textContent
 
-                for (let li of productsNavList1) {
-                    const titleSpan = li.querySelector('span');
-                    const titleAnchor = titleSpan.querySelector('a').textContent
-                    const linkAnchor = titleSpan.querySelector('a').getAttribute('href')
-
-                    const megaMenuInner = li.querySelector('div.megamenu_inner')
-                    const subCategoryList = megaMenuInner.querySelectorAll('ul.level3')
-
+                    const subCategoryList = li.querySelectorAll('ul.level-3>li')
                     const subCategories = []
                     for (let subLi of subCategoryList) {
-                        const titleSpan = subLi.querySelector('li');
-                        const titleAnchor = titleSpan.querySelector('a').textContent
-                        const linkAnchor = titleSpan.querySelector('a').getAttribute('href')
+                        const subAnchor = subLi.querySelector('a');
+                        const subTitle = subAnchor.textContent
+                        const subLink = subAnchor.getAttribute('href')
 
-                        const subCategoryList = subLi.querySelector('ul.level4')
-                        const subCategoryListItems = subCategoryList.querySelectorAll('li')
+                        const subCategoryListItems = subLi.querySelectorAll('ul.level-4>li')
 
                         const subCategories2 = []
 
                         for (let sub2Li of subCategoryListItems) {
-                            const titleAnchor = sub2Li.querySelector('a').textContent
-                            const titleLink = sub2Li.querySelector('a').getAttribute('href')
-                            subCategories2.push({ title: titleAnchor, link: titleLink })
+                            const sub2Anchor = sub2Li.querySelector('a');
+                            const sub2Title = sub2Anchor.textContent
+                            const sub2Link = sub2Anchor.getAttribute('href')
+                            subCategories2.push({ title: sub2Title, link: sub2Link })
                         }
-                        subCategories.push({ title: titleAnchor, link: linkAnchor, subCategories: subCategories2 })
+                        subCategories.push({ title: subTitle, link: subLink, subCategories: subCategories2 })
                     }
 
-                    categories.push({ title: titleAnchor, link: linkAnchor, subCategories })
+                    categories.push({ title: titleAnchor, link: link, subCategories })
                 }
-
                 return categories
             })
-
             return scrap
 
         } catch (error) {
@@ -222,18 +225,240 @@ module.exports = ({ strapi }) => ({
         }
     },
 
-    async scrapGlobalsatCategory(page, category, subcategory, sub2category, sortedBrandArray, importRef, entry) {
+    async findCardGroups(page, card) {
+        const cardListWrapper = await page.$('div.list-productlisting');
+        const cardList = await cardListWrapper.$$("div.item")
+        const cardGroups = await cardList[card.index].$$('.radioBox2')
+
+        return cardGroups
+    },
+
+    async scrapCard(page, index) {
         try {
+            const productCard = await page.evaluate((index) => {
+                const productListWrapper = document.querySelector('div.list-productlisting');
+                const productsCardList = productListWrapper.querySelectorAll('div.item')
+                const productsCard = productsCardList[index]
 
-            const navigationParams = sub2category.link === "https://b2b.globalsat.gr/kiniti-tilefonia/a_axesouar-prostasias/b_thikes-gia-smartphones/" ?
-                { waitUntil: "networkidle0", timeout: 0 } :
-                { waitUntil: "networkidle0" }
+                const product = {}
 
+                const productInfoWrapper = productsCard.querySelector('.name');
+                const productTitleAnchor = productInfoWrapper.querySelector('a');
+                product.link = productTitleAnchor.getAttribute('href');
+                product.name = productTitleAnchor.textContent.trim();
+
+                const modelWrapper = productsCard.querySelector('.model');
+                const modelSpansWrapper = modelWrapper.querySelectorAll('span');
+
+                product.mpn = modelSpansWrapper[modelSpansWrapper.length - 1].textContent.trim();
+
+                const skuWrapper = productsCard.querySelector('.Sku');
+                const skuSpansWrapper = skuWrapper.querySelectorAll('span');
+                product.supplierCode = skuSpansWrapper[skuSpansWrapper.length - 1].textContent.trim();
+
+                const priceWrapper = productsCard.querySelector('.price');
+                const priceSpan = priceWrapper.querySelector('.current');
+
+                product.wholesale = priceSpan.textContent.replace('€', '').replace(',', '').trim();
+
+                const stockWrapper = productsCard.querySelector('.in-stock');
+                product.stockLevel = stockWrapper.textContent.trim();
+                return product
+            }, index)
+
+            return productCard
+        } catch (error) {
+            console.log(error)
+        }
+    },
+
+    async scrapeProducts(browser, link, sortedBrandArray) {
+
+        const loadImages = false;
+        let page = await strapi
+            .plugin('import-products')
+            .service('scrapHelpers')
+            .createPage(await browser, loadImages)
+
+        try {
+            await strapi
+                .plugin('import-products')
+                .service('scrapHelpers')
+                .retry(
+                    () => page.goto(link, { waitUntil: "networkidle0" }),
+                    10, // retry this 10 times,
+                    false
+                );
+            const cards = []
+
+            const productListWrapper = await page.$('div.list-productlisting');
+            const productsCardList = await productListWrapper.$$("div.item")
+
+            const cardsNumbers = []
+            for (let i = 0; i < productsCardList.length; i++) {
+                cardsNumbers.push(i)
+            }
+
+            for (let numberOfCard of cardsNumbers) {
+                const card = { index: numberOfCard, groups: [] }
+                const productGroups = await productsCardList[numberOfCard].$$('.radioBox2')
+
+                if (productGroups.length > 0) {
+                    const productGroupsNumbers = []
+                    for (let i = 0; i < productGroups.length; i++) {
+                        productGroupsNumbers.push(i)
+                    }
+
+                    for (let productGroupNumber of productGroupsNumbers) {
+                        const group = { index: productGroupNumber }
+                        const groupLabels = await productGroups[productGroupNumber].$$('label')
+
+                        if (groupLabels.length > 0) {
+                            const productGroupsLabelsNumbers = []
+                            for (let i = 0; i < groupLabels.length; i++) {
+                                productGroupsLabelsNumbers.push(i)
+                            }
+
+                            group.labels = productGroupsLabelsNumbers
+                        }
+
+                        card.groups.push(group)
+                    }
+                }
+                cards.push(card)
+            }
+
+            const products = []
+            for await (let card of cards) {
+                if (card.groups.length > 0) {
+                    await strapi
+                        .plugin('import-products')
+                        .service('scrapHelpers')
+                        .sleep(strapi
+                            .plugin('import-products')
+                            .service('scrapHelpers')
+                            .randomWait(500, 800))
+
+                    let firstGroup = card.groups[0]
+                    let secondGroup = card.groups[1]
+                    if (firstGroup.labels.length > 0) {
+                        for await (let firstGroupLabel of firstGroup.labels) {
+                            await strapi
+                                .plugin('import-products')
+                                .service('scrapHelpers')
+                                .sleep(strapi
+                                    .plugin('import-products')
+                                    .service('scrapHelpers')
+                                    .randomWait(500, 800))
+                            if (secondGroup && secondGroup.labels.length > 1) {
+                                for await (let secondGroupLabel of secondGroup.labels) {
+                                    await strapi
+                                        .plugin('import-products')
+                                        .service('scrapHelpers')
+                                        .sleep(strapi
+                                            .plugin('import-products')
+                                            .service('scrapHelpers')
+                                            .randomWait(500, 800))
+
+                                    let cardGroups = await this.findCardGroups(page, card)
+                                    const firstGroupLabels = await cardGroups[firstGroup.index].$$('label')
+                                    await firstGroupLabels[firstGroupLabel].waitForSelector('.js-list-prod');
+                                    const firstGroupLabelNumber = await firstGroupLabels[firstGroupLabel].$(".js-list-prod")
+                                    await firstGroupLabelNumber.scrollIntoView({ behavior: 'smooth' });
+
+                                    if (firstGroup.labels.length > 1) {
+                                        await strapi
+                                            .plugin('import-products')
+                                            .service('scrapHelpers')
+                                            .retryClick(
+                                                firstGroupLabelNumber,
+                                                page,
+                                                10, // retry this 10 times,
+                                                false
+                                            );
+                                    }
+
+                                    cardGroups = await this.findCardGroups(page, card)
+                                    const secondGroupLabels = await cardGroups[secondGroup.index].$$('label')
+
+                                    await secondGroupLabels[secondGroupLabel].waitForSelector('.js-list-prod');
+                                    const secondGroupLabelNumber = await secondGroupLabels[secondGroupLabel].$(".js-list-prod")
+                                    await secondGroupLabelNumber.scrollIntoView({ behavior: 'smooth' });
+                                    await strapi
+                                        .plugin('import-products')
+                                        .service('scrapHelpers')
+                                        .retryClick(
+                                            secondGroupLabelNumber,
+                                            page,
+                                            10, // retry this 10 times,
+                                            false
+                                        );
+
+                                    const product = await this.scrapCard(await page, card.index)
+                                    const findProduct = products.findIndex(x => x.mpn === product.mpn)
+                                    if (findProduct === -1)
+                                        products.push(product)
+                                }
+                            }
+                            else {
+                                const cardListWrapper = await page.$('div.list-productlisting');
+                                const cardList = await cardListWrapper.$$("div.item")
+                                const cardGroups = await cardList[card.index].$$('.radioBox2')
+                                const firstGroupLabels = await cardGroups[firstGroup.index].$$('label')
+
+                                await firstGroupLabels[firstGroupLabel].waitForSelector('.js-list-prod');
+                                const labelNumber = await firstGroupLabels[firstGroupLabel].$(".js-list-prod")
+                                if (firstGroup.labels.length > 1) {
+                                    await labelNumber.scrollIntoView({ behavior: 'smooth' });
+                                    await strapi
+                                        .plugin('import-products')
+                                        .service('scrapHelpers')
+                                        .retryClick(
+                                            labelNumber, 
+                                            page,
+                                            10, // retry this 10 times,
+                                            false
+                                        );
+                                }
+                                const product = await this.scrapCard(await page, card.index)
+                                const findProduct = products.findIndex(x => x.mpn === product.mpn)
+                                if (findProduct === -1)
+                                    products.push(product)
+                            }
+                        }
+                    }
+                }
+                else {
+                    const product = await this.scrapCard(await page, card.index)
+                    const findProduct = products.findIndex(x => x.mpn === product.mpn)
+                    if (findProduct === -1)
+                        products.push(product)
+                }
+            }
+
+            return products
+
+        } catch (error) {
+            console.log(error)
+        }
+        finally {
+            page.close()
+        }
+    },
+
+    async scrapGlobalsatCategory(browser, category, subcategory, sub2category, sortedBrandArray, importRef, entry) {
+        const loadImages = false;
+        let page = await strapi
+            .plugin('import-products')
+            .service('scrapHelpers')
+            .createPage(await browser, loadImages)
+
+        try {
             let status = await strapi
                 .plugin('import-products')
                 .service('scrapHelpers')
                 .retry(
-                    () => page.goto(`${sub2category.link}?wbavlb=Διαθέσιμο&sz=3`, navigationParams),
+                    () => page.goto(`${sub2category.link}`, { waitUntil: "networkidle0" }),
                     10, // retry this 10 times,
                     false
                 );
@@ -241,68 +466,63 @@ module.exports = ({ strapi }) => ({
             status = status.status();
 
             if (status !== 404) {
-                const listContainer = await page.$('div.list_container');
+                const availableProductsCheck = await page.$('#headerStock');
+                await availableProductsCheck.scrollIntoView({ behavior: 'smooth' });
+                const isChecked = await (await availableProductsCheck.getProperty("checked")).jsonValue()
 
-                // const productLinksList = []
+                await strapi
+                    .plugin('import-products')
+                    .service('scrapHelpers')
+                    .sleep(strapi
+                        .plugin('import-products')
+                        .service('scrapHelpers')
+                        .randomWait(1000, 2000))
 
-                const productList = await listContainer.evaluate(() => {
-                    const listOfProducts = document.querySelectorAll(".product_box")
+                if (isChecked) {
+                    availableProductsCheck.click()
+                    await page.waitForNavigation()
+                }
 
-                    let products = []
-                    for (let prod of listOfProducts) {
-                        const product = {}
+                let url = await page.url()
+                const newProductList = await this.scrapeProducts(browser, url, sortedBrandArray);
 
-                        const productInfoWrapper = prod.querySelector('.product_info');
-                        const productTitleAnchor = productInfoWrapper.querySelector('h2 a');
-                        product.link = productTitleAnchor.getAttribute('href');
-                        product.name = productTitleAnchor.textContent.trim();
-                        product.supplierCode = productInfoWrapper.querySelector('.product_code span').textContent.trim();
+                // set last page reached to false
+                let lastPageReached = false;
 
-                        const productPriceWrapper = productInfoWrapper.querySelector('.price_row');
-                        const productPriceItems = productPriceWrapper.querySelectorAll('.price-item');
+                while (!lastPageReached) {
+                    const nextPageLink = await page.$('.block a.next');
+                    const href = await nextPageLink?.getProperty('href');
+                    const hrefValue = await href?.jsonValue();
 
-                        for (let item of productPriceItems) {
-                            const txtPrice = item.querySelector('.txt').textContent.trim()
-                            if (txtPrice === 'Τλ:') {
-                                product.initial_retail_price = item.querySelector('.initial_price')?.textContent.replace('€', '').replace('.', '').replace(',', '.').trim()
-
-                                const sale_prices = item.querySelectorAll('.price')
-                                if (sale_prices.length === 1) {
-                                    product.retail_price = item.querySelector('.price').textContent.replace('€', '').replace('.', '').replace(',', '.').trim()
-                                }
-                                else {
-                                    product.retail_price = sale_prices[1].textContent.replace('€', '').replace('.', '').replace(',', '.').trim();
-                                }
-                            }
-                            else {
-                                product.wholesale = item.querySelector('.price').textContent.replace('€', '').replace(".", "").replace(',', '.').trim()
-                            }
-                        }
-
-                        const productAvailability = prod.querySelector('.tag_line span').textContent.trim();
-                        product.stockLevel = productAvailability
-
-                        products.push(product)
+                    if (!hrefValue) {
+                        lastPageReached = true
                     }
-                    return products
-                })
+                    else {
+                        await nextPageLink.scrollIntoView({ behavior: 'smooth' });
+                        await nextPageLink.click();
 
-                const newProductList = productList.map(prod => {
-                    const brandFound = sortedBrandArray.find(x => prod.name?.toLowerCase().startsWith(x.name.toLowerCase()))
-                    if (brandFound) {
-                        prod.brand = brandFound.name
+                        url = await page.url()
+
+                        await strapi
+                            .plugin('import-products')
+                            .service('scrapHelpers')
+                            .sleep(strapi
+                                .plugin('import-products')
+                                .service('scrapHelpers')
+                                .randomWait(1500, 2500))
+
+                        // call the function to scrape products on the current page
+                        let products = await this.scrapeProducts(browser, url, sortedBrandArray);
+
+                        // Eνοποιώ τους πινακες
+                        newProductList.push(...products)
                     }
-                    else if (prod.name?.toLowerCase().startsWith("Redmi")) {
-                        prod.brand = "Xiaomi"
-                    }
-                    return prod
-                })
+                }
 
                 const products = await strapi
                     .plugin('import-products')
                     .service('scrapHelpers')
                     .updateAndFilterScrapProducts(newProductList, category.title, subcategory.title, sub2category.title, importRef, entry)
-
 
                 for (let product of products) {
                     await strapi
@@ -313,16 +533,25 @@ module.exports = ({ strapi }) => ({
                             .service('scrapHelpers')
                             .randomWait(4000, 10000))
 
-                    await this.scrapGlobalsatProduct(page, category, subcategory, sub2category, product.link, importRef, entry)
+                    await this.scrapGlobalsatProduct(browser, category, subcategory, sub2category, product.link, importRef, entry)
                 }
             }
 
         } catch (error) {
             console.error(error, importRef, entry)
         }
+        finally {
+            await page.close()
+        }
     },
 
-    async scrapGlobalsatProduct(page, category, subcategory, sub2category, productLink, importRef, entry, auth) {
+    async scrapGlobalsatProduct(browser, category, subcategory, sub2category, productLink, importRef, entry) {
+        const loadImages = true;
+        let page = await strapi
+            .plugin('import-products')
+            .service('scrapHelpers')
+            .createPage(await browser, loadImages)
+
         try {
 
             await strapi
@@ -334,48 +563,45 @@ module.exports = ({ strapi }) => ({
                     false
                 );
 
-            const productPage = await page.$('section.product_page');
+            const productPage = await page.$('div.productWrapper');
 
             const scrapProduct = await productPage.evaluate(() => {
 
                 const product = {}
 
-                const productContainer = document.querySelector('div.product_container');
-                product.name = productContainer.querySelector('div.main_prod_title h1').textContent;
-                const productCodesWrapper = productContainer.querySelectorAll('div.product_code>span');
+                product.name = document.querySelector('.w-product-name>h1').textContent.trim();
 
-                for (let code of productCodesWrapper) {
+                const modelWrapper = document.querySelector('.model')
+                const modelSpansWrapper = modelWrapper.querySelectorAll('span');
+                product.mpn = modelSpansWrapper[modelSpansWrapper.length - 1].textContent.trim();
 
-                    let codeSpan = code.querySelector("span")
-                    const indexOfSpan = code.innerHTML.indexOf("</span>")
-                    if (codeSpan.textContent.trim() === "ΚΩΔΙΚΟΣ ΠΡΟΪΟΝΤΟΣ:") {
-                        product.supplierCode = code.innerHTML.slice(indexOfSpan + 7).trim()
-                    }
-                    else if (codeSpan.textContent.trim() === "BarCode:") {
-                        product.barcode = code.innerHTML.slice(indexOfSpan + 7).trim()
-                    }
-                    else if (codeSpan.textContent.trim() === "PartNumber:") {
-                        product.mpn = code.innerHTML.slice(indexOfSpan + 7).trim()
-                    }
-                }
+                const barcodeWrapper = document.querySelector('.ean')
+                const barcodeSpansWrapper = barcodeWrapper.querySelectorAll('span');
+                product.barcode = barcodeSpansWrapper[barcodeSpansWrapper.length - 1].textContent.trim();
 
-                const productImgUrlsWrapper = productContainer.querySelectorAll('div.main_slider_thumbs figure>img');
+                const supplierCodeWrapper = document.querySelector('.upc')
+                const supplierCodeSpansWrapper = supplierCodeWrapper.querySelectorAll('span');
+                product.supplierCode = supplierCodeSpansWrapper[supplierCodeSpansWrapper.length - 1].textContent.trim();
 
+                const baseUrl = 'https://www.globalsat.gr'
                 product.imagesSrc = []
+                const productMainImgUrl = document.querySelector('.images a');
+                product.imagesSrc.push({ url: `${baseUrl}${productMainImgUrl.getAttribute('href')}` })
+
+                const productImgUrlsWrapper = document.querySelectorAll('.images img');
                 for (let productImgUrl of productImgUrlsWrapper) {
                     let imgURL = productImgUrl.getAttribute("src")
-                    product.imagesSrc.push({ url: imgURL })
+                    product.imagesSrc.push({ url: `${baseUrl}${imgURL}` })
                 }
 
-                const productInfo = productContainer.querySelector('div.product_info');
-                const productTag = productInfo.querySelector('div.tag_line');
-                product.stockLevel = productTag.querySelector('span').textContent.trim();
+                const productTag = document.querySelector('.in-stock');
+                product.stockLevel = productTag.textContent.trim();
 
                 switch (product.stockLevel) {
                     case 'Διαθέσιμο':
                         product.status = "InStock"
                         break;
-                    case 'Αναμένεται Σύντομα':
+                    case 'Αναμένεται':
                         product.status = "OutOfStock"
                         break;
                     default:
@@ -383,48 +609,43 @@ module.exports = ({ strapi }) => ({
                         break;
                 }
 
-                const suggestedPriceWrapper = productInfo.querySelector("div.trade");
-                const suggestedPrices = suggestedPriceWrapper.querySelectorAll("span.price");
+                const wholesaleNode = document.querySelector("#product-price-current_unit_exl");
+                const wholesaleSpansWrapper = wholesaleNode.querySelectorAll('span');
+                product.wholesale = wholesaleSpansWrapper[wholesaleSpansWrapper.length - 1].textContent.replace("€", "").replace(",", "").trim();
 
-                if (suggestedPrices.length > 1) {
-                    for (let price of suggestedPrices) {
-                        if (price.getAttribute("class") === "price initial_price") {
-                            product.initial_retail_price = price.textContent.replace("€", "").replace('.', '').replace(",", ".").trim();
-                        }
-                        else {
-                            product.retail_price = price.textContent.replace("€", "").replace('.', '').replace(",", ".").trim();
-                        }
-                    }
-                }
-                else {
-                    product.retail_price = suggestedPrices[0].textContent.replace(".", "").replace("€", "").replace('.', '').replace(",", ".").trim();
-                }
+                const retailNode = document.querySelector("#product-price-rrp-b2b");
 
-                const wholesalePriceWrapper = productInfo.querySelector("div.price_row:not(.trade)");
-                const wholesaleNode = wholesalePriceWrapper.querySelector("span.price").textContent;
-                product.wholesale = wholesaleNode.replace("€", "").replace(".", "").replace(",", ".").trim();
-
-                const description = productContainer.querySelector("div.main_prod_info>div");
-                product.description = description.textContent.trim();
-
-                const productCharsContainer = document.querySelector('div.product_chars');
-
-                if (productCharsContainer) {
-                    const charTable = productCharsContainer.querySelector('tbody')
-                    const charRow = charTable.querySelectorAll('tr')
-                    product.prod_chars = []
-                    charRow.forEach(tr => {
-                        const charValue = tr.querySelectorAll('td')
-                        product.prod_chars.push({
-                            "name": charValue[0].innerHTML.trim(),
-                            "value": charValue[1].querySelector('b').innerHTML.trim()
-                        })
-
-                    });
+                if (retailNode) {
+                    const retailPrice = retailNode.querySelector('.b2b-price-value');
+                    product.retail_price = retailPrice.textContent.replace("€", "").replace(",", "").trim();
+                    const initialRetailPrice = retailNode.querySelector('.was');
+                    if (initialRetailPrice)
+                        product.initial_retail_price = initialRetailPrice.textContent.replace("€", "").replace(",", "").trim();
                 }
 
                 return product
             })
+
+            const description = await page.$('#description')
+            if (description) {
+                scrapProduct.description = await page.$eval('#description', el => el.innerHTML);
+            }
+            const scrapProductAttributes = await page.evaluate(() => {
+                const attributes = []
+                const attributeWrapper = document.querySelector('.product-properties')
+                const attributeList = attributeWrapper.querySelectorAll('ul');
+
+                for (let attr of attributeList) {
+                    const attribute = {}
+                    attribute.name = attr.querySelector('.propertiesName-span').textContent
+                    attribute.value = attr.querySelector('.propertiesValue-span').textContent
+                    attributes.push(attribute)
+                }
+
+                return attributes
+            })
+
+            scrapProduct.prod_chars = scrapProductAttributes
             scrapProduct.supplierProductURL = productLink
             scrapProduct.entry = entry
             scrapProduct.category = category
@@ -433,8 +654,7 @@ module.exports = ({ strapi }) => ({
             scrapProduct.link = page.url()
 
             if (scrapProduct.prod_chars) {
-                if (scrapProduct.prod_chars.find(x => x.name.toLowerCase().includes("βάρος") ||
-                    x.name.toLowerCase().includes("specs"))) {
+                if (scrapProduct.prod_chars.find(x => x.name.toLowerCase().includes("βάρος"))) {
                     if (scrapProduct.prod_chars.find(x => x.name.toLowerCase().includes("μεικτό βάρος"))) {
                         let weightChar = scrapProduct.prod_chars.find(x => x.name.toLowerCase().includes("μεικτό βάρος"))
                         if (weightChar) {
@@ -509,6 +729,9 @@ module.exports = ({ strapi }) => ({
 
         } catch (error) {
             console.error(error)
+        }
+        finally {
+            await page.close()
         }
     },
 });

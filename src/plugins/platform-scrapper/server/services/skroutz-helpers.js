@@ -1,8 +1,5 @@
 'use strict';
 
-const puppeteer = require('puppeteer');
-const userAgent = require('user-agents');
-
 module.exports = ({ strapi }) => ({
 
     convertPrice(price) {
@@ -14,110 +11,179 @@ module.exports = ({ strapi }) => ({
     async getSkroutzCategories({ platform }) {
         const browser = await strapi
             .plugin('import-products')
-            .service('helpers')
+            .service('scrapHelpers')
             .createBrowser()
         try {
 
             const categoriesList = []
             const { name, entryURL } = platform
 
-            const agents = userAgent.random().toString()
-            const page = await browser.newPage();
-            await page.setViewport({ width: 1400, height: 600 })
-            await page.setUserAgent(agents);
+            const loadImages = false;
+            let page = await strapi
+                .plugin('import-products')
+                .service('scrapHelpers')
+                .createPage(await browser, loadImages)
 
-            await page.goto(entryURL, { waitUntil: "networkidle0" });
-            // const pageUrl = page.url();
-
+            await strapi
+                .plugin('import-products')
+                .service('scrapHelpers')
+                .retry(
+                    () => page.goto(entryURL, { waitUntil: "networkidle0" }),
+                    10, // retry this 10 times,
+                    false
+                );
 
             const bodyHandle = await page.$('body');
             const acceptCookiesButton = await bodyHandle.$("div.actions #accept-all")
             if (acceptCookiesButton) {
                 await acceptCookiesButton.click()
-
                 await page.waitForNavigation()
             }
 
-            await page.$eval('div.categories>button', (element) => {
-                element.scrollIntoView({ behavior: 'smooth' })
-            });
-
-            await page.waitForTimeout(strapi
+            await strapi
                 .plugin('import-products')
-                .service('helpers')
-                .randomWait(1000, 2000))
+                .service('scrapHelpers')
+                .sleep(strapi
+                    .plugin('import-products')
+                    .service('scrapHelpers')
+                    .randomWait(5000, 10000))
 
-            const allCategoriesButton = await page.$("div.categories>button")
-            await allCategoriesButton.click()
+            let categoriesContainer = await page.$('.categories-container');
+            await categoriesContainer.scrollIntoView({ behavior: 'smooth' });
+            let scrapCategories = await categoriesContainer.$$('.category-item')
 
-
-            await page.waitForSelector('.all-categories-list a', { visible: true })
-            let scrapCategories = await page.$eval('.all-categories-list', (element) => {
-                const categoriesAnchor = element.querySelectorAll("a")
-                // let liElements = navList.length
-
-                const categories = []
-                for (let anchor of categoriesAnchor) {
-                    const category = {}
-                    category.title = anchor.getAttribute("title").trim()
-                    category.link = anchor.getAttribute("href").split("?")[0]
-                    category.numberOfProducts = anchor.querySelector('small').textContent.replace('(', '').replace(')', '').trim()
-
-                    categories.push(category)
-
-                }
-                return categories;
-            })
 
             for (let category of scrapCategories) {
+                await category.scrollIntoView({ behavior: 'smooth' });
+                const link = await category.$('a')
+                link.click()
 
-                categoriesList.push(category.title)
-                const checkIfCategoryExists = await strapi.db.query('plugin::platforms-scraper.platform-category').findOne({
-                    where: { name: category.title },
-                });
+                await strapi
+                    .plugin('import-products')
+                    .service('scrapHelpers')
+                    .sleep(strapi
+                        .plugin('import-products')
+                        .service('scrapHelpers')
+                        .randomWait(6000, 12000))
 
-                if (!checkIfCategoryExists) {
-                    await strapi.entityService.create('plugin::platforms-scraper.platform-category', {
-                        data: {
-                            name: category.title,
-                            link: `https://www.skroutz.gr${category.link}`,
-                            numberOfProducts: category.numberOfProducts,
-                            platform: platform.id
-                        },
-                    });
+                const dropdown = await category.$('.dropdown-container')
+                if (dropdown) {
+
+                    let scrapsubCategories = await dropdown.$$('div')
+                    for (let sub of scrapsubCategories) {
+                        await sub.scrollIntoView({ behavior: 'smooth' });
+
+                        const sublink = await sub.$('a')
+                        sublink.click()
+
+                        await strapi
+                            .plugin('import-products')
+                            .service('scrapHelpers')
+                            .sleep(strapi
+                                .plugin('import-products')
+                                .service('scrapHelpers')
+                                .randomWait(6000, 12000))
+
+                        const secondDropdown = await sub.$('.dropdown-container')
+                        if (secondDropdown) {
+                            await secondDropdown.scrollIntoView({ behavior: 'smooth' });
+                            let scrapsub2Categories = await secondDropdown.$$('div')
+                            for (let sub2 of scrapsub2Categories) {
+                                let scrapCategory = await sub2.evaluate(() => {
+                                    let category = {}
+                                    let anchor = document.querySelector('a')
+                                    category.link = anchor.getAttribute('title')
+                                    category.title = anchor.getAttribute('href')
+                                    // const categoryCount=anchor.querySelector('.category-count')
+                                    // category.numberOfProducts = categoryCount.textContent.replace('(', '').replace(')', '').trim()
+                                    return category
+                                })
+                                categoriesList.push(scrapCategory)
+                            }
+                        }
+                        else {
+                            const scrapCategory = await sub.$eval('a', node => {
+                                node.getAttribute('title')
+                                node.getAttribute('href')
+                            });
+
+                            console.log(scrapCategory)
+                            // let scrapCategory = await sub.evaluate(() => {
+                            //     let category = {}
+                            //     let anchor = document.querySelector('a')
+                            //     category.link = anchor.getAttribute('title')
+                            //     category.title = anchor.getAttribute('href')
+                            //     category.numberOfProducts = anchor.querySelector('.category-count').textContent.replace('(', '').replace(')', '').trim()
+                            //     return category
+                            // })
+                            categoriesList.push(scrapCategory)
+                        }
+                    }
                 }
-                else {
-                    await strapi.db.query('plugin::platforms-scraper.platform-category').update({
-                        where: { name: category.title },
-                        data: {
-                            name: category.title,
-                            link: `https://www.skroutz.gr${category.link}`,
-                            numberOfProducts: category.numberOfProducts,
-                            platform: platform.id
-                        },
-                    });
-                }
+                // else {
+                //     let scrapCategory = await category.evaluate(() => {
+                //         let category = {}
+                //         let anchor = document.querySelector('a')
+                //         category.link = anchor.getAttribute('title')
+                //         category.title = anchor.getAttribute('href')
+                //         category.numberOfProducts = anchor.querySelector('.category-count').textContent.replace('(', '').replace(')', '').trim()
+                //         return category
+                //     })
+                //     categoriesList.push(scrapCategory)
+                // }
+
+                console.log("categoriesList:", categoriesList)
             }
 
-            const platforms = await strapi.entityService.findMany('api::platform.platform', {
-                where: {
-                    name: name
-                },
-                populate: {
-                    platformCategories: true
-                }
-            })
+            // for (let category of scrapCategories) {
 
-            for (let category of platforms[0].platformCategories) {
-                if (!categoriesList.includes(category.name)) {
-                    await strapi.entityService.delete('plugin::platforms-scraper.platform-category', category.id)
-                }
-            }
+            //     categoriesList.push(category.title)
+            //     const checkIfCategoryExists = await strapi.db.query('plugin::platform-scrapper.platformcategory').findOne({
+            //         where: { name: category.title },
+            //     });
 
-            await strapi
-                .plugin('platforms-scraper')
-                .service('categoryHelpers')
-                .updateCategoriesMerchantFee(platform);
+            //     if (!checkIfCategoryExists) {
+            //         await strapi.entityService.create('plugin::platform-scrapper.platformcategory', {
+            //             data: {
+            //                 name: category.title,
+            //                 link: `https://www.skroutz.gr${category.link}`,
+            //                 numberOfProducts: category.numberOfProducts,
+            //                 platform: platform.id
+            //             },
+            //         });
+            //     }
+            //     else {
+            //         await strapi.db.query('plugin::platform-scrapper.platformcategory').update({
+            //             where: { name: category.title },
+            //             data: {
+            //                 name: category.title,
+            //                 link: `https://www.skroutz.gr${category.link}`,
+            //                 numberOfProducts: category.numberOfProducts,
+            //                 platform: platform.id
+            //             },
+            //         });
+            //     }
+            // }
+
+            // const platforms = await strapi.entityService.findMany('api::platform.platform', {
+            //     where: {
+            //         name: name
+            //     },
+            //     populate: {
+            //         platformCategories: true
+            //     }
+            // })
+
+            // for (let category of platforms[0].platformCategories) {
+            //     if (!categoriesList.includes(category.name)) {
+            //         await strapi.entityService.delete('plugin::platform-scrapper.platformcategory', category.id)
+            //     }
+            // }
+
+            // await strapi
+            //     .plugin('platforms-scraper')
+            //     .service('categoryHelpers')
+            //     .updateCategoriesMerchantFee(platform);
 
         } catch (error) {
             console.log(error)

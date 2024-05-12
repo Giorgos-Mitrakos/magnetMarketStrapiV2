@@ -36,7 +36,6 @@ const PlatformsScreen = () => {
             {
                 platform
             });
-        // await getPlatformCategories(platform)
         await fetchPlatforms()
     }
 
@@ -45,7 +44,6 @@ const PlatformsScreen = () => {
             {
                 platform
             });
-        // await scrapPlatformCategories(platform)
     }
 
     const handleCheckBoxClick = (platform, categoryID) => {
