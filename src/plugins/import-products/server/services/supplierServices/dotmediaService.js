@@ -60,7 +60,7 @@ module.exports = ({ strapi }) => ({
                 if (products.length === 0)
                     return { "message": "xml is empty" }
 
-                for (let dt of products) {
+                for await (let dt of products) {
 
                     const product = await strapi
                         .plugin('import-products')
@@ -401,7 +401,7 @@ module.exports = ({ strapi }) => ({
                         } catch (error) {
                             console.error("errors in create:", error, error.details?.errors, "Προϊόν:", dt.title)
                         }
-                    } 
+                    }
                     else {
                         try {
                             await strapi

@@ -48,11 +48,10 @@ module.exports = ({ strapi }) => ({
                 .service('dotmediaService')
                 .parseDotMediaXml(ctx.request.body);
 
-            ctx.body = await strapi
-                .plugin('import-products')
-                .service('importHelpers')
-                .deleteNonRelatedProducts(ctx.request.body);
-
+            // ctx.body = await strapi
+            //     .plugin('import-products')
+            //     .service('importHelpers')
+            //     .deleteNonRelatedProducts(ctx.request.body);
 
         }
         else if (ctx.request.body.entry.name.toLowerCase() === 'telehermes') {

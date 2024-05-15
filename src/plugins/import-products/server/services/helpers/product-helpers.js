@@ -22,6 +22,8 @@ module.exports = ({ strapi }) => ({
                 .plugin('import-products')
                 .service('productHelpers')
                 .createFields(importParams.mpn, unique)
+            if (!mpn)
+                return false
 
             if (unique_product.includes(mpn)) {
                 not_unique_product.push(mpn)
@@ -38,6 +40,9 @@ module.exports = ({ strapi }) => ({
                 .plugin('import-products')
                 .service('productHelpers')
                 .createFields(importParams.mpn, unique)
+
+            if (!mpn)
+                return false
 
             if (not_unique_product.includes(mpn)) {
                 return false
@@ -243,25 +248,33 @@ module.exports = ({ strapi }) => ({
     },
 
     createFields(s, o) {
+        try {
 
-        if (!s)
-            return null
-        // s = s.replace(/\[(\w+)\]/g, '.$1'); // convert indexes to properties
-        // s = s.replace(/^\./, '');           // strip a leading dot
-        var a = s.split('.');
-        for (var i = 0, n = a.length; i < n; ++i) {
-            var k = a[i];
-            if (typeof o === 'string')
-                return
-            if (k in o) {
-                o = o[k];
-                if (o.length === 1)
-                    o = o[0]
-            } else {
-                return;
+            if (!s)
+                return null
+            // s = s.replace(/\[(\w+)\]/g, '.$1'); // convert indexes to properties
+            // s = s.replace(/^\./, '');           // strip a leading dot
+            var a = s.split('.');
+            for (var i = 0, n = a.length; i < n; ++i) {
+                var k = a[i];
+                if (typeof o === 'string')
+                    return
+                if (k in o) {
+                    o = o[k];
+                    if (o === null)
+                        return
+
+                    if (o.length === 1)
+                        o = o[0]
+                } else {
+                    return;
+                }
             }
+            return o;
+
+        } catch (error) {
+            console.log(error)
         }
-        return o;
     },
 
     createCategories(cat, importParams) {
@@ -523,11 +536,11 @@ module.exports = ({ strapi }) => ({
                     return { brandId }
                 }
             }
-            
+
             const brandCheck = await strapi.db.query('api::brand.brand').findOne({
                 where: { name: brand },
             });
-            
+
             brandId = brandCheck?.id
 
             if (!brandCheck && brand) {
@@ -717,12 +730,20 @@ module.exports = ({ strapi }) => ({
                         dbChange.typeOfChange = 'updated'
                     }
                     else {
-                        if (product.entry.name.toLowerCase() !== 'dotmedia')
+                        if (product.entry.name.toLowerCase() !== 'dotmedia') {
                             if (supplierInfo[supplierInfoUpdate].in_stock === true) {
                                 supplierInfo[supplierInfoUpdate].in_stock = false
                                 data.supplierInfo = supplierInfo
                                 dbChange.typeOfChange = 'updated'
                             }
+                        }
+                        else {
+                            if (supplierInfo[supplierInfoUpdate].in_stock === false) {
+                                supplierInfo[supplierInfoUpdate].in_stock = true
+                                data.supplierInfo = supplierInfo
+                                dbChange.typeOfChange = 'republished'
+                            }
+                        }
                     }
                 }
                 else {
@@ -761,7 +782,6 @@ module.exports = ({ strapi }) => ({
                 dbChange.typeOfChange = 'created'
                 data.supplierInfo = supplierInfo
             }
-
 
         } catch (error) {
             console.log(error)

@@ -43,7 +43,7 @@ export default {
                 .parseGlobalsat({ entry });
         },
         options: {
-            rule: "40 6-22 * * *",
+            rule: "25 6-22 * * *",
         },
     },
 

@@ -12,7 +12,7 @@ module.exports = ({ strapi }) => ({
             return await puppeteer.launch({
                 headless: true,
                 // executablePath: 'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-                // args: ['--no-sandbox', '--disable-setuid-sandbox']
+                args: ['--no-sandbox', '--disable-setuid-sandbox']
             });
         } catch (error) {
             console.log(error)
