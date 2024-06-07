@@ -98,7 +98,7 @@ const PlatformsScreen = () => {
                                         <Grid direction="column" alignItems="flex-start">
                                             {platform.platformCategories.map(category =>
                                                 <GridItem key={category.id} col={4}>
-                                                    <Checkbox checked={category.isChecked ? category.isChecked : false} onClick={() => handleCheckBoxClick(platform, category.id)}>{category.name} ({category.numberOfProducts})</Checkbox>
+                                                    <Checkbox checked={category.isChecked ? category.isChecked : false} onClick={() => handleCheckBoxClick(platform, category.id)}>{category.title} ({category.numberOfProducts})</Checkbox>
                                                 </GridItem>
                                             )}
                                         </Grid>

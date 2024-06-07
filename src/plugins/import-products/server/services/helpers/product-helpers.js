@@ -274,6 +274,7 @@ module.exports = ({ strapi }) => ({
 
         } catch (error) {
             console.log(error)
+            return null
         }
     },
 
@@ -289,9 +290,9 @@ module.exports = ({ strapi }) => ({
                 .createFields(importParams.category, cat)
 
             category = tempCategory.split(splitter)[0].trim()
-            subcategory = tempCategory.split(splitter)[1] ? cat.CATEGORY[0].split(splitter)[1].trim() : null
-            sub2category = tempCategory.split(splitter)[2] ? cat.CATEGORY[0].split(splitter)[2].trim() : null
-
+            subcategory = tempCategory.split(splitter)[1] ? tempCategory.split(splitter)[1].trim() : null
+            sub2category = tempCategory.split(splitter)[2] ? tempCategory.split(splitter)[2].trim() : null
+            // console.log("category:", category, "subcategory", subcategory, "sub2category", sub2category)
         }
         else {
             category = strapi
@@ -469,7 +470,6 @@ module.exports = ({ strapi }) => ({
         product.prod_chars = parsedChars
 
     },
-
 
     createProductWeight(product, categoryInfo) {
         try {

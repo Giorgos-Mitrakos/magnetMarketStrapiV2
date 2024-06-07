@@ -4,7 +4,8 @@
   "info": {
     "singularName": "platform",
     "pluralName": "platforms",
-    "displayName": "Platform"
+    "displayName": "Platform",
+    "description": ""
   },
   "options": {
     "draftAndPublish": true
@@ -20,11 +21,12 @@
       "required": true
     },
     "merchantFeeCatalogue": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
       "allowedTypes": [
         "files"
-      ],
-      "type": "media",
-      "multiple": false
+      ]
     },
     "export_categories": {
       "type": "relation",
@@ -41,6 +43,11 @@
       "relation": "oneToMany",
       "target": "plugin::platform-scrapper.platformcategory",
       "mappedBy": "platform"
+    },
+    "product_scrap_days": {
+      "type": "integer",
+      "required": true,
+      "default": 10
     }
   }
 }

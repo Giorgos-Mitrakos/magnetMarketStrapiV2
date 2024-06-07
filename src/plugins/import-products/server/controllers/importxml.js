@@ -126,6 +126,12 @@ module.exports = ({ strapi }) => ({
                 .service('aciService')
                 .parseAciJson(ctx.request.body);
         }
+        else if (ctx.request.body.entry.name.toLowerCase() === 'stefinet') {
+            ctx.body = await strapi
+                .plugin('import-products')
+                .service('stefinetService')
+                .parseStefinetXml(ctx.request.body);
+        }
         else {
             console.log("Wrong file")
         }

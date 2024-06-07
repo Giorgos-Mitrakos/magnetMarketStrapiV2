@@ -90,7 +90,6 @@ module.exports = ({ strapi }) => ({
         else if (minSupplierPrice.name.toLowerCase() === "telehermes") {
           const retailPrice = parseFloat(product.retail_price)
           this.createPrices(null, prices, minPrices, retailPrice, null, null)
-
         }
         else if (minSupplierPrice.name.toLowerCase() === "dotmedia") {
           if (this.is_a_greaterthan_b(minSupplierPrice.wholesale, 0)) {
@@ -99,7 +98,7 @@ module.exports = ({ strapi }) => ({
           }
           else {
             prices.generalPrice = {
-              price: prices.generalPrice = parseFloat(product.retail_price).toFixed(2),
+              price: parseFloat(product.retail_price).toFixed(2),
               isFixed: false
             }
 

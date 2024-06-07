@@ -1,0 +1,38 @@
+{
+  "collectionName": "components_products_shops",
+  "info": {
+    "displayName": "shop",
+    "description": ""
+  },
+  "options": {},
+  "attributes": {
+    "name": {
+      "type": "string",
+      "required": true
+    },
+    "availability": {
+      "type": "string",
+      "required": true
+    },
+    "is_pro": {
+      "type": "boolean",
+      "default": false
+    },
+    "is_express": {
+      "type": "boolean",
+      "default": false,
+      "required": true
+    },
+    "price": {
+      "type": "decimal"
+    },
+    "marketplace_shipping": {
+      "type": "decimal",
+      "default": 0
+    },
+    "shop_shipping": {
+      "type": "decimal",
+      "default": 0
+    }
+  }
+}

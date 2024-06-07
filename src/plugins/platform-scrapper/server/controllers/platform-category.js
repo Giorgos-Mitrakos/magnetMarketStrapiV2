@@ -14,6 +14,11 @@ module.exports = ({ strapi }) => ({
         .plugin('platform-scrapper')
         .service('skroutzHelpers')
         .getSkroutzCategories(ctx.request.body);
+
+      // ctx.body = await strapi
+      //   .plugin('platform-scrapper')
+      //   .service('categoryHelpers')
+      //   .updateCategories(ctx.request.body);
     }
   },
 

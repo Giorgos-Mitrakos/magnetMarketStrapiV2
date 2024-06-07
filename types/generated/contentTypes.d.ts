@@ -949,7 +949,7 @@ export interface PluginPlatformScrapperPlatformcategory
     comment: '';
   };
   attributes: {
-    name: Attribute.String;
+    title: Attribute.String;
     link: Attribute.String;
     numberOfProducts: Attribute.Integer;
     isChecked: Attribute.Boolean;
@@ -1310,6 +1310,7 @@ export interface ApiPlatformPlatform extends Schema.CollectionType {
     singularName: 'platform';
     pluralName: 'platforms';
     displayName: 'Platform';
+    description: '';
   };
   options: {
     draftAndPublish: true;
@@ -1329,6 +1330,9 @@ export interface ApiPlatformPlatform extends Schema.CollectionType {
       'oneToMany',
       'plugin::platform-scrapper.platformcategory'
     >;
+    product_scrap_days: Attribute.Integer &
+      Attribute.Required &
+      Attribute.DefaultTo<10>;
     createdAt: Attribute.DateTime;
     updatedAt: Attribute.DateTime;
     publishedAt: Attribute.DateTime;

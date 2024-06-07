@@ -15,11 +15,34 @@
       "default": false,
       "required": true
     },
+    "title_in_platform": {
+      "type": "string"
+    },
+    "code_in_platform": {
+      "type": "string"
+    },
     "category": {
       "type": "string"
     },
     "url": {
       "type": "string"
+    },
+    "last_scrap": {
+      "type": "datetime"
+    },
+    "forced_scrap_times": {
+      "type": "integer",
+      "default": 0,
+      "required": false
+    },
+    "averageRating": {
+      "type": "decimal",
+      "required": false
+    },
+    "numberOfReviews": {
+      "type": "integer",
+      "default": 0,
+      "required": false
     },
     "platform": {
       "type": "enumeration",
@@ -27,6 +50,14 @@
         "Skroutz",
         "Shopflix"
       ]
+    },
+    "proposed_shop": {
+      "type": "string"
+    },
+    "shops": {
+      "type": "component",
+      "repeatable": true,
+      "component": "products.shop"
     }
   }
 }

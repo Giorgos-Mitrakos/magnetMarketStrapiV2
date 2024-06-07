@@ -259,7 +259,7 @@ export default {
                 .parseAciJson({ entry });
         },
         options: {
-            rule: "50 6,13,19 * * *",
+            rule: "50 6, * * *",
         },
     },
 

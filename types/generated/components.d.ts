@@ -103,9 +103,17 @@ export interface ProductsPlatform extends Schema.Component {
     is_fixed_price: Attribute.Boolean &
       Attribute.Required &
       Attribute.DefaultTo<false>;
+    title_in_platform: Attribute.String;
+    code_in_platform: Attribute.String;
     category: Attribute.String;
     url: Attribute.String;
+    last_scrap: Attribute.DateTime;
+    forced_scrap_times: Attribute.Integer & Attribute.DefaultTo<0>;
+    averageRating: Attribute.Decimal;
+    numberOfReviews: Attribute.Integer & Attribute.DefaultTo<0>;
     platform: Attribute.Enumeration<['Skroutz', 'Shopflix']>;
+    proposed_shop: Attribute.String;
+    shops: Attribute.Component<'products.shop', true>;
   };
 }
 
@@ -120,6 +128,25 @@ export interface ProductsPriceProgress extends Schema.Component {
     in_offer: Attribute.Boolean & Attribute.DefaultTo<false>;
     discount: Attribute.Decimal;
     initial_wholesale: Attribute.Decimal;
+  };
+}
+
+export interface ProductsShop extends Schema.Component {
+  collectionName: 'components_products_shops';
+  info: {
+    displayName: 'shop';
+    description: '';
+  };
+  attributes: {
+    name: Attribute.String & Attribute.Required;
+    availability: Attribute.String & Attribute.Required;
+    is_pro: Attribute.Boolean & Attribute.DefaultTo<false>;
+    is_express: Attribute.Boolean &
+      Attribute.Required &
+      Attribute.DefaultTo<false>;
+    price: Attribute.Decimal;
+    marketplace_shipping: Attribute.Decimal & Attribute.DefaultTo<0>;
+    shop_shipping: Attribute.Decimal & Attribute.DefaultTo<0>;
   };
 }
 
@@ -182,6 +209,7 @@ declare module '@strapi/types' {
       'products.info': ProductsInfo;
       'products.platform': ProductsPlatform;
       'products.price-progress': ProductsPriceProgress;
+      'products.shop': ProductsShop;
       'shared.meta-social': SharedMetaSocial;
       'shared.seo': SharedSeo;
     }
