@@ -279,36 +279,40 @@ module.exports = ({ strapi }) => ({
     },
 
     createCategories(cat, importParams) {
-        const splitter = importParams.splitter
-        let category = null
-        let subcategory = null
-        let sub2category = null
-        if (splitter) {
-            const tempCategory = strapi
-                .plugin('import-products')
-                .service('productHelpers')
-                .createFields(importParams.category, cat)
+        try {
+            const splitter = importParams.splitter
+            let category = null
+            let subcategory = null
+            let sub2category = null
+            if (splitter) {
+                const tempCategory = strapi
+                    .plugin('import-products')
+                    .service('productHelpers')
+                    .createFields(importParams.category, cat)
 
-            category = tempCategory.split(splitter)[0].trim()
-            subcategory = tempCategory.split(splitter)[1] ? tempCategory.split(splitter)[1].trim() : null
-            sub2category = tempCategory.split(splitter)[2] ? tempCategory.split(splitter)[2].trim() : null
-            // console.log("category:", category, "subcategory", subcategory, "sub2category", sub2category)
+                category = tempCategory.split(splitter)[0].trim()
+                subcategory = tempCategory.split(splitter)[1] ? tempCategory.split(splitter)[1].trim() : null
+                sub2category = tempCategory.split(splitter)[2] ? tempCategory.split(splitter)[2].trim() : null
+                // console.log("category:", category, "subcategory", subcategory, "sub2category", sub2category)
+            }
+            else {
+                category = strapi
+                    .plugin('import-products')
+                    .service('productHelpers')
+                    .createFields(importParams.category, cat)
+                subcategory = strapi
+                    .plugin('import-products')
+                    .service('productHelpers')
+                    .createFields(importParams.subcategory, cat)
+                sub2category = strapi
+                    .plugin('import-products')
+                    .service('productHelpers')
+                    .createFields(importParams.sub2category, cat)
+            }
+            return { category, subcategory, sub2category }
+        } catch (error) {
+            console.log(error)
         }
-        else {
-            category = strapi
-                .plugin('import-products')
-                .service('productHelpers')
-                .createFields(importParams.category, cat)
-            subcategory = strapi
-                .plugin('import-products')
-                .service('productHelpers')
-                .createFields(importParams.subcategory, cat)
-            sub2category = strapi
-                .plugin('import-products')
-                .service('productHelpers')
-                .createFields(importParams.sub2category, cat)
-        }
-        return { category, subcategory, sub2category }
     },
 
     async createProductFields(entry, dt, importRef) {

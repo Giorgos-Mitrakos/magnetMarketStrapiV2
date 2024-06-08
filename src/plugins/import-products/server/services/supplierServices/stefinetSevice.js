@@ -61,7 +61,9 @@ module.exports = ({ strapi }) => ({
         &password=${process.env.STEFINET_PASSWORD}`
         const config = {
           headers: {
-            "Accept-Encoding": "gzip,deflate,compress"
+            "Accept-Encoding": "gzip,deflate,compress",
+            "Content-Type": " application/xml",
+            "Accept": "application/xml"
           }
         }
 
@@ -86,12 +88,18 @@ module.exports = ({ strapi }) => ({
             const index = product.category.indexOf('ΝΕΑ ΠΡΟΪΟΝΤΑ');
             product.category.splice(index, 1);
           }
+          else if (product.category.includes('LAST PIECES')) {
+            const index = product.category.indexOf('LAST PIECES');
+            product.category.splice(index, 1);
+          }
         }
+
+        const filteredProducts = xml.PriceCatalog.product.filter(x => x.category.length > 0)
 
         const products = strapi
           .plugin('import-products')
           .service('productHelpers')
-          .filterData(xml.PriceCatalog.product, importRef.categoryMap, importRef.mapFields)
+          .filterData(filteredProducts, importRef.categoryMap, importRef.mapFields)
 
         if (products.length === 0)
           return { "message": "xml is empty" }
