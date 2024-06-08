@@ -366,9 +366,15 @@ module.exports = ({ strapi }) => ({
 
         if (additional_images) {
             if (Array.isArray(additional_images)) {
-                additional_images.forEach(x => {
-                    product.imagesSrc.push({ url: x.trim() })
-                })
+                for (let index = 0; index < additional_images.length; index++) {
+                    if (index > 5)
+                        break;
+                    const element = additional_images[index];
+                    product.imagesSrc.push({ url: element.trim() })
+                }
+                // additional_images.forEach(x => {
+                //     product.imagesSrc.push({ url: x.trim() })
+                // })
             }
             else {
                 product.imagesSrc.push({ url: additional_images.trim() })
@@ -572,40 +578,40 @@ module.exports = ({ strapi }) => ({
                     $or: [
                         {
                             $and: [
-                                { mpn: mpn },
-                                { barcode: barcode }
+                                { mpn: mpn?.trim() },
+                                { barcode: barcode?.trim() }
                             ]
                         },
                         {
                             $and: [
-                                { mpn: mpn },
+                                { mpn: mpn?.trim() },
                                 // { mpn: { $notNull: true, } },
                                 // { barcode: { $null: true, } }
                             ]
                         },
                         {
                             $and: [
-                                { mpn: model },
+                                { mpn: model?.trim() },
                                 { mpn: { $notNull: true, } },
                                 // { barcode: { $null: true, } }
                             ]
                         },
                         {
                             $and: [
-                                { model: mpn },
+                                { model: mpn?.trim() },
                                 { mpn: { $notNull: true, } },
                                 // { barcode: { $null: true, } }
                             ]
                         },
                         {
                             $and: [
-                                { barcode: barcode },
+                                { barcode: barcode?.trim() },
                                 { mpn: { $null: true, } }
                             ]
                         },
                         {
                             $and: [
-                                { name: name },
+                                { name: name?.trim() },
                                 { mpn: { $null: true, } },
                                 { barcode: { $null: true, } }
                             ]
