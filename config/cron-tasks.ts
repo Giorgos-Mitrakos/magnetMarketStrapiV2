@@ -331,7 +331,7 @@ export default {
                 .parseStefinetXml({ entry });
         },
         options: {
-            rule: "23 * * * *",
+            rule: "53 * * * *",
         },
     },
 
