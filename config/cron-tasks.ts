@@ -43,7 +43,7 @@ export default {
                 .parseGlobalsat({ entry });
         },
         options: {
-            rule: "25 6-22 * * *",
+            rule: "20 6-22 * * *",
         },
     },
 
@@ -308,6 +308,30 @@ export default {
         },
         options: {
             rule: "5 2 * * 2,6",
+        },
+    },
+
+    updateStefinet: {
+        task: async ({ strapi }) => {
+            // Add your own logic here (e.g. send a queue of email, create a database backup, etc.).
+            const entry = await strapi.db.query('plugin::import-products.importxml').findOne({
+                where: { name: "Stefinet" },
+                populate: {
+                    importedFile: true,
+                    stock_map: {
+                        fields: ['name'],
+                        sort: 'name:asc',
+                    },
+                },
+            })
+
+            await strapi
+                .plugin('import-products')
+                .service('stefinetService')
+                .parseStefinetXml({ entry });
+        },
+        options: {
+            rule: "23 * * * *",
         },
     },
 

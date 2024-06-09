@@ -25,7 +25,7 @@ const cpiService = require('./supplierServices/cpiService');
 const telehermesService = require('./supplierServices/telehermesService');
 const dotmediaService = require('./supplierServices/dotmediaService');
 const aciService = require('./supplierServices/aciService');
-const stefinetService = require('./supplierServices/stefinetSevice');
+const stefinetService = require('./supplierServices/stefinetService');
 
 module.exports = {
   myService,
