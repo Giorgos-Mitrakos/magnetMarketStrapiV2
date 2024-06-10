@@ -366,7 +366,7 @@ module.exports = ({ strapi }) => ({
 
                 } catch (error) {
                     console.log("entryCheck:", entryCheck, "mpn:", product.mpn, "name:", product.name,
-                        "barcode:", product.barcode, "brand_name:", product.brand_name, "model:", product.model)
+                        "barcode:", product.barcode, "brand_name:", product.brand, "model:", product.model)
                     console.log(error, error.details?.errors)
                 }
             }

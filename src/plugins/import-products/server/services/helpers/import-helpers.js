@@ -627,10 +627,11 @@ module.exports = ({ strapi }) => ({
     },
 
     createSlug(name, mpn) {
+        const newName = name.replace('-', ' ')
         if (!mpn)
-            return slugify(`${name}`, { lower: true, trim: true, remove: /[^A-Za-z0-9-_.~]/g })
+            return slugify(`${newName}`, { lower: true, remove: /[^A-Za-z0-9_.~/\s]/g })
 
-        const slug = slugify(`${name}-${mpn}`, { lower: true, trim: true, remove: /[^A-Za-z0-9-_.~]/g })
+        const slug = slugify(`${newName}-${mpn}`, { lower: true, remove: /[^A-Za-z0-9_.~/\s]/g })
         return slug
     },
 

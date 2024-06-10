@@ -212,7 +212,12 @@ module.exports = ({ strapi }) => ({
                             const productTitleAnchor = productBody.querySelector('.product-title>a')
                             product.name = productTitleAnchor.textContent.trim()
                             product.short_description = productBody.querySelector('.mini-description').textContent.trim()
-                            product.brand_name = product.name.split("-")[0].trim()
+                            if (product.name.startsWith('TP-LINK')) {
+                                product.brand = 'TP-LINK'
+                            }
+                            else {
+                                product.brand = product.name.split("-")[0].trim()
+                            }
                             product.wholesale = productBody.querySelector('.product-price>div>div>span').textContent.replace('€', '').replace('.', '').replace(',', '.').trim()
                             product.supplierCode = productBody.querySelector('.product-code').textContent.trim()
                             const stockLevelWrapper = productBody.querySelector('div>p>img');
@@ -234,7 +239,7 @@ module.exports = ({ strapi }) => ({
                                     break;
                             }
 
-                            if (product.brand_name.toLowerCase().includes('dahua'))
+                            if (product.brand.toLowerCase().includes('dahua'))
                                 continue
 
                             products.push(product)
@@ -313,10 +318,10 @@ module.exports = ({ strapi }) => ({
                 }
                 product.name = productDetailsSection.querySelector("h1.product-title").textContent.trim();
                 if (product.name.startsWith('TP-LINK')) {
-                    product.brand_name = 'TP-LINK'
+                    product.brand = 'TP-LINK'
                 }
                 else {
-                    product.brand_name = product.name.split("-")[0].trim()
+                    product.brand = product.name.split("-")[0].trim()
                 }
                 product.short_description = productDetailsSection.querySelector("p.mini-description").textContent.trim();
                 const productPriceWrapper = productDetailsSection.querySelector("div.product-price");
