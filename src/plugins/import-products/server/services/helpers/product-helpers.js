@@ -1,7 +1,5 @@
 'use strict';
 
-const { object } = require("prop-types");
-
 module.exports = ({ strapi }) => ({
 
     filterData(data, categoryMap, importParams) {
@@ -566,8 +564,7 @@ module.exports = ({ strapi }) => ({
                     return { brandId }
                 }
             }
-
-            console.log("brand:", brand, "name:", name)
+            
             const brandSlug = strapi
                 .plugin('import-products')
                 .service('importHelpers')
