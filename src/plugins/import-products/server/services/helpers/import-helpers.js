@@ -627,12 +627,18 @@ module.exports = ({ strapi }) => ({
     },
 
     createSlug(name, mpn) {
-        const newName = name.replace('-', ' ')
-        if (!mpn)
-            return slugify(`${newName}`, { lower: true, remove: /[^A-Za-z0-9_.~/\s]/g })
+        try {
+            const newName = name.replace('-', ' / ')
+            if (!mpn) {
+                const slug = slugify(`${newName}`, { lower: true, remove: /[^A-Za-z0-9_.~\s]/g })
+                return slug
+            }
 
-        const slug = slugify(`${newName}-${mpn}`, { lower: true, remove: /[^A-Za-z0-9_.~/\s]/g })
-        return slug
+            const slug = slugify(`${newName}-${mpn}`, { lower: true, remove: /[^A-Za-z0-9_.~\s]/g })
+            return slug
+        } catch (error) {
+            console.log(error)
+        }
     },
 
     async deleteNonRelatedProducts() {
