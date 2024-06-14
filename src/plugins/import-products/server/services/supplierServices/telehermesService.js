@@ -71,6 +71,9 @@ module.exports = ({ strapi }) => ({
           if (!product.mpn && !product.barcode)
             continue
 
+          product.wholesale=product.wholesale.replace('.', '').replace(',', '.')
+          product.retail_price=product.retail_price.replace('.', '').replace(',', '.')
+          
           const { entryCheck } = await strapi
             .plugin('import-products')
             .service('productHelpers')

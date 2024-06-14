@@ -564,17 +564,19 @@ module.exports = ({ strapi }) => ({
                     return { brandId }
                 }
             }
-            
+
             const brandSlug = strapi
                 .plugin('import-products')
                 .service('importHelpers')
                 .createSlug(brand, null)
 
             const brandCheck = await strapi.db.query('api::brand.brand').findOne({
-                where: { $or:[
-                    {name: brand.trim()},
-                    {slug: brandSlug}
-                ] },
+                where: {
+                    $or: [
+                        { name: brand.trim() },
+                        { slug: brandSlug }
+                    ]
+                },
             });
 
             brandId = brandCheck?.id
@@ -732,19 +734,39 @@ module.exports = ({ strapi }) => ({
 
     updateSupplierInfo(entryCheck, product, data, dbChange, importRef) {
         try {
-            let foundNotExistedSupplier = false
+            let isNeedUpdate = false
 
+            // Ελέγχω αν το προϊόν έχει προμηθευτή που δεν χρησιμοποιώ πλέον και το κάνει μη διαθέσιμο 
+            // για τον συγκεκριμένο προμηθευτή
             let supplierInfo = entryCheck.supplierInfo.map(sup => {
                 let container = sup
 
                 if (importRef.suppliers.findIndex(s => s.name.toLowerCase() === sup.name.toLowerCase()) === -1) {
                     container.in_stock = false
-                    foundNotExistedSupplier = true
+                    isNeedUpdate = true
                 }
                 return container
             })
 
-            if (foundNotExistedSupplier) {
+            const newSuppliers = []
+
+            for (let supplier of supplierInfo) {
+
+                const initialPriceProgress = supplier.price_progress.length
+                const price_progress = supplier.price_progress.filter(x =>
+                    x.wholesale && x.wholesale !== 0
+                )
+                const afterFilterPriceProgress = price_progress.length
+                supplier.price_progress = price_progress
+                newSuppliers.push(supplier)
+
+                if (initialPriceProgress !== afterFilterPriceProgress)
+                    isNeedUpdate = true
+            }
+
+            supplierInfo = newSuppliers
+
+            if (isNeedUpdate) {
                 data.supplierInfo = supplierInfo
                 dbChange.typeOfChange = 'updated'
             }
@@ -847,7 +869,7 @@ module.exports = ({ strapi }) => ({
                 price_progress.wholesale = parseFloat(product.wholesale).toFixed(2)
             }
 
-            return
+            return price_progress
 
         } catch (error) {
             console.log(error)

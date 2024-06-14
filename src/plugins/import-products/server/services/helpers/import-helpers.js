@@ -499,7 +499,7 @@ module.exports = ({ strapi }) => ({
                 // }
             }
 
-            if (Object.keys(data).length !== 0) {
+            if (Object.keys(data).length !== 0) {                
                 await strapi.entityService.update('api::product.product', entryCheck.id, {
                     data
                 });
@@ -520,6 +520,7 @@ module.exports = ({ strapi }) => ({
                     break;
             }
         } catch (error) {
+            console.log("entryCheck:",entryCheck, "product:",product)
             console.log(error, error?.details?.errors)
         }
     },
@@ -628,7 +629,7 @@ module.exports = ({ strapi }) => ({
 
     createSlug(name, mpn) {
         try {
-            const newName = name.replace('-', ' / ')
+            const newName = name.replace('-', ' ')
             if (!mpn) {
                 const slug = slugify(`${newName}`, { lower: true, remove: /[^A-Za-z0-9_.~\s]/g })
                 return slug

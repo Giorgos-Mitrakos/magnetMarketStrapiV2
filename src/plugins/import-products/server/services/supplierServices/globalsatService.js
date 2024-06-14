@@ -248,24 +248,35 @@ module.exports = ({ strapi }) => ({
                 product.name = productTitleAnchor.textContent.trim();
 
                 const modelWrapper = productsCard.querySelector('.model');
-                const modelSpansWrapper = modelWrapper.querySelectorAll('span');
+                const modelProductWrapper = modelWrapper.querySelector('.products-model');
+                const modelSpansWrapper = modelProductWrapper.querySelectorAll('span');
 
-                product.mpn = modelSpansWrapper[modelSpansWrapper.length - 1].textContent.trim();
+                product.mpn = modelSpansWrapper[1].textContent.trim();
 
                 const skuWrapper = productsCard.querySelector('.Sku');
-                const skuSpansWrapper = skuWrapper.querySelectorAll('span');
-                product.supplierCode = skuSpansWrapper[skuSpansWrapper.length - 1].textContent.trim();
+                const skuProductWrapper = skuWrapper.querySelector('.products-model');
+                const skuSpansWrapper = skuProductWrapper.querySelectorAll('span');
+                product.supplierCode = skuSpansWrapper[1].textContent.trim();
 
                 const priceWrapper = productsCard.querySelector('.price');
                 const priceSpan = priceWrapper.querySelector('.current');
 
                 product.wholesale = priceSpan.textContent.replace('€', '').replace(',', '').trim();
 
+                const retailPriceWrapper = priceWrapper.querySelector('.b2b_rrp_price');
+                const retailPriceSpanWrapper = retailPriceWrapper.querySelectorAll('span');
+                const retail_price = retailPriceSpanWrapper[1].textContent.replace('€', '').replace(',', '').trim();
+                product.retail_price = parseFloat(retail_price) / 1.24
+
                 const stockWrapper = productsCard.querySelector('.in-stock');
-                product.stockLevel = stockWrapper.textContent.trim();
+                if (stockWrapper) { product.stockLevel = stockWrapper.textContent.trim(); }
+                else {
+                    const preOrderWrapper = productsCard.querySelector('.pre-order');
+                    product.stockLevel = preOrderWrapper ? preOrderWrapper.textContent.trim() : "Μη διαθέσιμο"
+                }
                 return product
             }, index)
-
+            
             return productCard
         } catch (error) {
             console.log(error)
@@ -343,13 +354,14 @@ module.exports = ({ strapi }) => ({
                     let secondGroup = card.groups[1]
                     if (firstGroup.labels.length > 0) {
                         for await (let firstGroupLabel of firstGroup.labels) {
+                            console.log(firstGroupLabel)
                             await strapi
                                 .plugin('import-products')
                                 .service('scrapHelpers')
                                 .sleep(strapi
                                     .plugin('import-products')
                                     .service('scrapHelpers')
-                                    .randomWait(500, 800))
+                                    .randomWait(800, 1000))
                             if (secondGroup && secondGroup.labels.length > 1) {
                                 for await (let secondGroupLabel of secondGroup.labels) {
                                     await strapi
@@ -414,7 +426,7 @@ module.exports = ({ strapi }) => ({
                                         .plugin('import-products')
                                         .service('scrapHelpers')
                                         .retryClick(
-                                            labelNumber, 
+                                            labelNumber,
                                             page,
                                             10, // retry this 10 times,
                                             false
@@ -478,10 +490,18 @@ module.exports = ({ strapi }) => ({
                         .service('scrapHelpers')
                         .randomWait(1000, 2000))
 
-                if (isChecked) {
+                if (isChecked && isChecked === '') {
                     availableProductsCheck.click()
                     await page.waitForNavigation()
                 }
+
+                await strapi
+                    .plugin('import-products')
+                    .service('scrapHelpers')
+                    .sleep(strapi
+                        .plugin('import-products')
+                        .service('scrapHelpers')
+                        .randomWait(1000, 2000))
 
                 let url = await page.url()
                 const newProductList = await this.scrapeProducts(browser, url, sortedBrandArray);
