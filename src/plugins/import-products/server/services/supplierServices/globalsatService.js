@@ -348,20 +348,19 @@ module.exports = ({ strapi }) => ({
                         .sleep(strapi
                             .plugin('import-products')
                             .service('scrapHelpers')
-                            .randomWait(500, 800))
+                            .randomWait(300, 500))
 
                     let firstGroup = card.groups[0]
                     let secondGroup = card.groups[1]
                     if (firstGroup.labels.length > 0) {
                         for await (let firstGroupLabel of firstGroup.labels) {
-                            console.log(firstGroupLabel)
                             await strapi
                                 .plugin('import-products')
                                 .service('scrapHelpers')
                                 .sleep(strapi
                                     .plugin('import-products')
                                     .service('scrapHelpers')
-                                    .randomWait(800, 1000))
+                                    .randomWait(300, 700))
                             if (secondGroup && secondGroup.labels.length > 1) {
                                 for await (let secondGroupLabel of secondGroup.labels) {
                                     await strapi
@@ -488,7 +487,7 @@ module.exports = ({ strapi }) => ({
                     .sleep(strapi
                         .plugin('import-products')
                         .service('scrapHelpers')
-                        .randomWait(1000, 2000))
+                        .randomWait(300, 800))
 
                 if (isChecked && isChecked === '') {
                     availableProductsCheck.click()
@@ -551,7 +550,7 @@ module.exports = ({ strapi }) => ({
                         .sleep(strapi
                             .plugin('import-products')
                             .service('scrapHelpers')
-                            .randomWait(4000, 10000))
+                            .randomWait(3000, 6000))
 
                     await this.scrapGlobalsatProduct(browser, category, subcategory, sub2category, product.link, importRef, entry)
                 }

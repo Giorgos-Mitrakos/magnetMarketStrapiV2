@@ -548,7 +548,7 @@ module.exports = ({ strapi }) => ({
     async brandIdCheck(brand, name) {
         try {
             let brandId;
-            if (!brand) {
+            if (!brand || brand === 'undefined') {
                 const brandEntries = await strapi.entityService.findMany('api::brand.brand', {
                     fields: ['name'],
                 });
@@ -563,8 +563,10 @@ module.exports = ({ strapi }) => ({
                     brandId = brandFound.id
                     return { brandId }
                 }
-            }
 
+                return { brandId: null }
+            }
+            
             const brandSlug = strapi
                 .plugin('import-products')
                 .service('importHelpers')
@@ -754,7 +756,7 @@ module.exports = ({ strapi }) => ({
 
                 const initialPriceProgress = supplier.price_progress.length
                 const price_progress = supplier.price_progress.filter(x =>
-                    x.wholesale && x.wholesale !== 0
+                    x.wholesale && x.date
                 )
                 const afterFilterPriceProgress = price_progress.length
                 supplier.price_progress = price_progress
