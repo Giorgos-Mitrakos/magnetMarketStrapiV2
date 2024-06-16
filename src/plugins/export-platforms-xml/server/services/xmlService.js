@@ -218,10 +218,21 @@ module.exports = ({ strapi }) => ({
                 }
 
                 if (platform.name.toLowerCase() === "skroutz") {
-                    return { availability: "Άμεσα διαθέσιμο", price: platformPrice }
+                    if (product.is_in_house) {
+                        return { availability: "Άμεσα διαθέσιμο", price: platformPrice }
+                    }
+                    else {
+                        return { availability: "Διαθέσιμο από 4-10 ημέρες", price: platformPrice }
+                    }
                 }
                 else {
-                    return { availability: 0, price: platformPrice }
+                    if (product.is_in_house) {
+                        return { availability: 0, price: platformPrice }
+                    }
+                    else {
+                        return { availability: 2, price: platformPrice }
+                    }
+
                 }
             }
             else {

@@ -190,6 +190,11 @@
       "relation": "manyToMany",
       "target": "plugin::import-products.importxml",
       "mappedBy": "related_products"
+    },
+    "is_in_house": {
+      "type": "boolean",
+      "default": false,
+      "private": true
     }
   }
 }

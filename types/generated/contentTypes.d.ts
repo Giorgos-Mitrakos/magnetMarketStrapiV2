@@ -1436,6 +1436,9 @@ export interface ApiProductProduct extends Schema.CollectionType {
       'manyToMany',
       'plugin::import-products.importxml'
     >;
+    is_in_house: Attribute.Boolean &
+      Attribute.Private &
+      Attribute.DefaultTo<false>;
     createdAt: Attribute.DateTime;
     updatedAt: Attribute.DateTime;
     publishedAt: Attribute.DateTime;

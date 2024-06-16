@@ -487,7 +487,7 @@ module.exports = ({ strapi }) => ({
                     .sleep(strapi
                         .plugin('import-products')
                         .service('scrapHelpers')
-                        .randomWait(300, 800))
+                        .randomWait(600, 800))
 
                 if (isChecked && isChecked === '') {
                     availableProductsCheck.click()
@@ -528,7 +528,7 @@ module.exports = ({ strapi }) => ({
                             .sleep(strapi
                                 .plugin('import-products')
                                 .service('scrapHelpers')
-                                .randomWait(1500, 2500))
+                                .randomWait(1200, 2200))
 
                         // call the function to scrape products on the current page
                         let products = await this.scrapeProducts(browser, url, sortedBrandArray);
