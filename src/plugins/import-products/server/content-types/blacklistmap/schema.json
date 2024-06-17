@@ -10,28 +10,36 @@
     "draftAndPublish": false,
     "comment": ""
   },
+  "pluginOptions": {
+    "content-manager": {
+      "visible": false
+    },
+    "content-type-builder": {
+      "visible": false
+    }
+  },
   "attributes": {
     "name": {
       "type": "string",
       "required": true
     },
     "related_import": {
-        "type": "relation",
-        "relation": "manyToOne",
-        "target": "plugin::import-products.importxml",
-        "inversedBy": "blacklist_map"
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::import-products.importxml",
+      "inversedBy": "blacklist_map"
     },
     "parentcategory": {
-        "type": "relation",
-        "relation": "manyToOne",
-        "target": "plugin::import-products.blacklistmap",
-        "inversedBy": "subcategory"
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::import-products.blacklistmap",
+      "inversedBy": "subcategory"
     },
     "subcategory": {
-        "type": "relation",
-        "relation": "oneToMany",
-        "target": "plugin::import-products.blacklistmap",
-        "mappedBy": "parentcategory"
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "plugin::import-products.blacklistmap",
+      "mappedBy": "parentcategory"
     }
   }
 }

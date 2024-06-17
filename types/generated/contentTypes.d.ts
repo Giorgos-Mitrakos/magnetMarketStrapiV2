@@ -601,6 +601,14 @@ export interface PluginImportProductsImportxml extends Schema.CollectionType {
     draftAndPublish: false;
     comment: '';
   };
+  pluginOptions: {
+    'content-manager': {
+      visible: true;
+    };
+    'content-type-builder': {
+      visible: false;
+    };
+  };
   attributes: {
     name: Attribute.String & Attribute.Required;
     availability: Attribute.Integer &
@@ -615,7 +623,7 @@ export interface PluginImportProductsImportxml extends Schema.CollectionType {
       > &
       Attribute.DefaultTo<0>;
     isActive: Attribute.Boolean & Attribute.DefaultTo<true>;
-    importedFile: Attribute.Media;
+    importedFile: Attribute.Media<'files'>;
     importedURL: Attribute.Text;
     minimumPrice: Attribute.Decimal &
       Attribute.SetMinMax<
@@ -700,6 +708,14 @@ export interface PluginImportProductsCategorymap extends Schema.CollectionType {
     draftAndPublish: false;
     comment: '';
   };
+  pluginOptions: {
+    'content-manager': {
+      visible: false;
+    };
+    'content-type-builder': {
+      visible: false;
+    };
+  };
   attributes: {
     name: Attribute.String & Attribute.Required;
     value: Attribute.String & Attribute.Required;
@@ -748,6 +764,14 @@ export interface PluginImportProductsBlacklistmap
     draftAndPublish: false;
     comment: '';
   };
+  pluginOptions: {
+    'content-manager': {
+      visible: false;
+    };
+    'content-type-builder': {
+      visible: false;
+    };
+  };
   attributes: {
     name: Attribute.String & Attribute.Required;
     related_import: Attribute.Relation<
@@ -794,6 +818,14 @@ export interface PluginImportProductsWhitelistmap
     draftAndPublish: false;
     comment: '';
   };
+  pluginOptions: {
+    'content-manager': {
+      visible: false;
+    };
+    'content-type-builder': {
+      visible: false;
+    };
+  };
   attributes: {
     name: Attribute.String;
     related_import: Attribute.Relation<
@@ -839,6 +871,14 @@ export interface PluginImportProductsCharnamemap extends Schema.CollectionType {
     draftAndPublish: false;
     comment: '';
   };
+  pluginOptions: {
+    'content-manager': {
+      visible: false;
+    };
+    'content-type-builder': {
+      visible: false;
+    };
+  };
   attributes: {
     name: Attribute.String & Attribute.Required;
     value: Attribute.String & Attribute.Required;
@@ -876,6 +916,14 @@ export interface PluginImportProductsCharvaluemap
     draftAndPublish: false;
     comment: '';
   };
+  pluginOptions: {
+    'content-manager': {
+      visible: false;
+    };
+    'content-type-builder': {
+      visible: false;
+    };
+  };
   attributes: {
     name: Attribute.String & Attribute.Required;
     value: Attribute.String & Attribute.Required;
@@ -912,6 +960,14 @@ export interface PluginImportProductsStockmap extends Schema.CollectionType {
     draftAndPublish: false;
     comment: '';
   };
+  pluginOptions: {
+    'content-manager': {
+      visible: false;
+    };
+    'content-type-builder': {
+      visible: false;
+    };
+  };
   attributes: {
     name: Attribute.String & Attribute.Required;
     related_import: Attribute.Relation<
@@ -947,6 +1003,14 @@ export interface PluginPlatformScrapperPlatformcategory
   options: {
     draftAndPublish: false;
     comment: '';
+  };
+  pluginOptions: {
+    'content-manager': {
+      visible: false;
+    };
+    'content-type-builder': {
+      visible: false;
+    };
   };
   attributes: {
     title: Attribute.String;
@@ -1188,7 +1252,7 @@ export interface ApiBrandBrand extends Schema.CollectionType {
   attributes: {
     name: Attribute.String & Attribute.Required;
     slug: Attribute.UID<'api::brand.brand', 'name'> & Attribute.Required;
-    logo: Attribute.Media;
+    logo: Attribute.Media<'images'>;
     products: Attribute.Relation<
       'api::brand.brand',
       'oneToMany',
@@ -1226,7 +1290,7 @@ export interface ApiCategoryCategory extends Schema.CollectionType {
   attributes: {
     name: Attribute.String & Attribute.Required;
     slug: Attribute.UID<'api::category.category', 'name'> & Attribute.Required;
-    image: Attribute.Media;
+    image: Attribute.Media<'images', true>;
     average_weight: Attribute.Decimal &
       Attribute.SetMinMax<
         {
@@ -1318,7 +1382,7 @@ export interface ApiPlatformPlatform extends Schema.CollectionType {
   attributes: {
     name: Attribute.String & Attribute.Required;
     entryURL: Attribute.String & Attribute.Required;
-    merchantFeeCatalogue: Attribute.Media;
+    merchantFeeCatalogue: Attribute.Media<'files'>;
     export_categories: Attribute.Relation<
       'api::platform.platform',
       'manyToMany',
@@ -1388,9 +1452,12 @@ export interface ApiProductProduct extends Schema.CollectionType {
     is_sale: Attribute.Boolean & Attribute.DefaultTo<false>;
     is_hot: Attribute.Boolean & Attribute.DefaultTo<false>;
     inventory: Attribute.Integer & Attribute.DefaultTo<0>;
-    additionalFiles: Attribute.Media;
-    image: Attribute.Media;
-    additionalImages: Attribute.Media;
+    additionalFiles: Attribute.Media<'files'>;
+    image: Attribute.Media<'images'>;
+    additionalImages: Attribute.Media<
+      'images' | 'files' | 'videos' | 'audios',
+      true
+    >;
     status: Attribute.Enumeration<
       ['InStock', 'MediumStock', 'LowStock', 'Backorder', 'OutOfStock']
     > &
