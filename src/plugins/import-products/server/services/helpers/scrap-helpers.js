@@ -85,7 +85,7 @@ module.exports = ({ strapi }) => ({
         try {
             await promiseFactory.click()
             return await page.waitForResponse((response) => {
-                return response.url().startsWith("https://www.globalsat.gr/b2b/catalog/list-product")
+                return response.url().startsWith("https://eshop.globalsat.gr/b2b/catalog/list-product")
             },
                 { timeout: 10000 }); 
         } catch (error) {

@@ -43,6 +43,17 @@ module.exports = ({ strapi }) => ({
 
     },
 
+    async acceptCookies(body) {
+        try {
+            const acceptCookiesBtn = await body.$('button#onetrust-accept-btn-handler')
+            if (acceptCookiesBtn) {
+                await acceptCookiesBtn.click()
+            }
+        } catch (error) {
+            console.log(error)
+        }
+    },
+
     async loginGlobalsat(page, supplier) {
         try {
 
@@ -53,10 +64,7 @@ module.exports = ({ strapi }) => ({
                 .service('scrapHelpers')
                 .sleep(1500)
 
-            const acceptCookiesBtn = await body.$(' #onetrust-button-group  #onetrust-accept-btn-handler')
-            if (acceptCookiesBtn) {
-                await acceptCookiesBtn.click()
-            }
+            await this.acceptCookies(body)
 
             const mainContent = await body.$('.main-content')
             const loginForm = await mainContent.$('.b2bLogin')
@@ -131,18 +139,20 @@ module.exports = ({ strapi }) => ({
                 .plugin('import-products')
                 .service('scrapHelpers')
                 .retry(
-                    () => page.goto('https://www.globalsat.gr/b2b/', { waitUntil: "networkidle0" }),
+                    () => page.goto('https://eshop.globalsat.gr/b2b/', { waitUntil: "networkidle0" }),
                     10, // retry this 10 times,
                     false
                 );
             await strapi
                 .plugin('import-products')
                 .service('scrapHelpers')
-                .sleep(1500)
+                .sleep(1500) 
 
             await this.loginGlobalsat(page, entry.name)
 
             const newBody = await page.$('body');
+
+            await this.acceptCookies(newBody)
 
             const categories = await this.scrapGlobalsatCategories(newBody)
 
@@ -168,7 +178,7 @@ module.exports = ({ strapi }) => ({
                             .sleep(strapi
                                 .plugin('import-products')
                                 .service('scrapHelpers')
-                                .randomWait(5000, 10000))
+                                .randomWait(4000, 8000))
                         await this.scrapGlobalsatCategory(browser, category, subCategory, sub2Category, sortedBrandArray, importRef, entry)
                     }
                 }
@@ -184,6 +194,8 @@ module.exports = ({ strapi }) => ({
 
     async scrapGlobalsatCategories(body) {
         try {
+            // await this.acceptCookies(body)
+
             let scrap = await body.evaluate(() => {
                 const categoriesNav = document.querySelectorAll('.menu-content>ul>.parent>ul>li');
 
@@ -276,7 +288,7 @@ module.exports = ({ strapi }) => ({
                 }
                 return product
             }, index)
-            
+
             return productCard
         } catch (error) {
             console.log(error)
@@ -300,6 +312,10 @@ module.exports = ({ strapi }) => ({
                     10, // retry this 10 times,
                     false
                 );
+
+            const body = await page.$('body');
+            await this.acceptCookies(body)
+
             const cards = []
 
             const productListWrapper = await page.$('div.list-productlisting');
@@ -477,6 +493,10 @@ module.exports = ({ strapi }) => ({
             status = status.status();
 
             if (status !== 404) {
+
+                const body = await page.$('body');
+                await this.acceptCookies(body)
+
                 const availableProductsCheck = await page.$('#headerStock');
                 await availableProductsCheck.scrollIntoView({ behavior: 'smooth' });
                 const isChecked = await (await availableProductsCheck.getProperty("checked")).jsonValue()
@@ -487,9 +507,10 @@ module.exports = ({ strapi }) => ({
                     .sleep(strapi
                         .plugin('import-products')
                         .service('scrapHelpers')
-                        .randomWait(600, 800))
+                        .randomWait(1000, 1500))
 
-                if (isChecked && isChecked === '') {
+                console.log(isChecked)
+                if (isChecked) {
                     availableProductsCheck.click()
                     await page.waitForNavigation()
                 }
@@ -582,6 +603,9 @@ module.exports = ({ strapi }) => ({
                     false
                 );
 
+            const body = await page.$('body');
+            await this.acceptCookies(body)
+
             const productPage = await page.$('div.productWrapper');
 
             const scrapProduct = await productPage.evaluate(() => {
@@ -602,7 +626,7 @@ module.exports = ({ strapi }) => ({
                 const supplierCodeSpansWrapper = supplierCodeWrapper.querySelectorAll('span');
                 product.supplierCode = supplierCodeSpansWrapper[supplierCodeSpansWrapper.length - 1].textContent.trim();
 
-                const baseUrl = 'https://www.globalsat.gr'
+                const baseUrl = 'https://eshop.globalsat.gr'
                 product.imagesSrc = []
                 const productMainImgUrl = document.querySelector('.images a');
                 product.imagesSrc.push({ url: `${baseUrl}${productMainImgUrl.getAttribute('href')}` })
