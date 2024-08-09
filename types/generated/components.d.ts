@@ -49,6 +49,17 @@ export interface SharedMetaSocial extends Schema.Component {
   };
 }
 
+export interface ImportsContainsName extends Schema.Component {
+  collectionName: 'components_imports_contains_names';
+  info: {
+    displayName: 'contains-name';
+  };
+  attributes: {
+    name: Attribute.String & Attribute.Required;
+    value: Attribute.String & Attribute.Required;
+  };
+}
+
 export interface ProductsShop extends Schema.Component {
   collectionName: 'components_products_shops';
   info: {
@@ -151,17 +162,6 @@ export interface ProductsChars extends Schema.Component {
   };
 }
 
-export interface ImportsContainsName extends Schema.Component {
-  collectionName: 'components_imports_contains_names';
-  info: {
-    displayName: 'contains-name';
-  };
-  attributes: {
-    name: Attribute.String & Attribute.Required;
-    value: Attribute.String & Attribute.Required;
-  };
-}
-
 export interface GlobalLink extends Schema.Component {
   collectionName: 'components_global_links';
   info: {
@@ -237,13 +237,13 @@ declare module '@strapi/types' {
     export interface Components {
       'shared.seo': SharedSeo;
       'shared.meta-social': SharedMetaSocial;
+      'imports.contains-name': ImportsContainsName;
       'products.shop': ProductsShop;
       'products.price-progress': ProductsPriceProgress;
       'products.platform': ProductsPlatform;
       'products.info': ProductsInfo;
       'products.images-supplier-urls': ProductsImagesSupplierUrls;
       'products.chars': ProductsChars;
-      'imports.contains-name': ImportsContainsName;
       'global.link': GlobalLink;
       'global.link-section': GlobalLinkSection;
       'categories.percentage': CategoriesPercentage;

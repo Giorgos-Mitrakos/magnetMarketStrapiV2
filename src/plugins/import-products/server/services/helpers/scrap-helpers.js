@@ -11,7 +11,7 @@ module.exports = ({ strapi }) => ({
             puppeteer.use(StealthPlugin())
             return await puppeteer.launch({
                 headless: false,
-                executablePath: 'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+                executablePath: 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
                 args: ['--no-sandbox', '--disable-setuid-sandbox']
             });
         } catch (error) {
@@ -25,7 +25,7 @@ module.exports = ({ strapi }) => ({
 
             const page = await browser.newPage();
             await page.setViewport({ width: 1400, height: 600 })
-            await page.setUserAgent(agents)
+            await page.setUserAgent(agents) 
 
             if (!loadImages) {
                 await page.setRequestInterception(true)
