@@ -1,0 +1,75 @@
+{
+  "kind": "collectionType",
+  "collectionName": "user_addresses",
+  "info": {
+    "singularName": "user-address",
+    "pluralName": "user-addresses",
+    "displayName": "user-address",
+    "description": ""
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "firstname": {
+      "type": "string"
+    },
+    "lastname": {
+      "type": "string"
+    },
+    "telephone": {
+      "type": "string"
+    },
+    "mobilePhone": {
+      "type": "string"
+    },
+    "street": {
+      "type": "string"
+    },
+    "city": {
+      "type": "string"
+    },
+    "state": {
+      "type": "string"
+    },
+    "zipCode": {
+      "type": "string"
+    },
+    "country": {
+      "type": "string"
+    },
+    "afm": {
+      "type": "string"
+    },
+    "doy": {
+      "type": "string"
+    },
+    "companyName": {
+      "type": "string"
+    },
+    "businessActivity": {
+      "type": "string"
+    },
+    "isInvoice": {
+      "type": "boolean",
+      "default": false,
+      "required": true
+    },
+    "email_address": {
+      "type": "email"
+    },
+    "user_shipping": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user",
+      "inversedBy": "shipping_address"
+    },
+    "user_billing": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user",
+      "inversedBy": "billing_addresses"
+    }
+  }
+}

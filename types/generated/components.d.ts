@@ -1,94 +1,84 @@
 import type { Schema, Attribute } from '@strapi/strapi';
 
-export interface CategoriesBrandPercent extends Schema.Component {
-  collectionName: 'components_categories_brand_percents';
+export interface SharedSeo extends Schema.Component {
+  collectionName: 'components_shared_seos';
   info: {
-    displayName: 'brand_percent';
+    displayName: 'Seo';
   };
   attributes: {
-    brand: Attribute.Relation<
-      'categories.brand-percent',
-      'oneToOne',
-      'api::brand.brand'
-    >;
-    percentage: Attribute.Decimal & Attribute.Required;
-  };
-}
-
-export interface CategoriesPercentage extends Schema.Component {
-  collectionName: 'components_categories_percentages';
-  info: {
-    displayName: 'percentage';
-    description: '';
-  };
-  attributes: {
-    percentage: Attribute.Decimal;
-    brand_perc: Attribute.Component<'categories.brand-percent', true>;
-    add_to_price: Attribute.Decimal &
+    metaTitle: Attribute.String &
       Attribute.Required &
-      Attribute.SetMinMax<
-        {
-          min: 0;
-        },
-        number
-      > &
-      Attribute.DefaultTo<0>;
-    name: Attribute.Enumeration<['general', 'skroutz', 'shopflix']>;
+      Attribute.SetMinMaxLength<{
+        maxLength: 60;
+      }>;
+    metaDescription: Attribute.String &
+      Attribute.Required &
+      Attribute.SetMinMaxLength<{
+        maxLength: 160;
+      }>;
+    metaImage: Attribute.Media<'images' | 'files' | 'videos'> &
+      Attribute.Required;
+    metaSocial: Attribute.Component<'shared.meta-social', true>;
+    keywords: Attribute.Text;
+    metaRobots: Attribute.String;
+    structuredData: Attribute.JSON;
+    metaViewport: Attribute.String;
+    canonicalURL: Attribute.String;
   };
 }
 
-export interface ImportsContainsName extends Schema.Component {
-  collectionName: 'components_imports_contains_names';
+export interface SharedMetaSocial extends Schema.Component {
+  collectionName: 'components_shared_meta_socials';
   info: {
-    displayName: 'contains-name';
+    displayName: 'MetaSocial';
   };
   attributes: {
-    name: Attribute.String & Attribute.Required;
-    value: Attribute.String & Attribute.Required;
+    socialNetwork: Attribute.Enumeration<['Facebook', 'Twitter']> &
+      Attribute.Required;
+    title: Attribute.String &
+      Attribute.Required &
+      Attribute.SetMinMaxLength<{
+        maxLength: 60;
+      }>;
+    description: Attribute.String &
+      Attribute.Required &
+      Attribute.SetMinMaxLength<{
+        maxLength: 65;
+      }>;
+    image: Attribute.Media<'images' | 'files' | 'videos', true>;
   };
 }
 
-export interface ProductsChars extends Schema.Component {
-  collectionName: 'components_products_chars';
+export interface ProductsShop extends Schema.Component {
+  collectionName: 'components_products_shops';
   info: {
-    displayName: 'Chars';
-  };
-  attributes: {
-    name: Attribute.String & Attribute.Required;
-    value: Attribute.String;
-  };
-}
-
-export interface ProductsImagesSupplierUrls extends Schema.Component {
-  collectionName: 'components_products_images_supplier_urls';
-  info: {
-    displayName: 'imagesSupplierURLS';
-  };
-  attributes: {
-    url: Attribute.String;
-  };
-}
-
-export interface ProductsInfo extends Schema.Component {
-  collectionName: 'components_products_infos';
-  info: {
-    displayName: 'Info';
+    displayName: 'shop';
     description: '';
   };
   attributes: {
-    name: Attribute.String;
-    supplierProductId: Attribute.String;
+    name: Attribute.String & Attribute.Required;
+    availability: Attribute.String & Attribute.Required;
+    is_pro: Attribute.Boolean & Attribute.DefaultTo<false>;
+    is_express: Attribute.Boolean &
+      Attribute.Required &
+      Attribute.DefaultTo<false>;
+    price: Attribute.Decimal;
+    marketplace_shipping: Attribute.Decimal & Attribute.DefaultTo<0>;
+    shop_shipping: Attribute.Decimal & Attribute.DefaultTo<0>;
+  };
+}
+
+export interface ProductsPriceProgress extends Schema.Component {
+  collectionName: 'components_products_price_progresses';
+  info: {
+    displayName: 'Price Progress';
+  };
+  attributes: {
+    date: Attribute.DateTime;
     wholesale: Attribute.Decimal & Attribute.Required;
-    quantity: Attribute.Integer;
-    supplierProductURL: Attribute.String;
-    recycle_tax: Attribute.Decimal &
-      Attribute.Required &
-      Attribute.DefaultTo<0>;
     in_offer: Attribute.Boolean & Attribute.DefaultTo<false>;
-    initial_retail_price: Attribute.Decimal;
-    retail_price: Attribute.Decimal;
-    in_stock: Attribute.Boolean & Attribute.DefaultTo<true>;
-    price_progress: Attribute.Component<'products.price-progress', true>;
+    discount: Attribute.Decimal;
+    initial_wholesale: Attribute.Decimal;
   };
 }
 
@@ -117,102 +107,148 @@ export interface ProductsPlatform extends Schema.Component {
   };
 }
 
-export interface ProductsPriceProgress extends Schema.Component {
-  collectionName: 'components_products_price_progresses';
+export interface ProductsInfo extends Schema.Component {
+  collectionName: 'components_products_infos';
   info: {
-    displayName: 'Price Progress';
-  };
-  attributes: {
-    date: Attribute.DateTime;
-    wholesale: Attribute.Decimal & Attribute.Required;
-    in_offer: Attribute.Boolean & Attribute.DefaultTo<false>;
-    discount: Attribute.Decimal;
-    initial_wholesale: Attribute.Decimal;
-  };
-}
-
-export interface ProductsShop extends Schema.Component {
-  collectionName: 'components_products_shops';
-  info: {
-    displayName: 'shop';
+    displayName: 'Info';
     description: '';
   };
   attributes: {
+    name: Attribute.String;
+    supplierProductId: Attribute.String;
+    wholesale: Attribute.Decimal & Attribute.Required;
+    quantity: Attribute.Integer;
+    supplierProductURL: Attribute.String;
+    recycle_tax: Attribute.Decimal &
+      Attribute.Required &
+      Attribute.DefaultTo<0>;
+    in_offer: Attribute.Boolean & Attribute.DefaultTo<false>;
+    initial_retail_price: Attribute.Decimal;
+    retail_price: Attribute.Decimal;
+    in_stock: Attribute.Boolean & Attribute.DefaultTo<true>;
+    price_progress: Attribute.Component<'products.price-progress', true>;
+  };
+}
+
+export interface ProductsImagesSupplierUrls extends Schema.Component {
+  collectionName: 'components_products_images_supplier_urls';
+  info: {
+    displayName: 'imagesSupplierURLS';
+  };
+  attributes: {
+    url: Attribute.String;
+  };
+}
+
+export interface ProductsChars extends Schema.Component {
+  collectionName: 'components_products_chars';
+  info: {
+    displayName: 'Chars';
+  };
+  attributes: {
     name: Attribute.String & Attribute.Required;
-    availability: Attribute.String & Attribute.Required;
-    is_pro: Attribute.Boolean & Attribute.DefaultTo<false>;
-    is_express: Attribute.Boolean &
-      Attribute.Required &
-      Attribute.DefaultTo<false>;
-    price: Attribute.Decimal;
-    marketplace_shipping: Attribute.Decimal & Attribute.DefaultTo<0>;
-    shop_shipping: Attribute.Decimal & Attribute.DefaultTo<0>;
+    value: Attribute.String;
   };
 }
 
-export interface SharedMetaSocial extends Schema.Component {
-  collectionName: 'components_shared_meta_socials';
+export interface ImportsContainsName extends Schema.Component {
+  collectionName: 'components_imports_contains_names';
   info: {
-    displayName: 'MetaSocial';
+    displayName: 'contains-name';
   };
   attributes: {
-    socialNetwork: Attribute.Enumeration<['Facebook', 'Twitter']> &
-      Attribute.Required;
-    title: Attribute.String &
-      Attribute.Required &
-      Attribute.SetMinMaxLength<{
-        maxLength: 60;
-      }>;
-    description: Attribute.String &
-      Attribute.Required &
-      Attribute.SetMinMaxLength<{
-        maxLength: 65;
-      }>;
-    image: Attribute.Media<'images' | 'files' | 'videos', true>;
+    name: Attribute.String & Attribute.Required;
+    value: Attribute.String & Attribute.Required;
   };
 }
 
-export interface SharedSeo extends Schema.Component {
-  collectionName: 'components_shared_seos';
+export interface GlobalLink extends Schema.Component {
+  collectionName: 'components_global_links';
   info: {
-    displayName: 'Seo';
+    displayName: 'link';
   };
   attributes: {
-    metaTitle: Attribute.String &
+    label: Attribute.String;
+    url: Attribute.String;
+    isLink: Attribute.Boolean;
+  };
+}
+
+export interface GlobalLinkSection extends Schema.Component {
+  collectionName: 'components_global_link_sections';
+  info: {
+    displayName: 'link_section';
+  };
+  attributes: {
+    Label: Attribute.String;
+    links: Attribute.Component<'global.link', true>;
+  };
+}
+
+export interface CategoriesPercentage extends Schema.Component {
+  collectionName: 'components_categories_percentages';
+  info: {
+    displayName: 'percentage';
+    description: '';
+  };
+  attributes: {
+    percentage: Attribute.Decimal;
+    brand_perc: Attribute.Component<'categories.brand-percent', true>;
+    add_to_price: Attribute.Decimal &
       Attribute.Required &
-      Attribute.SetMinMaxLength<{
-        maxLength: 60;
-      }>;
-    metaDescription: Attribute.String &
-      Attribute.Required &
-      Attribute.SetMinMaxLength<{
-        maxLength: 160;
-      }>;
-    metaImage: Attribute.Media<'images' | 'files' | 'videos'> &
-      Attribute.Required;
-    metaSocial: Attribute.Component<'shared.meta-social', true>;
-    keywords: Attribute.Text;
-    metaRobots: Attribute.String;
-    structuredData: Attribute.JSON;
-    metaViewport: Attribute.String;
-    canonicalURL: Attribute.String;
+      Attribute.SetMinMax<
+        {
+          min: 0;
+        },
+        number
+      > &
+      Attribute.DefaultTo<0>;
+    name: Attribute.Enumeration<['general', 'skroutz', 'shopflix']>;
+  };
+}
+
+export interface CategoriesFilters extends Schema.Component {
+  collectionName: 'components_categories_filters';
+  info: {
+    displayName: 'Filters';
+  };
+  attributes: {
+    name: Attribute.String;
+  };
+}
+
+export interface CategoriesBrandPercent extends Schema.Component {
+  collectionName: 'components_categories_brand_percents';
+  info: {
+    displayName: 'brand_percent';
+  };
+  attributes: {
+    brand: Attribute.Relation<
+      'categories.brand-percent',
+      'oneToOne',
+      'api::brand.brand'
+    >;
+    percentage: Attribute.Decimal & Attribute.Required;
   };
 }
 
 declare module '@strapi/types' {
   export module Shared {
     export interface Components {
-      'categories.brand-percent': CategoriesBrandPercent;
-      'categories.percentage': CategoriesPercentage;
-      'imports.contains-name': ImportsContainsName;
-      'products.chars': ProductsChars;
-      'products.images-supplier-urls': ProductsImagesSupplierUrls;
-      'products.info': ProductsInfo;
-      'products.platform': ProductsPlatform;
-      'products.price-progress': ProductsPriceProgress;
-      'products.shop': ProductsShop;
-      'shared.meta-social': SharedMetaSocial;
       'shared.seo': SharedSeo;
+      'shared.meta-social': SharedMetaSocial;
+      'products.shop': ProductsShop;
+      'products.price-progress': ProductsPriceProgress;
+      'products.platform': ProductsPlatform;
+      'products.info': ProductsInfo;
+      'products.images-supplier-urls': ProductsImagesSupplierUrls;
+      'products.chars': ProductsChars;
+      'imports.contains-name': ImportsContainsName;
+      'global.link': GlobalLink;
+      'global.link-section': GlobalLinkSection;
+      'categories.percentage': CategoriesPercentage;
+      'categories.filters': CategoriesFilters;
+      'categories.brand-percent': CategoriesBrandPercent;
     }
   }
 }

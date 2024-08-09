@@ -5,9 +5,10 @@ const Axios = require('axios');
 const fs = require('fs');
 const stream = require('stream');
 const path = require('path');
-const promisify = require('util').promisify;
+const { promisify } = require('util');
 const mime = require('mime-types');
 const sharp = require('sharp');
+const pipeline = promisify(stream.pipeline);
 
 module.exports = ({ strapi }) => ({
     async getAndConvertImgToWep(product) {
@@ -43,11 +44,11 @@ module.exports = ({ strapi }) => ({
                     imageIDS.imgUrls.push(imgUrl)
 
                     await sharpStream
-                        .webp({ quality: 75 })
-                        .resize({ width: 1000 })
-                        .toFile(`./public/tmp/${productName}_${index}.webp`)
+                        .resize({ width: 1024 })
+                        .toFormat('jpg')
+                        .toFile(`./public/tmp/${productName}_${index}.jpg`)
                         .then(async () => {
-                            const image = await this.upload(`./public/tmp/${productName}_${index}.webp`, 'uploads', productName);
+                            const image = await this.upload(`./public/tmp/${productName}_${index}.jpg`, 'uploads', productName);
                             return image
                         })
                         .then((image) => {
@@ -57,8 +58,8 @@ module.exports = ({ strapi }) => ({
                         .catch(err => {
                             console.error("Error processing files, let's clean it up", err, "File:", product.name, imgUrl, "supplier Code:", product.supplierCode);
                             try {
-                                if (fs.existsSync(`./public/tmp/${productName}_${index}.webp`)) {
-                                    fs.unlinkSync(`./public/tmp/${productName}_${index}.webp`);
+                                if (fs.existsSync(`./public/tmp/${productName}_${index}.jpg`)) {
+                                    fs.unlinkSync(`./public/tmp/${productName}_${index}.jpg`);
                                 }
                             } catch (e) {
                                 console.log(e)
@@ -113,7 +114,7 @@ module.exports = ({ strapi }) => ({
                         });
                     })
                         .then(async () => {
-                            const file = await this.upload(`./public/tmp/${productName}_${index}.pdf`, 'uploads');
+                            const file = await this.upload(`./public/tmp/${productName}_${index}.pdf`, 'uploads', productName);
                             return file
                         }).then((file) => {
                             additionalFileID.push(file.id)
@@ -136,14 +137,14 @@ module.exports = ({ strapi }) => ({
             }
 
             if (additionalFileID.length === 0) { return }
-
-            return additionalFileID
+            
+            return additionalFileID[0]
         } catch (error) {
             console.log("Error in upload additional File:", error)
         }
     },
 
-    getFileDetails(filePath) {
+    async getFileDetails(filePath) {
         return new Promise((resolve, reject) => {
             fs.stat(filePath, (err, stats) => {
                 if (err) reject(err.message);
@@ -152,13 +153,18 @@ module.exports = ({ strapi }) => ({
         });
     },
 
-    deleteFile(filePath) {
-        return new Promise((resolve, reject) => {
-            fs.unlink(filePath, (err) => {
-                if (err) reject(err.message);
-                resolve('deleted');
+    async deleteFile(filePath) {
+        try {
+            return new Promise((resolve, reject) => {
+                fs.unlink(filePath, (err) => {
+                    if (err) reject(err.message);
+                    resolve('deleted');
+                });
             });
-        });
+
+        } catch (error) {
+            console.log("Error in deleteFile:", error)
+        }
     },
 
     async uploadToLibrary(imageByteStreamURL) {

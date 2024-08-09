@@ -1193,7 +1193,6 @@ export interface PluginUsersPermissionsUser extends Schema.CollectionType {
   };
   options: {
     draftAndPublish: false;
-    timestamps: true;
   };
   attributes: {
     username: Attribute.String &
@@ -1221,6 +1220,16 @@ export interface PluginUsersPermissionsUser extends Schema.CollectionType {
       'plugin::users-permissions.user',
       'manyToOne',
       'plugin::users-permissions.role'
+    >;
+    shipping_address: Attribute.Relation<
+      'plugin::users-permissions.user',
+      'oneToMany',
+      'api::user-address.user-address'
+    >;
+    billing_addresses: Attribute.Relation<
+      'plugin::users-permissions.user',
+      'oneToMany',
+      'api::user-address.user-address'
     >;
     createdAt: Attribute.DateTime;
     updatedAt: Attribute.DateTime;
@@ -1320,6 +1329,7 @@ export interface ApiCategoryCategory extends Schema.CollectionType {
       'api::platform.platform'
     >;
     cat_percentage: Attribute.Component<'categories.percentage', true>;
+    filters: Attribute.Component<'categories.filters', true>;
     createdAt: Attribute.DateTime;
     updatedAt: Attribute.DateTime;
     publishedAt: Attribute.DateTime;
@@ -1331,6 +1341,43 @@ export interface ApiCategoryCategory extends Schema.CollectionType {
       Attribute.Private;
     updatedBy: Attribute.Relation<
       'api::category.category',
+      'oneToOne',
+      'admin::user'
+    > &
+      Attribute.Private;
+  };
+}
+
+export interface ApiFooterFooter extends Schema.SingleType {
+  collectionName: 'footers';
+  info: {
+    singularName: 'footer';
+    pluralName: 'footers';
+    displayName: 'Footer';
+    description: '';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    telephone: Attribute.String;
+    opening_hours: Attribute.String;
+    address: Attribute.String;
+    city: Attribute.String;
+    postcode: Attribute.String;
+    sections: Attribute.Component<'global.link-section', true>;
+    email: Attribute.Email;
+    createdAt: Attribute.DateTime;
+    updatedAt: Attribute.DateTime;
+    publishedAt: Attribute.DateTime;
+    createdBy: Attribute.Relation<
+      'api::footer.footer',
+      'oneToOne',
+      'admin::user'
+    > &
+      Attribute.Private;
+    updatedBy: Attribute.Relation<
+      'api::footer.footer',
       'oneToOne',
       'admin::user'
     > &
@@ -1524,6 +1571,62 @@ export interface ApiProductProduct extends Schema.CollectionType {
   };
 }
 
+export interface ApiUserAddressUserAddress extends Schema.CollectionType {
+  collectionName: 'user_addresses';
+  info: {
+    singularName: 'user-address';
+    pluralName: 'user-addresses';
+    displayName: 'user-address';
+    description: '';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    firstname: Attribute.String;
+    lastname: Attribute.String;
+    telephone: Attribute.String;
+    mobilePhone: Attribute.String;
+    street: Attribute.String;
+    city: Attribute.String;
+    state: Attribute.String;
+    zipCode: Attribute.String;
+    country: Attribute.String;
+    afm: Attribute.String;
+    doy: Attribute.String;
+    companyName: Attribute.String;
+    businessActivity: Attribute.String;
+    isInvoice: Attribute.Boolean &
+      Attribute.Required &
+      Attribute.DefaultTo<false>;
+    email_address: Attribute.Email;
+    user_shipping: Attribute.Relation<
+      'api::user-address.user-address',
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
+    user_billing: Attribute.Relation<
+      'api::user-address.user-address',
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
+    createdAt: Attribute.DateTime;
+    updatedAt: Attribute.DateTime;
+    createdBy: Attribute.Relation<
+      'api::user-address.user-address',
+      'oneToOne',
+      'admin::user'
+    > &
+      Attribute.Private;
+    updatedBy: Attribute.Relation<
+      'api::user-address.user-address',
+      'oneToOne',
+      'admin::user'
+    > &
+      Attribute.Private;
+  };
+}
+
 declare module '@strapi/types' {
   export module Shared {
     export interface ContentTypes {
@@ -1552,9 +1655,11 @@ declare module '@strapi/types' {
       'plugin::users-permissions.user': PluginUsersPermissionsUser;
       'api::brand.brand': ApiBrandBrand;
       'api::category.category': ApiCategoryCategory;
+      'api::footer.footer': ApiFooterFooter;
       'api::newsletter.newsletter': ApiNewsletterNewsletter;
       'api::platform.platform': ApiPlatformPlatform;
       'api::product.product': ApiProductProduct;
+      'api::user-address.user-address': ApiUserAddressUserAddress;
     }
   }
 }

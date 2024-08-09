@@ -1,0 +1,18 @@
+{
+  "collectionName": "components_global_links",
+  "info": {
+    "displayName": "link"
+  },
+  "options": {},
+  "attributes": {
+    "label": {
+      "type": "string"
+    },
+    "url": {
+      "type": "string"
+    },
+    "isLink": {
+      "type": "boolean"
+    }
+  }
+}

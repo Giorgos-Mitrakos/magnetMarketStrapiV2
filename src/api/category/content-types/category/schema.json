@@ -63,6 +63,12 @@
       "type": "component",
       "repeatable": true,
       "component": "categories.percentage"
+    },
+    "filters": {
+      "displayName": "Filters",
+      "type": "component",
+      "repeatable": true,
+      "component": "categories.filters"
     }
   }
 }

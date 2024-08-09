@@ -1,0 +1,17 @@
+{
+  "collectionName": "components_global_link_sections",
+  "info": {
+    "displayName": "link_section"
+  },
+  "options": {},
+  "attributes": {
+    "Label": {
+      "type": "string"
+    },
+    "links": {
+      "type": "component",
+      "repeatable": true,
+      "component": "global.link"
+    }
+  }
+}

@@ -499,7 +499,7 @@ module.exports = ({ strapi }) => ({
                 // }
             }
 
-            if (Object.keys(data).length !== 0) {                
+            if (Object.keys(data).length !== 0) {
                 await strapi.entityService.update('api::product.product', entryCheck.id, {
                     data
                 });
@@ -520,7 +520,7 @@ module.exports = ({ strapi }) => ({
                     break;
             }
         } catch (error) {
-            console.log("entryCheck:",entryCheck, "product:",product)
+            console.log("entryCheck:", entryCheck, "product:", product)
             console.log(error, error?.details?.errors)
         }
     },
@@ -537,17 +537,14 @@ module.exports = ({ strapi }) => ({
                                         publishedAt: { $notNull: true, }
                                     },
                                     {
-                                        $and: [
-                                            {
-                                                supplierInfo: {
-                                                    name: entry.name
-                                                },
-                                            },
-                                            {
-                                                supplierInfo: {
+                                        supplierInfo: {
+                                            $and: [
+                                                { name: entry.name },
+                                                {
                                                     in_stock: true
-                                                },
-                                            }]
+                                                }
+                                            ]
+                                        },
                                     },
                                 ]
                             },
@@ -601,7 +598,7 @@ module.exports = ({ strapi }) => ({
                     else {
                         data.supplierInfo = supplierInfo
                         data.deletedAt = new Date();
-                        if (!checkProduct.inventory || checkProduct.inventory !== 0) { data.publishedAt = null }
+                        if (!checkProduct.inventory || checkProduct.inventory === 0) { data.publishedAt = null }
                     }
 
                     // Ενημερώνω τη βάση με τις νέες τιμές του προϊόντος 

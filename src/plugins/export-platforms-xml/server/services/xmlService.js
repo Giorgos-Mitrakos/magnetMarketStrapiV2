@@ -278,20 +278,20 @@ module.exports = ({ strapi }) => ({
             else {
                 if (platformName === "skroutz") { availability = "Διαθέσιμο από 4-10 ημέρες" }
                 else {
-                    availability = cheaperAvailableSupplier.availability + 1
+                    availability = cheaperAvailableSupplier.availability
                 }
             }
         }
         else if (cheaperAvailableSupplier.availability < 5) {
             if (platformName === "skroutz") { availability = "Διαθέσιμο από 4-10 ημέρες" }
             else {
-                availability = cheaperAvailableSupplier.availability + 1
+                availability = cheaperAvailableSupplier.availability 
             }
         }
         else {
             if (platformName === "skroutz") { availability = "Διαθέσιμο από 10 έως 30 ημέρες" }
             else {
-                availability = cheaperAvailableSupplier.availability + 1
+                availability = cheaperAvailableSupplier.availability
             }
         }
         return { availability }
