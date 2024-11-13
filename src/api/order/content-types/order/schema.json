@@ -1,0 +1,83 @@
+{
+  "kind": "collectionType",
+  "collectionName": "orders",
+  "info": {
+    "singularName": "order",
+    "pluralName": "orders",
+    "displayName": "Order",
+    "description": ""
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "user": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user",
+      "inversedBy": "orders"
+    },
+    "products": {
+      "type": "json",
+      "required": true
+    },
+    "total": {
+      "type": "decimal",
+      "required": true,
+      "min": 0
+    },
+    "shipping": {
+      "displayName": "method",
+      "type": "component",
+      "repeatable": false,
+      "component": "shipping.method",
+      "required": true
+    },
+    "payment": {
+      "type": "component",
+      "repeatable": false,
+      "component": "shipping.method",
+      "required": true
+    },
+    "status": {
+      "type": "enumeration",
+      "enum": [
+        "Εκκρεμεί πληρωμή",
+        "Σε επεξεργασία",
+        "Σε αναμονή",
+        "Ολοκληρωμένη",
+        "Ακυρωμένη",
+        "Επιστροφή χρημάτων",
+        "Αποτυχημένη",
+        "Πρόχειρο"
+      ],
+      "required": true,
+      "default": "Σε αναμονή"
+    },
+    "comments": {
+      "displayName": "comment",
+      "type": "component",
+      "repeatable": true,
+      "component": "shipping.comment"
+    },
+    "different_shipping": {
+      "type": "boolean",
+      "default": false,
+      "required": true
+    },
+    "billing_address": {
+      "type": "json",
+      "required": true
+    },
+    "shipping_address": {
+      "type": "json",
+      "required": true
+    },
+    "isInvoice": {
+      "type": "boolean",
+      "default": false,
+      "required": true
+    }
+  }
+}

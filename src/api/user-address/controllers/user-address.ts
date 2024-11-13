@@ -23,4 +23,11 @@ export default factories.createCoreController('api::user-address.user-address', 
       type: "POST",
     };
   },
+  async getUserOrders(ctx) {
+    ctx.body = await strapi.service('api::user-address.user-address').getUserOrders(ctx);
+    return {
+      okay: true,
+      type: "GET",
+    };
+  },
 }));

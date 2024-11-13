@@ -1,0 +1,22 @@
+{
+  "collectionName": "components_shipping_comments",
+  "info": {
+    "displayName": "comment"
+  },
+  "options": {},
+  "attributes": {
+    "date": {
+      "type": "datetime"
+    },
+    "type": {
+      "type": "enumeration",
+      "enum": [
+        "Πελάτη",
+        "Προσωπική"
+      ]
+    },
+    "comment": {
+      "type": "text"
+    }
+  }
+}

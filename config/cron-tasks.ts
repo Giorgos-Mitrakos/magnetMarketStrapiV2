@@ -243,7 +243,7 @@ export default {
         task: async ({ strapi }) => {
             // Add your own logic here (e.g. send a queue of email, create a database backup, etc.).
             const entry = await strapi.db.query('plugin::import-products.importxml').findOne({
-                where: { name: "AciHellas" },
+                where: { name: "Acihellas" },
                 populate: {
                     importedFile: true,
                     stock_map: {
@@ -267,7 +267,7 @@ export default {
         task: async ({ strapi }) => {
             // Add your own logic here (e.g. send a queue of email, create a database backup, etc.).
             const entry = await strapi.db.query('plugin::import-products.importxml').findOne({
-                where: { name: "AciHellas" },
+                where: { name: "Acihellas" },
                 populate: {
                     importedFile: true,
                     stock_map: {
@@ -291,7 +291,7 @@ export default {
         task: async ({ strapi }) => {
             // Add your own logic here (e.g. send a queue of email, create a database backup, etc.).
             const entry = await strapi.db.query('plugin::import-products.importxml').findOne({
-                where: { name: "AciHellas" },
+                where: { name: "Acihellas" },
                 populate: {
                     importedFile: true,
                     stock_map: {

@@ -61,15 +61,15 @@
     },
     "user_shipping": {
       "type": "relation",
-      "relation": "manyToOne",
+      "relation": "oneToOne",
       "target": "plugin::users-permissions.user",
-      "inversedBy": "shipping_address"
+      "mappedBy": "shipping_address"
     },
     "user_billing": {
       "type": "relation",
-      "relation": "manyToOne",
+      "relation": "oneToOne",
       "target": "plugin::users-permissions.user",
-      "inversedBy": "billing_addresses"
+      "mappedBy": "billing_address"
     }
   }
 }

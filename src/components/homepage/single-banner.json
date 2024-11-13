@@ -1,0 +1,28 @@
+{
+  "collectionName": "components_homepage_single_banners",
+  "info": {
+    "displayName": "single banner",
+    "description": ""
+  },
+  "options": {},
+  "attributes": {
+    "singleBanner": {
+      "type": "media",
+      "multiple": false,
+      "required": true,
+      "allowedTypes": [
+        "images"
+      ]
+    },
+    "href": {
+      "type": "string",
+      "required": true
+    },
+    "target": {
+      "type": "enumeration",
+      "enum": [
+        "_blank"
+      ]
+    }
+  }
+}

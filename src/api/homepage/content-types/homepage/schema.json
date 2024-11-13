@@ -1,0 +1,39 @@
+{
+  "kind": "singleType",
+  "collectionName": "homepages",
+  "info": {
+    "singularName": "homepage",
+    "pluralName": "homepages",
+    "displayName": "Homepage",
+    "description": ""
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "Carousel": {
+      "type": "dynamiczone",
+      "components": [
+        "global.banner"
+      ]
+    },
+    "fixed_hero_banners": {
+      "type": "dynamiczone",
+      "components": [
+        "global.banner"
+      ]
+    },
+    "body": {
+      "type": "dynamiczone",
+      "components": [
+        "homepage.category-banner",
+        "homepage.banner-list-products",
+        "homepage.triple-banner",
+        "homepage.single-banner",
+        "homepage.double-banner",
+        "homepage.hot-or-sale"
+      ]
+    }
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "collectionName": "components_shipping_fees",
+  "info": {
+    "displayName": "fees"
+  },
+  "options": {},
+  "attributes": {
+    "basic_fee": {
+      "type": "decimal",
+      "required": true
+    },
+    "basic_weight": {
+      "type": "decimal",
+      "required": true
+    },
+    "fee_above_weight": {
+      "type": "decimal",
+      "required": true
+    }
+  }
+}

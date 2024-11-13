@@ -339,7 +339,7 @@ module.exports = ({ strapi }) => ({
             const isAvailable = this.filterScrappedProducts(importRef.categoryMap, product);
 
             if (!isAvailable)
-                return
+                return 
 
             const { entryCheck, brandId } = await strapi
                 .plugin('import-products')

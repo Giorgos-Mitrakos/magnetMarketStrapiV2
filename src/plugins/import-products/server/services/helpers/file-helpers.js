@@ -14,12 +14,13 @@ module.exports = ({ strapi }) => ({
     async getAndConvertImgToWep(product) {
 
         try {
-            let productName = product.name.replace(/[^A-Za-z0-9-_\s.~]/g, "");
+            let productName = product.name.replaceAll(/[^A-Za-z0-9-_\.~]/g, "").replaceAll(/[\s+]/g, "-").replace("\t", "");
 
             let index = 0
             const imageIDS = { mainImage: [], additionalImages: [], imgUrls: [] }
 
             for (let imgUrl of product.imagesSrc) {
+                console.log("imgUrl:",imgUrl.url) 
                 index += 1;
                 const sharpStream = sharp({
                     failOnError: false
@@ -27,19 +28,20 @@ module.exports = ({ strapi }) => ({
 
                 try {
                     let cont = false;
-                    const response = await Axios({
+                    const { body } = await fetch(imgUrl.url,{
                         method: 'get',
-                        url: imgUrl.url,
-                        responseType: 'stream'
+                        responseType: 'arrayBuffer'
                     }).catch(err => {
                         cont = true;
                     })
 
-                    if (cont) {
+                    if (cont) { 
                         break;
                     }
 
-                    await response && response !== null && response.data.pipe(sharpStream)
+                    const readableStream = stream.Readable.fromWeb(body); 
+
+                    readableStream.pipe(sharpStream)
 
                     imageIDS.imgUrls.push(imgUrl)
 
@@ -56,7 +58,7 @@ module.exports = ({ strapi }) => ({
                                 : imageIDS.additionalImages.push(image.id)
                         })
                         .catch(err => {
-                            console.error("Error processing files, let's clean it up", err, "File:", product.name, imgUrl, "supplier Code:", product.supplierCode);
+                            console.error("Error processing files, let's clean it up", err, "File:", productName, imgUrl, "supplier Code:", product.supplierCode);
                             try {
                                 if (fs.existsSync(`./public/tmp/${productName}_${index}.jpg`)) {
                                     fs.unlinkSync(`./public/tmp/${productName}_${index}.jpg`);
@@ -68,7 +70,7 @@ module.exports = ({ strapi }) => ({
                         })
 
                 } catch (error) {
-                    console.log("Axios Error:", error)
+                    console.log("Image error Error:", error)
                 }
             }
 
@@ -83,7 +85,7 @@ module.exports = ({ strapi }) => ({
     async getAdditionalFile(product) {
 
         try {
-            let productName = product.name.replace(/[^A-Za-z0-9-_\s.~]/g, "");
+            let productName = product.name.replaceAll(/[^A-Za-z0-9-_\.~]/g, "").replaceAll(/[\s+]/g, "-").replace("\t", "");
 
             let index = 0
             let additionalFileID = [];

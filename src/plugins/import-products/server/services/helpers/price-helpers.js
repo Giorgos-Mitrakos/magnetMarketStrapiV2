@@ -75,8 +75,8 @@ module.exports = ({ strapi }) => ({
         }
         else {
           let isGlobalsat = filteredSupplierInfo?.find(x => x.name.toLowerCase() === "globalsat")
-          const retailPrice = isGlobalsat ? isGlobalsat.retail_price :
-            (product.retail_price ? parseFloat(product.retail_price) : null)
+          const retailPrice = isGlobalsat ? isGlobalsat.retail_price : null
+            // (product.retail_price ? parseFloat(product.retail_price) : null)
           const suggestedPrice = retailPrice ? parseFloat(retailPrice) : null
           this.createPrices(existedProduct, prices, minPrices, suggestedPrice, skroutz, shopflix)
         }

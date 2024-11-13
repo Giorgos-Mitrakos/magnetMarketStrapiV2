@@ -297,6 +297,8 @@ module.exports = ({ strapi }) => ({
                 .service('productHelpers')
                 .saveSEO(data.image, product)
 
+            // console.log(data)
+
             const newEntry = await strapi.entityService.create('api::product.product', {
                 data: data,
             });

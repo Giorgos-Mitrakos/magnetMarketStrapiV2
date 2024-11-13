@@ -1,0 +1,21 @@
+{
+  "collectionName": "components_homepage_banner_list_products",
+  "info": {
+    "displayName": "ListProductsBanner",
+    "description": ""
+  },
+  "options": {},
+  "attributes": {
+    "title": {
+      "type": "string"
+    },
+    "subtitle": {
+      "type": "string"
+    },
+    "products": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::product.product"
+    }
+  }
+}

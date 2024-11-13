@@ -1,0 +1,18 @@
+{
+  "collectionName": "components_shipping_disprosites",
+  "info": {
+    "displayName": "disprosites"
+  },
+  "options": {},
+  "attributes": {
+    "region": {
+      "type": "string"
+    },
+    "state": {
+      "type": "string"
+    },
+    "postal": {
+      "type": "string"
+    }
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "collectionName": "components_homepage_double_banners",
+  "info": {
+    "displayName": "Double Banner",
+    "description": ""
+  },
+  "options": {},
+  "attributes": {
+    "rightBanner": {
+      "type": "media",
+      "multiple": false,
+      "required": true,
+      "allowedTypes": [
+        "images"
+      ]
+    },
+    "rightHref": {
+      "type": "string",
+      "required": true
+    },
+    "rightTarget": {
+      "type": "enumeration",
+      "enum": [
+        "_blank"
+      ]
+    },
+    "leftBanner": {
+      "type": "media",
+      "multiple": false,
+      "required": true,
+      "allowedTypes": [
+        "images"
+      ]
+    },
+    "leftHref": {
+      "type": "string",
+      "required": true
+    },
+    "leftTarget": {
+      "type": "enumeration",
+      "enum": [
+        "_blank"
+      ]
+    }
+  }
+}

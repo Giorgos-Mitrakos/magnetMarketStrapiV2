@@ -1,0 +1,37 @@
+{
+  "kind": "collectionType",
+  "collectionName": "regions",
+  "info": {
+    "singularName": "region",
+    "pluralName": "regions",
+    "displayName": "Region",
+    "description": ""
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "state": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::state.state",
+      "inversedBy": "regions"
+    },
+    "postal_codes": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::postal-code.postal-code",
+      "inversedBy": "regions"
+    },
+    "shippings": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::shipping.shipping",
+      "inversedBy": "disprosites_perioxes"
+    },
+    "name": {
+      "type": "string"
+    }
+  }
+}

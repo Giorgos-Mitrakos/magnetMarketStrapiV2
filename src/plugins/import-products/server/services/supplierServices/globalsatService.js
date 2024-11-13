@@ -54,11 +54,19 @@ module.exports = ({ strapi }) => ({
         }
     },
 
-    async loginGlobalsat(page, supplier) {
+    async closeAlert(body) {
         try {
+            const closeAlertBtn = await body.$('#onesignal-slidedown-cancel-button')
+            if (closeAlertBtn) {
+                await closeAlertBtn.click()
+            }
+        } catch (error) {
+            console.log(error)
+        }
+    },
 
-            const body = await page.$('body');
-
+    async loginGlobalsat(body, supplier) {
+        try {
             await strapi
                 .plugin('import-products')
                 .service('scrapHelpers')
@@ -67,7 +75,7 @@ module.exports = ({ strapi }) => ({
             await this.acceptCookies(body)
 
             const mainContent = await body.$('.main-content')
-            const loginForm = await mainContent.$('.b2bLogin')
+            const loginForm = await mainContent.$('.b2bLogin') 
 
             const username = await loginForm.$('#login-email_address');
             const password = await loginForm.$('#login-password');
@@ -146,11 +154,13 @@ module.exports = ({ strapi }) => ({
             await strapi
                 .plugin('import-products')
                 .service('scrapHelpers')
-                .sleep(1500) 
-
-            await this.loginGlobalsat(page, entry.name)
+                .sleep(2500)
 
             const newBody = await page.$('body');
+
+            await this.closeAlert(newBody)
+
+            await this.loginGlobalsat(newBody, entry.name)
 
             await this.acceptCookies(newBody)
 
@@ -278,7 +288,7 @@ module.exports = ({ strapi }) => ({
                 const retailPriceWrapper = priceWrapper.querySelector('.b2b_rrp_price');
                 const retailPriceSpanWrapper = retailPriceWrapper.querySelectorAll('span');
                 const retail_price = retailPriceSpanWrapper[1].textContent.replace('€', '').replace(',', '').trim();
-                product.retail_price = parseFloat(retail_price) / 1.24
+                product.retail_price = parseFloat(retail_price)
 
                 const stockWrapper = productsCard.querySelector('.in-stock');
                 if (stockWrapper) { product.stockLevel = stockWrapper.textContent.trim(); }
@@ -291,7 +301,9 @@ module.exports = ({ strapi }) => ({
 
             return productCard
         } catch (error) {
+            console.log("An error ocured")
             console.log(error)
+            return null
         }
     },
 
@@ -315,6 +327,7 @@ module.exports = ({ strapi }) => ({
 
             const body = await page.$('body');
             await this.acceptCookies(body)
+            await this.closeAlert(body)
 
             const cards = []
 
@@ -422,9 +435,11 @@ module.exports = ({ strapi }) => ({
                                         );
 
                                     const product = await this.scrapCard(await page, card.index)
-                                    const findProduct = products.findIndex(x => x.mpn === product.mpn)
-                                    if (findProduct === -1)
-                                        products.push(product)
+                                    if (product) {
+                                        const findProduct = products.findIndex(x => x.mpn === product.mpn)
+                                        if (findProduct === -1)
+                                            products.push(product)
+                                    }
                                 }
                             }
                             else {
@@ -448,18 +463,22 @@ module.exports = ({ strapi }) => ({
                                         );
                                 }
                                 const product = await this.scrapCard(await page, card.index)
-                                const findProduct = products.findIndex(x => x.mpn === product.mpn)
-                                if (findProduct === -1)
-                                    products.push(product)
+                                if (product) {
+                                    const findProduct = products.findIndex(x => x.mpn === product.mpn)
+                                    if (findProduct === -1)
+                                        products.push(product)
+                                }
                             }
                         }
                     }
                 }
                 else {
                     const product = await this.scrapCard(await page, card.index)
-                    const findProduct = products.findIndex(x => x.mpn === product.mpn)
-                    if (findProduct === -1)
-                        products.push(product)
+                    if (product) {
+                        const findProduct = products.findIndex(x => x.mpn === product.mpn)
+                        if (findProduct === -1)
+                            products.push(product)
+                    }
                 }
             }
 
@@ -496,6 +515,7 @@ module.exports = ({ strapi }) => ({
 
                 const body = await page.$('body');
                 await this.acceptCookies(body)
+                await this.closeAlert(body)
 
                 const availableProductsCheck = await page.$('#headerStock');
                 await availableProductsCheck.scrollIntoView({ behavior: 'smooth' });
@@ -509,7 +529,7 @@ module.exports = ({ strapi }) => ({
                         .service('scrapHelpers')
                         .randomWait(1000, 1500))
 
-                console.log(isChecked)
+
                 if (isChecked) {
                     availableProductsCheck.click()
                     await page.waitForNavigation()
@@ -605,6 +625,7 @@ module.exports = ({ strapi }) => ({
 
             const body = await page.$('body');
             await this.acceptCookies(body)
+            await this.closeAlert(body)
 
             const productPage = await page.$('div.productWrapper');
 

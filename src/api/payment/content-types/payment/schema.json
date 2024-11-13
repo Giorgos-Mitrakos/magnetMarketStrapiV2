@@ -1,0 +1,39 @@
+{
+  "kind": "collectionType",
+  "collectionName": "payments",
+  "info": {
+    "singularName": "payment",
+    "pluralName": "payments",
+    "displayName": "Payment",
+    "description": ""
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "name": {
+      "type": "string"
+    },
+    "icon": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": [
+        "images"
+      ]
+    },
+    "range": {
+      "displayName": "range",
+      "type": "component",
+      "repeatable": false,
+      "component": "payment.range"
+    },
+    "price": {
+      "type": "decimal",
+      "required": false,
+      "default": 0,
+      "min": 0
+    }
+  }
+}

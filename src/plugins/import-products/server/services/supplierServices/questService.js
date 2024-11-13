@@ -488,7 +488,7 @@ module.exports = ({ strapi }) => ({
         for (let imgSrc of imageWrapper) {
           const src = imgSrc.getAttribute('src').split('?')[0]
           // const imageLink = src.startsWith('/') ? `https://www.questonline.gr${src}` : src;
-          if (src.startsWith('/')) {
+          if (src.startsWith('/')) { 
             product.imagesSrc.push({ url: `https://www.questonline.gr${src}?maxsidesize=1024` })
           }
           else if (!src.endsWith('.jpg.aspx') && !src.endsWith('.jpeg.aspx') && !src.endsWith('.png.aspx')) {

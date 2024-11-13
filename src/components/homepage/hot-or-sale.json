@@ -1,0 +1,21 @@
+{
+  "collectionName": "components_homepage_hot_or_sales",
+  "info": {
+    "displayName": "Hot, Sale or New",
+    "description": ""
+  },
+  "options": {},
+  "attributes": {
+    "title": {
+      "type": "string"
+    },
+    "type": {
+      "type": "enumeration",
+      "enum": [
+        "hot",
+        "sale",
+        "new"
+      ]
+    }
+  }
+}

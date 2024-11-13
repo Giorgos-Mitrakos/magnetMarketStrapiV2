@@ -566,7 +566,7 @@ module.exports = ({ strapi }) => ({
 
                 return { brandId: null }
             }
-            
+
             const brandSlug = strapi
                 .plugin('import-products')
                 .service('importHelpers')
@@ -822,12 +822,26 @@ module.exports = ({ strapi }) => ({
                         price_progress.push(price_progress_data)
 
                         supplierInfo[supplierInfoUpdate] = this.createSupplierInfoData(product, price_progress)
+
+                        if (supplierInfo[supplierInfoUpdate].retail_price !== product.retail_price) {
+                            supplierInfo[supplierInfoUpdate].retail_price = product.retail_price
+                        }
+
                         data.supplierInfo = supplierInfo
                         dbChange.typeOfChange = 'updated'
                     }
                     else {
+                        let isNeedUpdate = false
+                        if (product.retail_price && supplierInfo[supplierInfoUpdate].retail_price !== product.retail_price) {
+                            supplierInfo[supplierInfoUpdate].retail_price = product.retail_price
+                            isNeedUpdate = true
+                        }
                         if (supplierInfo[supplierInfoUpdate].in_stock === false) {
                             supplierInfo[supplierInfoUpdate].in_stock = true
+                            isNeedUpdate = true
+                        }
+
+                        if (isNeedUpdate) {
                             data.supplierInfo = supplierInfo
                             dbChange.typeOfChange = 'republished'
                         }

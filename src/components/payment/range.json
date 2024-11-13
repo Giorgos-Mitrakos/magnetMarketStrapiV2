@@ -1,0 +1,18 @@
+{
+  "collectionName": "components_payment_ranges",
+  "info": {
+    "displayName": "range"
+  },
+  "options": {},
+  "attributes": {
+    "minimum": {
+      "type": "decimal",
+      "required": true,
+      "default": 0,
+      "min": 0
+    },
+    "maximum": {
+      "type": "decimal"
+    }
+  }
+}

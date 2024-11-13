@@ -1,0 +1,63 @@
+{
+  "collectionName": "components_homepage_triple_banners",
+  "info": {
+    "displayName": "Triple Banner",
+    "description": ""
+  },
+  "options": {},
+  "attributes": {
+    "leftTripleBanner": {
+      "type": "media",
+      "multiple": false,
+      "required": true,
+      "allowedTypes": [
+        "images"
+      ]
+    },
+    "leftTripleHref": {
+      "type": "string",
+      "required": true
+    },
+    "leftTripleTarget": {
+      "type": "enumeration",
+      "enum": [
+        "_blank"
+      ]
+    },
+    "middleTripleHref": {
+      "type": "string",
+      "required": true
+    },
+    "middleTripleTarget": {
+      "type": "enumeration",
+      "enum": [
+        "_blank"
+      ]
+    },
+    "rightTripleBanner": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": [
+        "images"
+      ]
+    },
+    "rightTripleHref": {
+      "type": "string"
+    },
+    "rightTripleTarget": {
+      "type": "enumeration",
+      "enum": [
+        "_blank"
+      ]
+    },
+    "middleTripleBanner": {
+      "type": "media",
+      "multiple": false,
+      "required": true,
+      "allowedTypes": [
+        "images"
+      ]
+    }
+  }
+}

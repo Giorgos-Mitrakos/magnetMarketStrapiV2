@@ -1,0 +1,28 @@
+{
+  "collectionName": "components_shipping_zones",
+  "info": {
+    "displayName": "zone",
+    "description": ""
+  },
+  "options": {},
+  "attributes": {
+    "states": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::state.state"
+    },
+    "fees": {
+      "displayName": "fees",
+      "type": "component",
+      "repeatable": false,
+      "component": "shipping.fees"
+    },
+    "name": {
+      "type": "enumeration",
+      "enum": [
+        "Χερσαίοι Προορισμοί",
+        "Νησιωτικοί Προορισμοί"
+      ]
+    }
+  }
+}

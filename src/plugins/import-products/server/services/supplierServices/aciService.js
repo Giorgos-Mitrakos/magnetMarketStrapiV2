@@ -117,10 +117,10 @@ module.exports = ({ strapi }) => ({
     try {
       const url = `${entry.importedURL}`
       const postData = {
-        // email: "demo",
-        // password: "d3m0Acc0unT",
-        email: process.env.ACI_USERNAME,
-        password: process.env.ACI_PASSWORD,
+        email: "demo",
+        password: "d3m0Acc0unT",
+        // email: process.env.ACI_USERNAME,
+        // password: process.env.ACI_PASSWORD,
         english: false
       }
       const config = {
@@ -204,10 +204,10 @@ module.exports = ({ strapi }) => ({
       else {
         const url = `https://www.acihellas.gr/api/stockquantities`
         const postData = {
-          // email: "demo",
-          // password: "d3m0Acc0unT",
-          email: process.env.ACI_USERNAME,
-          password: process.env.ACI_PASSWORD,
+          email: "demo",
+          password: "d3m0Acc0unT",
+          // email: process.env.ACI_USERNAME,
+          // password: process.env.ACI_PASSWORD,
           english: false
         }
         const config = {
@@ -233,6 +233,8 @@ module.exports = ({ strapi }) => ({
         const products = data.Data
           .filter(filterStock)
 
+        console.log(products)
+
         if (products.length === 0)
           return { "message": "xml is empty" }
 
@@ -251,12 +253,32 @@ module.exports = ({ strapi }) => ({
                   { supplierProductId: supplierCode }
                 ]
               }
+            },
+            populate: {
+              supplierInfo: true
             }
           });
 
           if (checkIfEntry) {
+            // if (!checkIfEntry.publishedAt) {
+            //   let supplierInfo = checkIfEntry.supplierInfo
+            //   const index = supplierInfo.findIndex((o) => {
+            //     return o.name === entry.name
+            //   })
+            //   supplierInfo[index].in_stock = true;
+            //   await strapi.entityService.update('api::product.product', checkIfEntry.id, {
+            //     data: {
+            //       publishedAt: new Date(),
+            //       supplierInfo: supplierInfo,
+            //       deletedAt: null
+            //     },
+            //   });
+            //   importRef.republished += 1
+            // }
+            // else {
+            //   importRef.skipped += 1
+            // }
             importRef.related_entries.push(checkIfEntry.id)
-            importRef.skipped += 1
           }
 
         }

@@ -64,18 +64,24 @@
       "target": "plugin::users-permissions.role",
       "inversedBy": "users",
       "configurable": false
-    },    
+    },
     "shipping_address": {
       "type": "relation",
-      "relation": "oneToMany",
+      "relation": "oneToOne",
       "target": "api::user-address.user-address",
-      "mappedBy": "user_shipping"
+      "inversedBy": "user_shipping"
     },
-    "billing_addresses": {
+    "billing_address": {
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "api::user-address.user-address",
+      "inversedBy": "user_billing"
+    },
+    "orders": {
       "type": "relation",
       "relation": "oneToMany",
-      "target": "api::user-address.user-address",
-      "mappedBy": "user_billing"
+      "target": "api::order.order",
+      "mappedBy": "user"
     }
   }
 }

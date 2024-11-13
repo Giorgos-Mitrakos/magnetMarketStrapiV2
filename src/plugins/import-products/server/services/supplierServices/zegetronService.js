@@ -23,7 +23,7 @@ module.exports = ({ strapi }) => ({
                 sub2category: null,
                 stock_level: 'stock',
                 wholesale: 'price',
-                retail_price: 'timi_lianikis',
+                retail_price: 'suggested_retail_price',
                 recycle_tax: 'recycling_fee',
                 in_offer: null,
                 name: 'title',
