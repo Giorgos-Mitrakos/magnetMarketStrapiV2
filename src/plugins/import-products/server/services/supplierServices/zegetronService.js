@@ -79,8 +79,23 @@ module.exports = ({ strapi }) => ({
                         .checkIfProductExists(product.mpn, product.barcode, product.name, product.model);
 
                     const stripContent = product.description?.replace(/(<([^>]+)>)/ig, '').trim();
+                    const productPrice = product.wholesale.replace(',', '.').trim();
+                    const suggested_retail_price = product.retail_price.replace(',', '.').trim();
+                    const recycle_tax = product.recycle_tax.replace(',', '.').trim();
+                    const weight = product.weight?.replace(',', '.').trim();
+                    const width = product.width?.replace(',', '.').trim();
+                    const length = product.length?.replace(',', '.').trim();
+                    const height = product.height?.replace(',', '.').trim();
+
 
                     product.description = stripContent ? stripContent : ""
+                    product.wholesale = productPrice
+                    product.retail_price = suggested_retail_price
+                    product.recycle_tax = recycle_tax
+                    product.weight = weight ? weight : null
+                    product.width = width ? width : null
+                    product.length = length ? length : null
+                    product.height = height ? height : null
 
                     // αν δεν υπάρχει το προϊόν το δημιουργώ αλλιώς ενημερώνω 
                     if (!entryCheck) {
@@ -151,7 +166,7 @@ module.exports = ({ strapi }) => ({
                 .filterData(xml.mywebstore.products[0].product, importRef.categoryMap, importRef.mapFields)
 
             return { products: availableProducts }
-          
+
         } catch (error) {
             console.log(error)
         }

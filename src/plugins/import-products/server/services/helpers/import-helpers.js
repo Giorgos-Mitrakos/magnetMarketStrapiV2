@@ -140,8 +140,10 @@ module.exports = ({ strapi }) => ({
     async getXmlData(url, config) {
         try {
             const response = await Axios.get(url, config)
+            
             return { response, message: "Ok" }
         } catch (error) {
+            console.log(error)
             return { message: "Error" }
         }
 

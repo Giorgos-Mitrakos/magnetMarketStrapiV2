@@ -145,9 +145,10 @@ module.exports = ({ strapi }) => ({
                     .service('productHelpers')
                     .createCategories(cat, importParams)
 
+
                 if (categoryMap.isWhitelistSelected) {
                     if (categoryMap.whitelist_map.length > 0) {
-                        let catIndex = categoryMap.whitelist_map.findIndex(x => x.name.trim() === category)
+                        let catIndex = categoryMap.whitelist_map.findIndex(x => x.name.trim() === category.trim())
                         if (catIndex !== -1) {
                             // return true
                             if (categoryMap.whitelist_map[catIndex].subcategory.length > 0) {
@@ -348,7 +349,7 @@ module.exports = ({ strapi }) => ({
                 stockLevel: this.createFields(mapFields.stock_level, dt),
                 wholesale: this.createFields(mapFields.wholesale, dt),
                 retail_price: this.createFields(mapFields.retail_price, dt),
-                recycleTax: this.createFields(mapFields.recycle_tax, dt),
+                recycle_tax: this.createFields(mapFields.recycle_tax, dt),
                 weight: this.createFields(mapFields.weight, dt),
                 width: this.createFields(mapFields.width, dt),
                 length: this.createFields(mapFields.length, dt),
@@ -501,8 +502,8 @@ module.exports = ({ strapi }) => ({
                     let calcWweight = parseInt(product.length) * parseInt(product.width) * parseInt(product.height) / 5
                     weight = parseInt(calcWweight)
                 }
-                else if (product.recycleTax) {
-                    let tax = parseFloat(product.recycleTax)
+                else if (product.recycle_tax) {
+                    let tax = parseFloat(product.recycle_tax)
                     if (categoryInfo) {
                         if (categoryInfo.slug === "othones-ypologisti"
                             || categoryInfo.slug === "othones-surveilance-cctv"
@@ -923,8 +924,8 @@ module.exports = ({ strapi }) => ({
                 supplierInfo.retail_price = parseFloat(product.retail_price).toFixed(2)
             }
 
-            if (product.recycleTax) {
-                supplierInfo.recycle_tax = parseFloat(product.recycleTax).toFixed(2)
+            if (product.recycle_tax) {
+                supplierInfo.recycle_tax = parseFloat(product.recycle_tax).toFixed(2)
             }
 
             if (product.quantity) {

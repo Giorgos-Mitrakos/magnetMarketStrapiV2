@@ -9,7 +9,7 @@ module.exports = ({ strapi }) => ({
       // Βρίσκω τους προμηθευτές που έχουν το προϊόν διαθέσιμο
       const filteredSupplierInfo = supplierInfo.filter(x => x.in_stock === true)
       
-      let recycleTax = product.recycleTax ? parseFloat(product.recycleTax) : 0
+      let recycleTax = product.recycle_tax ? parseFloat(product.recycle_tax) : 0
 
       // Βρίσκω τον προμηθευτή που έχει διαθέσιμο το προϊόν και έχει τη μικρότερη τιμή χονδρικής
       let minSupplierPrice = filteredSupplierInfo?.reduce((prev, current) => {

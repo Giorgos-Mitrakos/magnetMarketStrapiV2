@@ -148,6 +148,7 @@ module.exports = ({ strapi }) => ({
 
             return { products: availableProducts }
         } catch (error) {
+            console.log(error)
             return { message: "Error" }
         }
     },

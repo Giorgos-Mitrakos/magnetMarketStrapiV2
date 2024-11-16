@@ -73,7 +73,7 @@ module.exports = ({ strapi }) => ({
                         .createProductFields(entry, dt, importRef)
 
                     product.link = `https://www.mywestnet.com/el${product.link}`
-                    
+
                     // Αν δεν υπάρχει ούτε mpn ούτε barcode προχώρα στην επόμενη εγγραφή
                     if (!product.mpn && !product.barcode)
                         continue
@@ -237,11 +237,15 @@ module.exports = ({ strapi }) => ({
                 .service('importHelpers')
                 .parseXml(await data)
 
+            console.log(xml.products.product.length)
+
             const availableProducts = strapi
                 .plugin('import-products')
                 .service('productHelpers')
                 .filterData(xml.products.product, importRef.categoryMap, importRef.mapFields)
 
+                console.log(availableProducts.length)
+                
             return { products: availableProducts }
 
         } catch (error) {

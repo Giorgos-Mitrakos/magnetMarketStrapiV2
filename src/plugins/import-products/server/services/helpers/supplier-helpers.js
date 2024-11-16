@@ -56,8 +56,8 @@ module.exports = ({ strapi }) => ({
             supplierInfo.retail_price = parseFloat(product.retail_price).toFixed(2)
         }
 
-        if (product.recycleTax) {
-            supplierInfo.recycle_tax = parseFloat(product.recycleTax).toFixed(2)
+        if (product.recycle_tax) {
+            supplierInfo.recycle_tax = parseFloat(product.recycle_tax).toFixed(2)
         }
 
         if (product.quantity) {
