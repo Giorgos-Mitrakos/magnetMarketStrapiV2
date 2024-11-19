@@ -56,6 +56,11 @@ module.exports = ({ strapi }) => ({
 
     async closeAlert(body) {
         try {
+            // await strapi
+            //     .plugin('import-products')
+            //     .service('scrapHelpers')
+            //     .sleep(2500)
+
             const closeAlertBtn = await body.$('#onesignal-slidedown-cancel-button')
             if (closeAlertBtn) {
                 await closeAlertBtn.click()
@@ -65,7 +70,7 @@ module.exports = ({ strapi }) => ({
         }
     },
 
-    async loginGlobalsat(body, supplier) {
+    async loginGlobalsat(body, supplier, page) {
         try {
             await strapi
                 .plugin('import-products')
@@ -75,7 +80,7 @@ module.exports = ({ strapi }) => ({
             await this.acceptCookies(body)
 
             const mainContent = await body.$('.main-content')
-            const loginForm = await mainContent.$('.b2bLogin') 
+            const loginForm = await mainContent.$('.b2bLogin')
 
             const username = await loginForm.$('#login-email_address');
             const password = await loginForm.$('#login-password');
@@ -121,7 +126,7 @@ module.exports = ({ strapi }) => ({
             return page
 
         } catch (error) {
-
+            console.log(error)
         }
     },
 
@@ -154,13 +159,15 @@ module.exports = ({ strapi }) => ({
             await strapi
                 .plugin('import-products')
                 .service('scrapHelpers')
-                .sleep(2500)
+                .sleep(3500)
 
-            const newBody = await page.$('body');
+            const body = await page.$('body');
 
-            await this.closeAlert(newBody)
+            await this.closeAlert(body)
 
-            await this.loginGlobalsat(newBody, entry.name)
+            const newPage = await this.loginGlobalsat(body, entry.name, page)
+
+            const newBody = await newPage.$('body');
 
             await this.acceptCookies(newBody)
 
@@ -195,6 +202,7 @@ module.exports = ({ strapi }) => ({
             }
 
         } catch (error) {
+            console.log(error)
             return { "message": "error" }
         }
         finally {
