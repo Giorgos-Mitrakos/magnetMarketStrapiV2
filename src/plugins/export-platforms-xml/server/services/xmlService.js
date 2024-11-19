@@ -47,6 +47,9 @@ module.exports = ({ strapi }) => ({
                 },
             });
 
+            this.checkIfThereIsSupplierInStock(entries)
+
+
             const platformAttr = {
                 name: entries.name,
                 order_time: entries.order_time
@@ -285,7 +288,7 @@ module.exports = ({ strapi }) => ({
         else if (cheaperAvailableSupplier.availability < 5) {
             if (platformName === "skroutz") { availability = "Διαθέσιμο από 4-10 ημέρες" }
             else {
-                availability = cheaperAvailableSupplier.availability 
+                availability = cheaperAvailableSupplier.availability
             }
         }
         else {
@@ -353,4 +356,36 @@ module.exports = ({ strapi }) => ({
             console.log(error)
         }
     },
+
+    async checkIfThereIsSupplierInStock() {
+
+        try {
+
+            const entries = await strapi.db.query('api::product.product').findMany({
+                select: ['id', 'inventory'],
+                where: {
+                    publishedAt: { $notNull: true },
+                },
+                populate: {
+                    supplierInfo: true,
+                },
+            });
+
+            for (let product of entries) {
+                const isAllSuppliersOutOfStock = product.supplierInfo.every(supplier => supplier.in_stock === false)
+                if (isAllSuppliersOutOfStock && !product.inventory > 0) {
+                    await strapi.entityService.update('api::product.product', product.id, {
+                        data: {
+                            publishedAt: null,
+                            deletedAt:new Date()
+                        },
+                    });
+                }
+            }
+
+
+        } catch (error) {
+            console.log(error)
+        }
+    }
 });

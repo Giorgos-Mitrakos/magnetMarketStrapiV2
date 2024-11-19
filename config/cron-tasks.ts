@@ -358,10 +358,10 @@ export default {
                 .createXml('Skroutz');
         },
         options: {
-            rule: "0 * * * *",
+            rule: "1 * * * *",
         },
     },
- 
+
     createShopflixXml: {
         task: async ({ strapi }) => {
             // Add your own logic here (e.g. send a queue of email, create a database backup, etc.).
@@ -373,6 +373,20 @@ export default {
         },
         options: {
             rule: "58 * * * *",
+        },
+    },
+
+    reconstruct: {
+        task: async ({ strapi }) => {
+            // Add your own logic here (e.g. send a queue of email, create a database backup, etc.).
+
+            await strapi
+                .plugin('export-platforms-xml')
+                .service('xmlService')
+                .checkIfThereIsSupplierInStock();
+        },
+        options: {
+            rule: "56 * * * *",
         },
     },
 };
