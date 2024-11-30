@@ -32,14 +32,14 @@ export default ({ env }) => ({
     config: {
       provider: 'nodemailer',
       providerOptions: {
-        host: env('SMTP_HOST', 'magnetmarket.gr'),
+        host: env('SMTP_HOST', 'mail.magnetmarket.gr'),
         port: env('SMTP_PORT', 465),
         secure: true,
         auth: {
           user: env('SMTP_USERNAME', 'info@magnetmarket.gr'),
           pass: env('SMTP_PASSWORD', 'dK43p7x_#@!'),
         },
-        authMethod: "SMTP"
+        // authMethod: "SMTP"
         // ... any custom nodemailer options
       },
       tls: {
@@ -48,7 +48,7 @@ export default ({ env }) => ({
       },
       settings: {
         defaultFrom: 'info@magnetmarket.gr',
-        defaultReplyTo: 'giorgos_mitrakos.yahoo.com',
+        defaultReplyTo: 'giorgos_mitrakos@yahoo.com',
       },
     },
   },
