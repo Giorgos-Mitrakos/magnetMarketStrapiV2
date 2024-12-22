@@ -32,7 +32,7 @@ export default ({ env }) => ({
     config: {
       provider: 'nodemailer',
       providerOptions: {
-        host: env('SMTP_HOST', 'mail.magnetmarket.gr'),
+        host: env('SMTP_HOST', 'webmail.magnetmarket.gr'),
         port: env('SMTP_PORT', 465),
         secure: true,
         auth: {

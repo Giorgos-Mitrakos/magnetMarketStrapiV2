@@ -6,7 +6,7 @@ export default {
       handler: "api::user-address.user-address.updateUser",
     },
     {
-      method: "GET",
+      method: "POST",
       path: "/user-address/getUser",
       handler: "api::user-address.user-address.getUser"
     },

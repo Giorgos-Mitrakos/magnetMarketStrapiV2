@@ -110,7 +110,7 @@ export default factories.createCoreService('api::shipping.shipping', ({ strapi }
                 else {
                     const { country, state, city } = addresses.billing
                     const shippingCost = await findShippingFees({ country, state, city, shippingMethod, totalWeight })
-                    
+
                     return { cost: shippingCost }
                 }
             }
@@ -122,8 +122,14 @@ export default factories.createCoreService('api::shipping.shipping', ({ strapi }
 
     async findPaymentCost(ctx) {
 
-        const { paymentMethod } = ctx.request.body
-        
+        const { paymentMethod, shippingMethod } = ctx.request.body
+
+        console.log(shippingMethod)
+
+        if (shippingMethod.pickup === true) {
+            return { cost: 0 }
+        }
+
         const payment = await strapi.db.query("api::payment.payment").findOne({
             select: ['name', 'price'],
             where: { name: paymentMethod.payment }

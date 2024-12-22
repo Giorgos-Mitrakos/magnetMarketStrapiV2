@@ -709,6 +709,7 @@ export interface ApiOrderOrder extends Schema.CollectionType {
 export interface ApiPagePage extends Schema.CollectionType {
   collectionName: 'pages';
   info: {
+    description: '';
     displayName: 'page';
     pluralName: 'pages';
     singularName: 'page';
@@ -722,6 +723,8 @@ export interface ApiPagePage extends Schema.CollectionType {
       Attribute.Private;
     mainText: Attribute.RichText;
     publishedAt: Attribute.DateTime;
+    title: Attribute.String;
+    titleSlug: Attribute.UID<'api::page.page', 'title'>;
     updatedAt: Attribute.DateTime;
     updatedBy: Attribute.Relation<'api::page.page', 'oneToOne', 'admin::user'> &
       Attribute.Private;

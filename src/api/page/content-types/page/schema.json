@@ -4,7 +4,8 @@
   "info": {
     "singularName": "page",
     "pluralName": "pages",
-    "displayName": "page"
+    "displayName": "page",
+    "description": ""
   },
   "options": {
     "draftAndPublish": true
@@ -13,6 +14,13 @@
   "attributes": {
     "mainText": {
       "type": "richtext"
+    },
+    "title": {
+      "type": "string"
+    },
+    "titleSlug": {
+      "type": "uid",
+      "targetField": "title"
     }
   }
 }

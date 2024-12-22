@@ -4,7 +4,6 @@
 
 import { factories } from '@strapi/strapi';
 import type { Attribute } from "@strapi/strapi";
-import brand from '../../brand/controllers/brand';
 export type IProduct = Attribute.GetValues<"api::product.product">;
 export type ICategory = Attribute.GetValues<"api::category.category">;
 
@@ -172,7 +171,7 @@ export default factories.createCoreService('api::category.category', ({ strapi }
                     continue
 
                 if (searchParam.name === "brands") {
-                    console.log("Hello")
+                    
                     if (typeof searchParam.value === "string") {
                         values.push(searchParam.value)
                     }

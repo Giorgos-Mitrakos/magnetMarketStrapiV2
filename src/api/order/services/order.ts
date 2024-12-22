@@ -4,7 +4,6 @@
 
 import { factories } from '@strapi/strapi';
 import type { Attribute } from "@strapi/strapi";
-import { forEach } from 'lodash';
 export type IProduct = Attribute.GetValues<"api::product.product">;
 
 export default factories.createCoreService('api::order.order', ({ strapi }) => ({
