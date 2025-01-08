@@ -1,0 +1,31 @@
+{
+  "collectionName": "components_payment_tran_tickets",
+  "info": {
+    "displayName": "TranTicket",
+    "description": ""
+  },
+  "options": {},
+  "attributes": {
+    "TranTicket": {
+      "type": "string"
+    },
+    "SupportReferenceID": {
+      "type": "string"
+    },
+    "ResultDescription": {
+      "type": "text"
+    },
+    "StatusFlag": {
+      "type": "string"
+    },
+    "TransactionDateTime": {
+      "type": "datetime"
+    },
+    "TransactionId": {
+      "type": "integer"
+    },
+    "TraceID": {
+      "type": "string"
+    }
+  }
+}

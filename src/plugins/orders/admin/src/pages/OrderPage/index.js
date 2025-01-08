@@ -22,7 +22,7 @@ const OrderPage = () => {
     const { post, get, del } = useFetchClient();
     const [order, setOrder] = useState({})
     const [isLoading, setIsLoading] = useState(true)
-    const [selectValue, setSelectValue] = useState('')
+    const [status, setStatus] = useState('')
     const [saving, setSaving] = useState(false);
 
     const handleNoteChanges = async () => {
@@ -46,24 +46,23 @@ const OrderPage = () => {
     }, [id]);
 
     useEffect(() => {
-        setSelectValue(order.status)
+        setStatus(order.status)
     }, [order]);
 
     const handleValueChange = (e) => {
-        setSelectValue(e)
+        setStatus(e)
     }
 
     const handleSave = async () => {
         setSaving(true)
-        if (order.status !== selectValue)
-            alert("changed Status")
-        // const response = await post(`/${pluginId}/saveMapping`,
-        //   {
-        //     id,
-        //     categoryMapping: importMapping,
-        //   });
+        if (order.status !== status) {
+            const response = await post(`/${pluginId}/saveStatus`,
+                {
+                    id,
+                    status: status,
+                });
+        }
         setSaving(false)
-        // fetchCategoryMapping();
     };
 
     const totalProductsCost = order.products ? order.products.reduce((total, item) => {
@@ -108,7 +107,7 @@ const OrderPage = () => {
                                         <Typography as="h4" variant="omega">Κατασταση:</Typography>
                                     </Box>
                                     <Box paddingTop={2} paddingRight={5}>
-                                        <SingleSelect size="S" value={selectValue} onValueChange={(e) => handleValueChange(e)}>
+                                        <SingleSelect size="S" value={status} onValueChange={(e) => handleValueChange(e)}>
                                             <SingleSelectOption value="Εκκρεμεί πληρωμή">Εκκρεμεί πληρωμή</SingleSelectOption>
                                             <SingleSelectOption value="Σε επεξεργασία">Σε επεξεργασία</SingleSelectOption>
                                             <SingleSelectOption value="Σε αναμονή">Σε αναμονή</SingleSelectOption>

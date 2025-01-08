@@ -13,6 +13,14 @@ export default factories.createCoreController('api::order.order',
                 type: "POST",
             };
         },
+
+        async saveTicket(ctx) {
+            ctx.body = await strapi.service('api::order.order').saveTicket(ctx);
+            return {
+                okay: true,
+                type: "POST",
+            };
+        },
         
     })
 );

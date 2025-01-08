@@ -210,6 +210,23 @@ export interface PaymentRange extends Schema.Component {
   };
 }
 
+export interface PaymentTranTicket extends Schema.Component {
+  collectionName: 'components_payment_tran_tickets';
+  info: {
+    description: '';
+    displayName: 'TranTicket';
+  };
+  attributes: {
+    ResultDescription: Attribute.Text;
+    StatusFlag: Attribute.String;
+    SupportReferenceID: Attribute.String;
+    TraceID: Attribute.String;
+    TransactionDateTime: Attribute.DateTime;
+    TransactionId: Attribute.Integer;
+    TranTicket: Attribute.String;
+  };
+}
+
 export interface ProductsChars extends Schema.Component {
   collectionName: 'components_products_chars';
   info: {
@@ -454,6 +471,7 @@ declare module '@strapi/types' {
       'homepage.triple-banner': HomepageTripleBanner;
       'imports.contains-name': ImportsContainsName;
       'payment.range': PaymentRange;
+      'payment.tran-ticket': PaymentTranTicket;
       'products.chars': ProductsChars;
       'products.images-supplier-urls': ProductsImagesSupplierUrls;
       'products.info': ProductsInfo;

@@ -31,5 +31,14 @@ module.exports = [
       policies: [],
     },
   },
+
+  {
+    method: 'POST',
+    path: '/saveStatus',
+    handler: 'orderController.saveStatus',
+    config: {
+      policies: [],
+    },
+  },
   
 ];

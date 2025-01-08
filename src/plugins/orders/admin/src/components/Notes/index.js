@@ -9,6 +9,7 @@ const Notes = ({ notes, noteChanges }) => {
     const { id } = useParams()
     const [typeOfNote, setTypeOfNote] = useState('Προσωπική')
     const [newNote, setNewNote] = useState('')
+    const [isSaving, setIsSaving] = useState(false)
 
     const handleValueChange = (e) => {
         setTypeOfNote(e)
@@ -20,10 +21,13 @@ const Notes = ({ notes, noteChanges }) => {
     }
 
     const handleAddNoteClick = async () => {
+        setIsSaving(true)
         if (newNote !== "" && typeOfNote !== "") {
+            
             const data = await post(`/${pluginId}/saveNote`, { id, newNote, typeOfNote });
             noteChanges()
         }
+        setIsSaving(false)
     }
 
     const handleNoteChange = (e) => {
@@ -60,7 +64,7 @@ const Notes = ({ notes, noteChanges }) => {
                         <SingleSelectOption value="Προσωπική">Προσωπική σημείωση</SingleSelectOption>
                     </SingleSelect>
                 </Box>
-                <Button size="S" variant="secondary" marginTop={2}
+                <Button size="S" variant="secondary" marginTop={2} loading={isSaving}
                     onClick={() => handleAddNoteClick()}>Προσθήκη</Button>
             </Box>
         </Box>

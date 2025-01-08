@@ -658,9 +658,20 @@ export interface ApiOrderOrder extends Schema.CollectionType {
       'admin::user'
     > &
       Attribute.Private;
+    delivery_notes: Attribute.Text;
     different_shipping: Attribute.Boolean &
       Attribute.Required &
       Attribute.DefaultTo<false>;
+    installments: Attribute.Integer &
+      Attribute.Required &
+      Attribute.SetMinMax<
+        {
+          max: 3;
+          min: 1;
+        },
+        number
+      > &
+      Attribute.DefaultTo<1>;
     isInvoice: Attribute.Boolean &
       Attribute.Required &
       Attribute.DefaultTo<false>;
@@ -691,6 +702,7 @@ export interface ApiOrderOrder extends Schema.CollectionType {
         },
         number
       >;
+    TranTicket: Attribute.Component<'payment.tran-ticket'> & Attribute.Private;
     updatedAt: Attribute.DateTime;
     updatedBy: Attribute.Relation<
       'api::order.order',
@@ -751,6 +763,9 @@ export interface ApiPaymentPayment extends Schema.CollectionType {
     > &
       Attribute.Private;
     icon: Attribute.Media<'images'>;
+    isActive: Attribute.Boolean &
+      Attribute.Required &
+      Attribute.DefaultTo<true>;
     name: Attribute.String;
     price: Attribute.Decimal &
       Attribute.SetMinMax<
@@ -1034,6 +1049,9 @@ export interface ApiShippingShipping extends Schema.CollectionType {
       'manyToMany',
       'api::region.region'
     >;
+    isActive: Attribute.Boolean &
+      Attribute.Required &
+      Attribute.DefaultTo<true>;
     name: Attribute.String & Attribute.Required & Attribute.Unique;
     publishedAt: Attribute.DateTime;
     Regions_file: Attribute.Media<'files'>;

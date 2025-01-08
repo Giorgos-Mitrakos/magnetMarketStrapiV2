@@ -27,8 +27,6 @@ module.exports = ({ strapi }) => ({
       },
     });
 
-    // console.log("orders:", orders[0], "total:", orders[1])
-
     return { orders: orders[0], total: orders[1] }
   },
 
@@ -50,8 +48,6 @@ module.exports = ({ strapi }) => ({
         comments: true,
       },
     });
-
-    // console.log("orders:", orders[0], "total:", orders[1])
 
     return { order: order }
   },
@@ -83,6 +79,28 @@ module.exports = ({ strapi }) => ({
         },
       });
 
+      if (typeOfNote === 'Πελάτη') {
+        const emailTemplate = {
+          subject: `Magnetmarket παραγγελία  #${id} `,
+          text: `${addNote.comment}`,
+          html: `
+            <p>${addNote.comment}<p>`,
+        };
+
+        try {
+
+          await strapi.plugins["email"].services.email.sendTemplatedEmail(
+            {
+              from: "info@magnetmarket.gr",
+              to: `${order.billing_address.email}`,
+            },
+            emailTemplate
+          );
+        } catch (error) {
+          console.log(error)
+        }
+      }
+
       return { message: 'ok' }
 
     } catch (error) {
@@ -94,28 +112,20 @@ module.exports = ({ strapi }) => ({
     try {
       const { id, noteId } = ctx.request.body
 
-      // const order = await strapi.entityService.findOne('api::order.order', id, {
-      //   // fields: ['products', 'total', 'status', 'different_shipping', 'createdAt', 'billing_address', 'shipping_address'],
-      //   populate: {
-      //     comments: true,
-      //   },
-      // });
-
-      // let comments = order.comments
-
-      // const filteredComments = comments.filter(comment => comment.id !== noteId)
-
-      // await strapi.entityService.update('api::order.order', id, {
-      //   data: {
-      //     comments: filteredComments,
-      //   },
-      // });
-
-      const categories = await strapi.entityService.findMany('api::category.category', {
-        fields: ['name'],
-        filters: { name: 'Υπολογιστες' },
+      const order = await strapi.entityService.findOne('api::order.order', id, {
+        // fields: ['products', 'total', 'status', 'different_shipping', 'createdAt', 'billing_address', 'shipping_address'],
         populate: {
-          categories: true,
+          comments: true,
+        },
+      });
+
+      let comments = order.comments
+
+      const filteredComments = comments.filter(comment => comment.id !== noteId)
+
+      await strapi.entityService.update('api::order.order', id, {
+        data: {
+          comments: filteredComments,
         },
       });
 
@@ -124,6 +134,16 @@ module.exports = ({ strapi }) => ({
     } catch (error) {
       return { message: 'error' }
     }
+  },
+
+  async saveStatus(ctx) {
+    const { id, status } = ctx.request.body
+
+    await strapi.entityService.update('api::order.order', id, {
+      data: {
+        status,
+      },
+    });
   }
 
 });

@@ -78,6 +78,23 @@
       "type": "boolean",
       "default": false,
       "required": true
+    },
+    "delivery_notes": {
+      "type": "text"
+    },
+    "installments": {
+      "type": "integer",
+      "min": 1,
+      "default": 1,
+      "max": 3,
+      "required": true
+    },
+    "TranTicket": {
+      "displayName": "TranTicket",
+      "type": "component",
+      "repeatable": false,
+      "component": "payment.tran-ticket",
+      "private": true
     }
   }
 }

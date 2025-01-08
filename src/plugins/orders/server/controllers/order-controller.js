@@ -31,4 +31,10 @@ module.exports = ({ strapi }) => ({
       .service('orderService')
       .deleteNote(ctx);
   },
+  async saveStatus(ctx) {
+    ctx.body = await strapi
+      .plugin('orders')
+      .service('orderService')
+      .saveStatus(ctx);
+  },
 });

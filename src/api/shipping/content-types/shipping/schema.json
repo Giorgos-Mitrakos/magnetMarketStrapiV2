@@ -45,6 +45,11 @@
       "relation": "manyToMany",
       "target": "api::region.region",
       "mappedBy": "shippings"
+    },
+    "isActive": {
+      "type": "boolean",
+      "default": true,
+      "required": true
     }
   }
 }
