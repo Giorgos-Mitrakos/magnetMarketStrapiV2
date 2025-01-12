@@ -41,10 +41,11 @@ export default ({ env }) => ({
         },
         // authMethod: "SMTP"
         // ... any custom nodemailer options
+        
       },
       tls: {
-        secure: false,
-        ignoreTLS: true,
+        // secure: false,
+        // ignoreTLS: true,
         rejectUnauthorized: false
       },
       settings: {

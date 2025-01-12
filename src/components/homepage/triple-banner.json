@@ -43,7 +43,8 @@
       ]
     },
     "rightTripleHref": {
-      "type": "string"
+      "type": "string",
+      "required": true
     },
     "rightTripleTarget": {
       "type": "enumeration",

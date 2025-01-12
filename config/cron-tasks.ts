@@ -389,4 +389,18 @@ export default {
             rule: "56 * * * *",
         },
     },
+
+    findNotRelatedFiles: {
+        task: async ({ strapi }) => {
+            // Add your own logic here (e.g. send a queue of email, create a database backup, etc.).
+
+            await strapi
+                .plugin('import-products')
+                .service('fileHelpers')
+                .findNotRelatedFiles();
+        },
+        options: {
+            rule: "*/2 * * * *",
+        },
+    },
 };

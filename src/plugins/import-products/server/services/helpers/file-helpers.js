@@ -20,7 +20,7 @@ module.exports = ({ strapi }) => ({
             const imageIDS = { mainImage: [], additionalImages: [], imgUrls: [] }
 
             for (let imgUrl of product.imagesSrc) {
-                console.log("imgUrl:",imgUrl.url) 
+                console.log("imgUrl:", imgUrl.url)
                 index += 1;
                 const sharpStream = sharp({
                     failOnError: false
@@ -28,18 +28,18 @@ module.exports = ({ strapi }) => ({
 
                 try {
                     let cont = false;
-                    const { body } = await fetch(imgUrl.url,{
+                    const { body } = await fetch(imgUrl.url, {
                         method: 'get',
                         responseType: 'arrayBuffer'
                     }).catch(err => {
                         cont = true;
                     })
 
-                    if (cont) { 
+                    if (cont) {
                         break;
                     }
 
-                    const readableStream = stream.Readable.fromWeb(body); 
+                    const readableStream = stream.Readable.fromWeb(body);
 
                     readableStream.pipe(sharpStream)
 
@@ -139,7 +139,7 @@ module.exports = ({ strapi }) => ({
             }
 
             if (additionalFileID.length === 0) { return }
-            
+
             return additionalFileID[0]
         } catch (error) {
             console.log("Error in upload additional File:", error)
@@ -208,4 +208,194 @@ module.exports = ({ strapi }) => ({
         await this.deleteFile(filePath);
         return _.first(res);
     },
+
+    async findNotRelatedFiles() {
+        try {
+            const products = await strapi.entityService.findMany('api::product.product', {
+                fields: ['id'],
+                filters: {
+                    $or: [
+                        { image: { $notNull: true, } },
+                        { additionalImages: { $notNull: true, } },
+                        { additionalFiles: { $notNull: true, } },
+                        { seo: { metaImage: { $notNull: true, } } },
+                        { seo: { metaSocial: { image: { $notNull: true, } } } },
+                    ]
+                },
+                populate: {
+                    image: true,
+                    additionalImages: true,
+                    seo: true
+                },
+            });
+
+            const brands = await strapi.entityService.findMany('api::brand.brand', {
+                fields: ['id'],
+                filters: {
+                    logo: { $notNull: true, },
+                },
+                populate: {
+                    logo: true,
+                },
+            });
+
+            const categories = await strapi.entityService.findMany('api::category.category', {
+                fields: ['id'],
+                filters: {
+                    image: { $notNull: true, },
+                },
+                populate: {
+                    image: true,
+                },
+            });
+
+            const payments = await strapi.entityService.findMany('api::payment.payment', {
+                fields: ['id'],
+                filters: {
+                    icon: { $notNull: true, },
+                },
+                populate: {
+                    icon: true,
+                },
+            });
+
+            const platforms = await strapi.entityService.findMany('api::platform.platform', {
+                fields: ['id'],
+                filters: {
+                    merchantFeeCatalogue: { $notNull: true, },
+                },
+                populate: {
+                    merchantFeeCatalogue: true,
+                },
+            });
+
+            const shippings = await strapi.entityService.findMany('api::shipping.shipping', {
+                fields: ['id'],
+                filters: {
+                    Regions_file: { $notNull: true, },
+                },
+                populate: {
+                    Regions_file: true,
+                },
+            });
+
+            const homepage = await strapi.entityService.findOne('api::homepage.homepage', 1, {
+                // populate: '*',
+                populate: {
+                    Carousel: { populate: '*' },
+                    fixed_hero_banners: { populate: '*' },
+                    body: { populate: '*' },
+                }
+            });
+
+            const attachedImageIds = []
+            for (let product of products) {
+
+                if (product.image) {
+                    attachedImageIds.push(product.image.id)
+                }
+
+                if (product.additionalImages) {
+                    for (let additionalImage of product.additionalImages) {
+                        attachedImageIds.push(additionalImage.id)
+                    }
+                }
+
+                if (product.additionalFiles) {
+                    for (let additionalFile of product.additionalFiles) {
+                        attachedImageIds.push(additionalFile.id)
+                    }
+                }
+
+                if (product.seo) {
+                    if (product.seo.metaImage) {
+                        for (let metaImage of product.seo.metaImage) {
+                            attachedImageIds.push(metaImage.id)
+                        }
+                    }
+
+                    if (product.seo.metaSocial) {
+                        if (product.seo.metaSocial.image) {
+                            for (let image of product.seo.metaSocial.image) {
+                                attachedImageIds.push(image.id)
+                            }
+                        }
+                    }
+                }
+
+            }
+
+            for (let brand of brands) {
+
+                if (brand.logo) {
+                    attachedImageIds.push(brand.logo.id)
+                }
+
+            }
+
+            for (let category of categories) {
+                if (category.image) {
+                    attachedImageIds.push(category.image.id)
+                }
+            }
+
+            for (let payment of payments) {
+                if (payment.icon) {
+                    attachedImageIds.push(payment.icon.id)
+                }
+            }
+
+            for (let platform of platforms) {
+                if (platform.merchantFeeCatalogue) {
+                    attachedImageIds.push(platform.merchantFeeCatalogue.id)
+                }
+            }
+
+            for (let shipping of shippings) {
+                if (shipping.Regions_file) {
+                    attachedImageIds.push(shipping.Regions_file.id)
+                }
+            }
+
+            for (let carousel of homepage.Carousel) {
+                if (carousel.image) {
+                    attachedImageIds.push(carousel.image.id)
+                }
+            }
+
+            for (let fixed_hero_banners of homepage.fixed_hero_banners) {
+                if (fixed_hero_banners.image) {
+                    attachedImageIds.push(fixed_hero_banners.image.id)
+                }
+            }
+
+            for (let body of homepage.body) {
+                if (body.__component === 'homepage.single-banner') {
+                    attachedImageIds.push(body.singleBanner.id)
+                }
+                else if (body.__component === 'homepage.double-banner') {
+                    attachedImageIds.push(body.rightBanner.id)
+                    attachedImageIds.push(body.leftBanner.id)
+                }
+                else if (body.__component === 'homepage.triple-banner') {
+                    attachedImageIds.push(body.leftTripleBanner.id)
+                    attachedImageIds.push(body.middleTripleBanner.id)
+                    attachedImageIds.push(body.rightTripleBanner.id)
+                }
+            }
+
+            const allFiles = await strapi.plugins.upload.services.upload.findMany({});
+
+            for (let file of allFiles) {
+                if (!attachedImageIds.includes(file.id)) {
+                    await strapi.plugins['upload'].services.upload.remove(file);
+                }
+            }
+
+
+        } catch (error) {
+            console.log(error)
+        }
+
+    }
 });

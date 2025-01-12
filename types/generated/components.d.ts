@@ -175,7 +175,7 @@ export interface HomepageTripleBanner extends Schema.Component {
     middleTripleHref: Attribute.String & Attribute.Required;
     middleTripleTarget: Attribute.Enumeration<['_blank']>;
     rightTripleBanner: Attribute.Media<'images'>;
-    rightTripleHref: Attribute.String;
+    rightTripleHref: Attribute.String & Attribute.Required;
     rightTripleTarget: Attribute.Enumeration<['_blank']>;
   };
 }
