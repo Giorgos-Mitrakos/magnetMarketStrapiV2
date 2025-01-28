@@ -1258,6 +1258,55 @@ export interface PluginContentReleasesReleaseAction
   };
 }
 
+export interface PluginEmailDesignerEmailTemplate
+  extends Schema.CollectionType {
+  collectionName: 'email_templates';
+  info: {
+    displayName: 'Email-template';
+    name: 'email-template';
+    pluralName: 'email-templates';
+    singularName: 'email-template';
+  };
+  options: {
+    comment: '';
+    draftAndPublish: false;
+    increments: true;
+    timestamps: true;
+  };
+  pluginOptions: {
+    'content-manager': {
+      visible: false;
+    };
+    'content-type-builder': {
+      visible: false;
+    };
+  };
+  attributes: {
+    bodyHtml: Attribute.Text;
+    bodyText: Attribute.Text;
+    createdAt: Attribute.DateTime;
+    createdBy: Attribute.Relation<
+      'plugin::email-designer.email-template',
+      'oneToOne',
+      'admin::user'
+    > &
+      Attribute.Private;
+    design: Attribute.JSON;
+    enabled: Attribute.Boolean & Attribute.DefaultTo<true>;
+    name: Attribute.String;
+    subject: Attribute.String;
+    tags: Attribute.JSON;
+    templateReferenceId: Attribute.Integer & Attribute.Unique;
+    updatedAt: Attribute.DateTime;
+    updatedBy: Attribute.Relation<
+      'plugin::email-designer.email-template',
+      'oneToOne',
+      'admin::user'
+    > &
+      Attribute.Private;
+  };
+}
+
 export interface PluginI18NLocale extends Schema.CollectionType {
   collectionName: 'i18n_locale';
   info: {
@@ -2079,6 +2128,7 @@ declare module '@strapi/types' {
       'api::user-address.user-address': ApiUserAddressUserAddress;
       'plugin::content-releases.release': PluginContentReleasesRelease;
       'plugin::content-releases.release-action': PluginContentReleasesReleaseAction;
+      'plugin::email-designer.email-template': PluginEmailDesignerEmailTemplate;
       'plugin::i18n.locale': PluginI18NLocale;
       'plugin::import-products.blacklistmap': PluginImportProductsBlacklistmap;
       'plugin::import-products.categorymap': PluginImportProductsCategorymap;

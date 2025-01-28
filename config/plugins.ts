@@ -34,7 +34,7 @@ export default ({ env }) => ({
       providerOptions: {
         host: env('SMTP_HOST', 'mail.magnetmarket.gr'),
         port: env('SMTP_PORT', 465),
-        secure: true,
+        secure: false,
         auth: {
           user: env('SMTP_USERNAME', 'info@magnetmarket.gr'),
           pass: env('SMTP_PASSWORD', 'M7zkv%778'),

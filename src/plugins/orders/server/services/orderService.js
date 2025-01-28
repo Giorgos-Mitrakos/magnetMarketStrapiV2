@@ -80,30 +80,25 @@ module.exports = ({ strapi }) => ({
       });
 
       if (typeOfNote === 'Πελάτη') {
-        const emailTemplate = {
-          subject: `Magnetmarket παραγγελία  #${id} `,
-          text: `${addNote.comment}`,
-          html: `
-            <p>${addNote.comment}<p>`,
-        };
-
-        try {
-
-          await strapi.plugins["email"].services.email.sendTemplatedEmail(
-            {
-              from: "info@magnetmarket.gr",
-              to: `${order.billing_address.email}`,
-            },
-            emailTemplate
-          );
-        } catch (error) {
-          console.log(error)
+        const billing = order.billing_address.valueOf()
+        const emailVariables = {
+          comment: addNote.comment,
+          billing: {
+            firstname: billing.firstname,
+            lastname: billing.lastname,
+            email: billing.email
+          },
+          order: { id: order.id }
         }
+        await strapi.service('api::order.order').sendConfirmOrderEmail({ templateReferenceId: 9, to: billing.email, emailVariables, subject: `Magnetmarket - Μήνυμα για την παραγγελία #${order.id}!` })
+
+
       }
 
       return { message: 'ok' }
 
     } catch (error) {
+      console.log(error)
       return { message: 'error' }
     }
   },

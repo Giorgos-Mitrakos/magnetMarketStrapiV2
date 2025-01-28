@@ -124,8 +124,6 @@ export default factories.createCoreService('api::shipping.shipping', ({ strapi }
 
         const { paymentMethod, shippingMethod } = ctx.request.body
 
-        console.log(shippingMethod)
-
         if (shippingMethod.pickup === true) {
             return { cost: 0 }
         }

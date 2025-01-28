@@ -319,7 +319,7 @@ const OrderPage = () => {
                                                 </GridItem>
                                                 <GridItem col={4}>
                                                     <Box textAlign="end">
-                                                        <Typography as="h3" variant="omega">{totalProductsCost} €</Typography>
+                                                        <Typography as="h3" variant="omega">{totalProductsCost.toFixed(2)} €</Typography>
                                                     </Box>
                                                 </GridItem>
                                             </Grid>
@@ -336,7 +336,7 @@ const OrderPage = () => {
                                                 </GridItem>
                                                 <GridItem col={4}>
                                                     <Box textAlign="end">
-                                                        <Typography as="h3" variant="omega">{order.shipping.cost} €</Typography>
+                                                        <Typography as="h3" variant="omega">{order.shipping.cost.toFixed(2)} €</Typography>
                                                     </Box>
                                                 </GridItem>
                                             </Grid>
@@ -350,7 +350,7 @@ const OrderPage = () => {
                                                 </GridItem>
                                                 <GridItem col={4}>
                                                     <Box textAlign="end">
-                                                        <Typography as="h3" variant="omega">{order.payment.cost} €</Typography>
+                                                        <Typography as="h3" variant="omega">{order.payment.cost.toFixed(2)} €</Typography>
                                                     </Box>
                                                 </GridItem>
                                             </Grid>
@@ -364,7 +364,7 @@ const OrderPage = () => {
                                                 </GridItem>
                                                 <GridItem col={4}>
                                                     <Box textAlign="end">
-                                                        <Typography as="h3" variant="omega">{order.total} €</Typography>
+                                                        <Typography as="h3" variant="omega">{order.total.toFixed(2)} €</Typography>
                                                     </Box>
                                                 </GridItem>
                                             </Grid>

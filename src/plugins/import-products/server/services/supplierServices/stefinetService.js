@@ -88,8 +88,14 @@ module.exports = ({ strapi }) => ({
             const index = product.category.indexOf('ΝΕΑ ΠΡΟΪΟΝΤΑ');
             product.category.splice(index, 1);
           }
-          else if (product.category.includes('LAST PIECES')) {
+          
+          if (product.category.includes('LAST PIECES')) {
             const index = product.category.indexOf('LAST PIECES');
+            product.category.splice(index, 1);
+          }
+
+          if (product.category.includes('Ψηφιακός Μετασχηματισμός')) {
+            const index = product.category.indexOf('Ψηφιακός Μετασχηματισμός');
             product.category.splice(index, 1);
           }
         }

@@ -297,7 +297,6 @@ module.exports = ({ strapi }) => ({
                 category = tempCategory.split(splitter)[0].trim()
                 subcategory = tempCategory.split(splitter)[1] ? tempCategory.split(splitter)[1].trim() : null
                 sub2category = tempCategory.split(splitter)[2] ? tempCategory.split(splitter)[2].trim() : null
-                // console.log("category:", category, "subcategory", subcategory, "sub2category", sub2category)
             }
             else {
                 category = strapi
