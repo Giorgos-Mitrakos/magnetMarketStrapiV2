@@ -59,8 +59,11 @@ module.exports = ({ strapi }) => ({
       const order = await strapi.entityService.findOne('api::order.order', id, {
         // fields: ['products', 'total', 'status', 'different_shipping', 'createdAt', 'billing_address', 'shipping_address'],
         populate: {
-          comments: true,
-        },
+          user: true,
+          shipping: true,
+          payment: true,
+          comments: true
+      },
       });
 
       let comments = order.comments
@@ -81,14 +84,50 @@ module.exports = ({ strapi }) => ({
 
       if (typeOfNote === 'Πελάτη') {
         const billing = order.billing_address.valueOf()
+        const shipping = order.shipping_address.valueOf()
+        const products = order.products.valueOf()
+
+        const productsRows = products.map(product => ({ ...product, productTotal: product.quantity * product.price }
+        ))
+
+        const productsCost = products.reduce((total, item) => {
+          return total + item.price * item.quantity
+        }, 0)
+
         const emailVariables = {
           comment: addNote.comment,
           billing: {
-            firstname: billing.firstname,
-            lastname: billing.lastname,
-            email: billing.email
+            firstname: `${billing.firstname}`,
+            lastname: `${billing.lastname}`,
+            country: `${billing.country}`,
+            state: `${billing.state}`,
+            city: `${billing.city}`,
+            street: `${billing.street}`,
+            zipCode: `${billing.zipCode}`,
+            mobilePhone: `${billing.mobilePhone}`,
+            telephone: `${billing.telephone}`,
           },
-          order: { id: order.id }
+          shipping: {
+            firstname: `${shipping.firstname}`,
+            lastname: `${shipping.lastname}`,
+            country: `${shipping.country}`,
+            state: `${shipping.state}`,
+            city: `${shipping.city}`,
+            street: `${shipping.street}`,
+            zipCode: `${shipping.zipCode}`,
+            mobilePhone: `${shipping.mobilePhone}`,
+            telephone: `${shipping.telephone}`,
+          },
+          order: {
+            id: order.id,
+            products: productsRows,
+            productsCost: productsCost.toFixed(2),
+            shippingName: order.shipping.name,
+            shippingCost: order.shipping.cost.toFixed(2),
+            paymentName: order.payment.name,
+            paymentCost: order.payment.cost.toFixed(2),
+            total: order.total.toFixed(2)
+          },
         }
         await strapi.service('api::order.order').sendConfirmOrderEmail({ templateReferenceId: 9, to: billing.email, emailVariables, subject: `Magnetmarket - Μήνυμα για την παραγγελία #${order.id}!` })
 

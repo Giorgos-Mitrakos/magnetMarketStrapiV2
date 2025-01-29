@@ -34,10 +34,10 @@ export default ({ env }) => ({
       providerOptions: {
         host: env('SMTP_HOST', 'mail.magnetmarket.gr'),
         port: env('SMTP_PORT', 465),
-        secure: false,
+        secure: true,
         auth: {
           user: env('SMTP_USERNAME', 'info@magnetmarket.gr'),
-          pass: env('SMTP_PASSWORD', 'M7zkv%778'),
+          pass: env('SMTP_PASSWORD', 'dK43p7x_#@!'),
         },
         // authMethod: "SMTP"
         // ... any custom nodemailer options
