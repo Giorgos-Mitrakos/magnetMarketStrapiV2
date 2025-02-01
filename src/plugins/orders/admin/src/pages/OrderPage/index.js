@@ -184,7 +184,7 @@ const OrderPage = () => {
                                         <Typography as="h3" variant="omega" fontWeight="bold">Σταθερό</Typography>
                                     </Box>
                                     <Box>
-                                        <Typography as="h3" variant="omega">{order.billing_address.mobilePhone}</Typography>
+                                        <Typography as="h3" variant="omega">{order.billing_address.telephone}</Typography>
                                     </Box>
                                 </>
                             }
@@ -195,7 +195,7 @@ const OrderPage = () => {
                                 <Typography as="h3" variant="omega">{order.billing_address.isInvoice ? "Ναί" : "Όχι"}</Typography>
                             </Box>
                         </GridItem>
-                        <GridItem background="neutral100" padding={1} col={4} s={12}>
+                        {order.different_shipping ? <GridItem background="neutral100" padding={1} col={4} s={12}>
                             <Box paddingBottom={2}>
                                 <Typography as="h3" variant="beta">Αποστολή</Typography>
                             </Box>
@@ -234,11 +234,56 @@ const OrderPage = () => {
                                         <Typography as="h3" variant="omega" fontWeight="bold">Σταθερό:</Typography>
                                     </Box>
                                     <Box>
-                                        <Typography as="h3" variant="omega">{order.shipping_address.mobilePhone}</Typography>
+                                        <Typography as="h3" variant="omega">{order.shipping_address.telephone}</Typography>
                                     </Box>
                                 </>
                             }
-                        </GridItem>
+                        </GridItem> :
+                            <GridItem background="neutral100" padding={1} col={4} s={12}>
+                                <Box paddingBottom={2}>
+                                    <Typography as="h3" variant="beta">Αποστολή</Typography>
+                                </Box>
+                                <Flex gap={1}>
+                                    <Box>
+                                        <Typography as="h3" variant="omega">{order.billing_address.firstname}</Typography>
+                                    </Box>
+                                    <Box>
+                                        <Typography as="h3" variant="omega">{order.billing_address.lastname}</Typography>
+                                    </Box>
+                                </Flex>
+                                <Box>
+                                    <Typography as="h3" variant="omega">{order.billing_address.street}</Typography>
+                                </Box>
+                                <Box>
+                                    <Typography as="h3" variant="omega">{order.billing_address.city}</Typography>
+                                </Box>
+                                <Box>
+                                    <Typography as="h3" variant="omega">{order.billing_address.state}</Typography>
+                                </Box>
+                                <Box>
+                                    <Typography as="h3" variant="omega">{order.billing_address.country}</Typography>
+                                </Box>
+                                <Box>
+                                    <Typography as="h3" variant="omega">Τ.Κ. {order.billing_address.zipCode}</Typography>
+                                </Box>
+                                <Box paddingTop={2}>
+                                    <Typography as="h3" variant="omega" fontWeight="bold">Κινητό:</Typography>
+                                </Box>
+                                <Box>
+                                    <Typography as="h3" variant="omega">{order.billing_address.mobilePhone}</Typography>
+                                </Box>
+                                {order.billing_address.telephone &&
+                                    <>
+                                        <Box paddingTop={2}>
+                                            <Typography as="h3" variant="omega" fontWeight="bold">Σταθερό:</Typography>
+                                        </Box>
+                                        <Box>
+                                            <Typography as="h3" variant="omega">{order.billing_address.telephone}</Typography>
+                                        </Box>
+                                    </>
+                                }
+                            </GridItem>
+                        }
                         <GridItem paddingTop={5} col={12}>
                             <Table colCount={5} rowCount={order.products.length}>
                                 <Thead>

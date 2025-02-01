@@ -103,6 +103,20 @@ export interface HomepageBannerListProducts extends Schema.Component {
   };
 }
 
+export interface HomepageCategoriesBanner extends Schema.Component {
+  collectionName: 'components_homepage_categories_banners';
+  info: {
+    displayName: 'categoriesBanner';
+  };
+  attributes: {
+    categories: Attribute.Relation<
+      'homepage.categories-banner',
+      'oneToMany',
+      'api::category.category'
+    >;
+  };
+}
+
 export interface HomepageCategoryBanner extends Schema.Component {
   collectionName: 'components_homepage_category_banners';
   info: {
@@ -464,6 +478,7 @@ declare module '@strapi/types' {
       'global.link': GlobalLink;
       'global.link-section': GlobalLinkSection;
       'homepage.banner-list-products': HomepageBannerListProducts;
+      'homepage.categories-banner': HomepageCategoriesBanner;
       'homepage.category-banner': HomepageCategoryBanner;
       'homepage.double-banner': HomepageDoubleBanner;
       'homepage.hot-or-sale': HomepageHotOrSale;

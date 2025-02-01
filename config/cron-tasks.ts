@@ -235,7 +235,7 @@ export default {
                 .parseCpiXml({ entry });
         },
         options: {
-            rule: "25 18 * * *",
+            rule: "25 9,18 * * *",
         },
     },
 
@@ -373,6 +373,20 @@ export default {
         },
         options: {
             rule: "58 * * * *",
+        },
+    },
+
+    createBestpricexXml: {
+        task: async ({ strapi }) => {
+            // Add your own logic here (e.g. send a queue of email, create a database backup, etc.).
+
+            await strapi
+                .plugin('export-platforms-xml')
+                .service('xmlService')
+                .createXml('bestprice');
+        },
+        options: {
+            rule: "6 * * * *",
         },
     },
 

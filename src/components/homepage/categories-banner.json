@@ -1,0 +1,14 @@
+{
+  "collectionName": "components_homepage_categories_banners",
+  "info": {
+    "displayName": "categoriesBanner"
+  },
+  "options": {},
+  "attributes": {
+    "categories": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::category.category"
+    }
+  }
+}

@@ -10,7 +10,7 @@ export type IOrders = Attribute.GetValues<"plugin::users-permissions.user">;
 import order from '../../order/controllers/order';
 
 export default factories.createCoreService('api::user-address.user-address', ({ strapi }) => ({
-    async getUser(ctx) {console.log(ctx)
+    async getUser(ctx) {
         try {
             const billing_address = await strapi.db.query('api::user-address.user-address').findOne({
                 where: {
@@ -186,7 +186,11 @@ export default factories.createCoreService('api::user-address.user-address', ({ 
                     populate: {
                         orders:
                         {
-                            sort: { createdAt: 'desc' }
+                            sort: { createdAt: 'desc' },
+                            populate: {
+                                shipping: true,
+                                payment: true
+                            },
                         }
                     },
                 });

@@ -62,10 +62,60 @@ module.exports = ({ strapi }) => ({
                 case "shopflix":
                     await this.createShopflixXML(entries, suppliers, platformAttr)
                     break;
+                case "bestprice":
+                    await this.createBestpriceXML(entries, suppliers, platformAttr)
+                    break;
 
                 default:
                     break;
             }
+        } catch (error) {
+            console.log(error)
+        }
+    },
+
+    async createBestpriceXML(entries, suppliers, platform) {
+        try {
+            let finalEntries = []
+            for (let category of entries.export_categories) {
+                let categoryPath = await this.createCategoryPath(category)
+                for (let product of category.products) {
+                    if (product.mpn === "BHR4215GL")
+                        continue
+
+                    let { cheaperAvailableSupplier, availability, price } = this.createAvailabilityAndPrice(product, suppliers, platform, category)
+
+                    if (!price) { continue }
+                    let newEntry = {
+                        productId: product.id,
+                        title: product.name,
+                        productURL: `https://magnetmarket.gr/product/${slugify(`${product.name.replaceAll("/", "-").replaceAll("|", "")}`, { lower: true, remove: /[^A-Za-z0-9-_.~-\s]*$/g })}`,
+                        imageURL: product.image ? `https://api.magnetmarket.eu/${product.image.url}` : "",
+                        category_path: categoryPath,
+                        price: parseFloat(price).toFixed(2),
+                        weight: product.weight,
+                        availability,
+                        brand: product.brand ? product.brand?.name : "",
+                        mpn: product.mpn,
+                        sku: product.sku,
+                        stock: product.inventory > 0 ? product.inventory
+                            : (cheaperAvailableSupplier && cheaperAvailableSupplier.name.toLowerCase() === "globalsat" ? 1 : 2),
+                        Barcode: product.barcode,
+                    }
+
+                    finalEntries.push({ product: newEntry })
+                }
+            }
+
+            var builder = new xml2js.Builder({ xmldec: { encoding: 'ISO-8859-7' } });
+            let date = new Date()
+            let createdAt = `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`
+            var xml = builder.buildObject({ store: { date: createdAt, products: [finalEntries] } });
+
+            fs.writeFile('./public/feeds/BestPrice.xml', xml, (err) => {
+                if (err)
+                    console.log(err);
+            })
         } catch (error) {
             console.log(error)
         }
@@ -228,6 +278,14 @@ module.exports = ({ strapi }) => ({
                         return { availability: "Διαθέσιμο από 4-10 ημέρες", price: platformPrice }
                     }
                 }
+                else if (platform.name.toLowerCase() === "bestprice") {
+                    if (product.is_in_house) {
+                        return { availability: "Παράδοση σε 1–3 ημέρες", price: product.price }
+                    }
+                    else {
+                        return { availability: "Παράδοση σε 1–3 ημέρες", price: product.price }
+                    }
+                }
                 else {
                     if (product.is_in_house) {
                         return { availability: 0, price: platformPrice }
@@ -274,12 +332,14 @@ module.exports = ({ strapi }) => ({
         if (cheaperAvailableSupplier.availability < 2) {
             if (minutesOfDay(orderTime) > minutesOfDay(date) || minutesOfDay(platformTime) < minutesOfDay(date)) {
                 if (platformName === "skroutz") { availability = "Διαθέσιμο από 1-3 ημέρες" }
+                else if (platformName === "bestprice") { availability = "Παράδοση σε 1–3 ημέρες" }
                 else {
                     availability = cheaperAvailableSupplier.availability
                 }
             }
             else {
                 if (platformName === "skroutz") { availability = "Διαθέσιμο από 4-10 ημέρες" }
+                else if (platformName === "bestprice") { availability = "Παράδοση σε 4–7 ημέρες " }
                 else {
                     availability = cheaperAvailableSupplier.availability
                 }
@@ -287,12 +347,15 @@ module.exports = ({ strapi }) => ({
         }
         else if (cheaperAvailableSupplier.availability < 5) {
             if (platformName === "skroutz") { availability = "Διαθέσιμο από 4-10 ημέρες" }
+            else if (platformName === "bestprice") { availability = "Παράδοση σε 4–10 ημέρες" }
             else {
                 availability = cheaperAvailableSupplier.availability
             }
         }
         else {
             if (platformName === "skroutz") { availability = "Διαθέσιμο από 10 έως 30 ημέρες" }
+            else if (platformName === "bestprice") { availability = "Παράδοση σε 15–30 ημέρες" }
+
             else {
                 availability = cheaperAvailableSupplier.availability
             }
@@ -377,7 +440,7 @@ module.exports = ({ strapi }) => ({
                     await strapi.entityService.update('api::product.product', product.id, {
                         data: {
                             publishedAt: null,
-                            deletedAt:new Date()
+                            deletedAt: new Date()
                         },
                     });
                 }
