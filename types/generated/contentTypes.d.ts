@@ -585,7 +585,8 @@ export interface ApiHomepageHomepage extends Schema.SingleType {
         'homepage.single-banner',
         'homepage.double-banner',
         'homepage.hot-or-sale',
-        'homepage.categories-banner'
+        'homepage.categories-banner',
+        'homepage.brands-banner'
       ]
     >;
     Carousel: Attribute.DynamicZone<['global.banner']>;

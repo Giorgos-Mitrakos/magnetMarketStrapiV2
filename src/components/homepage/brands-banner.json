@@ -1,0 +1,14 @@
+{
+  "collectionName": "components_homepage_brands_banners",
+  "info": {
+    "displayName": "BrandsBanner"
+  },
+  "options": {},
+  "attributes": {
+    "brands": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::brand.brand"
+    }
+  }
+}

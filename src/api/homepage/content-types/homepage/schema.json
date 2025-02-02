@@ -33,7 +33,8 @@
         "homepage.single-banner",
         "homepage.double-banner",
         "homepage.hot-or-sale",
-        "homepage.categories-banner"
+        "homepage.categories-banner",
+        "homepage.brands-banner"
       ]
     }
   }

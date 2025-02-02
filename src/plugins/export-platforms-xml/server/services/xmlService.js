@@ -107,7 +107,7 @@ module.exports = ({ strapi }) => ({
                 }
             }
 
-            var builder = new xml2js.Builder({ xmldec: { encoding: 'ISO-8859-7' } });
+            var builder = new xml2js.Builder();
             let date = new Date()
             let createdAt = `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`
             var xml = builder.buildObject({ store: { date: createdAt, products: [finalEntries] } });
