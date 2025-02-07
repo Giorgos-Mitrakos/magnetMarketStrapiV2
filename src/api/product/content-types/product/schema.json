@@ -195,6 +195,10 @@
       "type": "boolean",
       "default": false,
       "private": true
+    },
+    "notice_if_available": {
+      "type": "boolean",
+      "default": false
     }
   }
 }

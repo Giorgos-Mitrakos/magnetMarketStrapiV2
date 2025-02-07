@@ -131,7 +131,7 @@ export default {
 
         try {
             await strapi.service('api::order.order').sendConfirmOrderEmail({ templateReferenceId, to: order.user.email, emailVariables, subject: `Magnetmarket - Η παραγγελία σας με κωδικό #${order.id} είναι σε κατάσταση: ${order.status}!` })
-            await strapi.service('api::order.order').sendConfirmOrderEmail({ templateReferenceId: 8, to: ['giorgos_mitrakos@yahoo.com'], emailVariables, subject: `Νέα παραγγελία στο site, Αρ.παρ #${order.id}` })
+            await strapi.service('api::order.order').sendConfirmOrderEmail({ templateReferenceId: 8, to: ['giorgos_mitrakos@yahoo.com',"info@magnetmarket.gr","kkoulogiannis@gmail.com"], emailVariables, subject: `Νέα παραγγελία στο site, Αρ.παρ #${order.id}` })
         } catch (error) {
             console.log(error)
         }

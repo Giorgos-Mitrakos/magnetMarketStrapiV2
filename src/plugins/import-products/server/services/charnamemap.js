@@ -82,9 +82,11 @@ module.exports = ({ strapi }) => ({
 
             const { mapCharNames, mapCharValues } = charMaps
 
+            const importRef = { charMaps: { mapCharNames, mapCharValues } }
+
             for (let entry of entries.related_products) {
                 if (entry.prod_chars && entry.prod_chars.length > 0) {
-                    const parsedChars = this.parseChars(entry.prod_chars, mapCharNames, mapCharValues)
+                    const parsedChars = this.parseChars(entry.prod_chars, importRef)
 
                     const updateProduct = await strapi.entityService.update('api::product.product', entry.id, {
                         data: {

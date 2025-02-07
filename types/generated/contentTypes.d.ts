@@ -925,6 +925,7 @@ export interface ApiProductProduct extends Schema.CollectionType {
     need_verify: Attribute.Boolean &
       Attribute.Private &
       Attribute.DefaultTo<false>;
+    notice_if_available: Attribute.Boolean & Attribute.DefaultTo<false>;
     platforms: Attribute.Component<'products.platform', true>;
     price: Attribute.Decimal &
       Attribute.Required &

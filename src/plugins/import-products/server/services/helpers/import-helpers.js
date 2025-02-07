@@ -140,7 +140,7 @@ module.exports = ({ strapi }) => ({
     async getXmlData(url, config) {
         try {
             const response = await Axios.get(url, config)
-            
+
             return { response, message: "Ok" }
         } catch (error) {
             console.log(error)
@@ -492,6 +492,19 @@ module.exports = ({ strapi }) => ({
             }
 
             if (entryCheck.publishedAt === null) {
+
+                if (entryCheck.notice_if_available) {
+                    const emailVariables = {
+                        product: {
+                            name: entryCheck.name,
+                            id: entryCheck.id,
+                            supplier: product.entry.name,
+                            supplierProductId: product.supplierCode
+                        },
+                    }
+                    await strapi.service('api::order.order').sendConfirmOrderEmail({ templateReferenceId: 10, to: ['giorgos_mitrakos@yahoo.com',"info@magnetmarket.gr","kkoulogiannis@gmail.com"], emailVariables, subject: "Ενημέρωση διαθεσιμότητας!" })
+                }
+
                 // if (product.entry.name.toLowerCase() === "globalsat") {
                 data.need_verify = false
                 //     dbChange.typeOfChange = 'updated'
