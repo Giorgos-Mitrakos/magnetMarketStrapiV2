@@ -65,80 +65,6 @@ export default {
             return total + item.price * item.quantity
         }, 0)
 
-        //     const subTable = `
-        //     <div style="width:100%; margin-top:2rem; display:flex; font-weight:bold; font-size: 1rem; flex-direction:column; align-items:flex-end;">
-        //         <p>Υποσύνολο: ${productsCost} €</p>
-        //         <p>${order.shipping.name}: ${order.shipping.cost} €</p>
-        //         <p>${order.payment.name}: ${order.payment.cost} €</p>
-        //         <p>Σύνολο: ${order.total} €</p>
-        //     </div>
-        //     `
-
-        //     const orderDetailsTable = `
-        //     <section style="width:100%; margin-top:2rem;  display: grid; grid-template-columns: auto auto auto;">
-        //         <div>
-        //             <h2>ΣΤΟΙΧΕΙΑ ΤΙΜΟΛΟΓΗΣΗΣ</h2>
-        //             ${order.isInvoice ?
-        //             `
-        //             <p>Εταιρία: ${billing.companyName}</p>
-        //             <p>Δραστηριότητα: ${billing.businessActivity}</p>
-        //             <p>Α.Φ.Μ.: ${billing.afm}</p>
-        //             <p>Δ.Ο.Υ.: ${billing.doy}</p>
-        //             `
-        //             :
-        //             `
-        //             <p>Επίθετο: ${billing.lastname}</p>
-        //             <p>Όνομα: ${billing.firstname}</p>                
-        //             `
-        //         }
-        //             <p>Χώρα: ${billing.country}</p>
-        //             <p>Νομός: ${billing.state}</p>
-        //             <p>Οδός: ${billing.street}</p>
-        //             <p>Τ.Κ.: ${billing.zipCode}</p>
-        //             <p>Κινητό: ${billing.mobilePhone}</p>
-        //             <p>Σταθερό: ${billing.telephone}</p>
-        //         </div>
-        //         <div>
-        //             <h2>ΠΑΡΑΔΟΣΗ</h2>
-        //             <p>Επίθετο: ${shipping.lastname}</p>
-        //             <p>Όνομα: ${shipping.firstname}</p>
-        //             <p>Χώρα: ${shipping.country}</p>
-        //             <p>Νομός: ${shipping.state}</p>
-        //             <p>Οδός: ${shipping.street}</p>
-        //             <p>Τ.Κ.: ${shipping.zipCode}</p>
-        //             <p>Κινητό: ${shipping.mobilePhone}</p>
-        //             <p>Σταθερό: ${shipping.telephone}</p>
-        //         </div>
-        //         <div>
-        //             <h2>ΣΧΟΛΙΑ</h2>
-        //             <p>${order.delivery_notes}</p>
-        //         </div>
-        //     </section>`
-
-        //     const orderProductsTable = `
-        //     <section style="width:100%; margin-top:2rem;">
-        //     <table>
-        //         <colgroup>
-        //             <col span="1" style="width: 10%;">
-        //             <col span="1" style="width: 10%;">
-        //             <col span="1" style="width: 50%;">
-        //             <col span="1" style="width: 10%;">
-        //             <col span="1" style="width: 10%;">
-        //             <col span="1" style="width: 10%;">
-        //         </colgroup>
-        //         <tr>
-        //             <th style="text-align: left;">Φώτο</th>
-        //             <th style="text-align: left;">Κωδικός</th>
-        //             <th style="text-align: left;">Προιόν</th>
-        //             <th style="text-align: left;">Ποσότητα</th>
-        //             <th style="text-align: left;">Τιμή</th>
-        //             <th style="text-align: left;">Σύνολο Προιόντος</th>
-        //         </tr>
-        //        ${productsRows}
-        //     </table>
-        //     </section>
-        //    `
-
         let templateReferenceId = 0
 
         switch (order.status) {
@@ -205,59 +131,10 @@ export default {
 
         try {
             await strapi.service('api::order.order').sendConfirmOrderEmail({ templateReferenceId, to: order.user.email, emailVariables, subject: `Magnetmarket - Η παραγγελία σας με κωδικό #${order.id} είναι σε κατάσταση: ${order.status}!` })
-            await strapi.service('api::order.order').sendConfirmOrderEmail({ templateReferenceId: 8, to: ['info@magnetmarket.gr', 'giorgos_mitrakos@yahoo.com', 'kkoulogiannis@gmail.com'], emailVariables, subject: `Νέα παραγγελία στο site, Αρ.παρ #${order.id}` })
+            await strapi.service('api::order.order').sendConfirmOrderEmail({ templateReferenceId: 8, to: ['giorgos_mitrakos@yahoo.com'], emailVariables, subject: `Νέα παραγγελία στο site, Αρ.παρ #${order.id}` })
         } catch (error) {
             console.log(error)
         }
-
-        // try {
-        //     await strapi
-        //         .plugin('email-designer')
-        //         .service('email')
-        //         .sendTemplatedEmail(
-        //             {
-        //                 // required
-        //                 to: order.user.email,
-
-        //                 // optional if /config/plugins.js -> email.settings.defaultFrom is set
-        //                 from: 'info@magnetmarket.gr',
-
-        //                 // optional if /config/plugins.js -> email.settings.defaultReplyTo is set
-        //                 replyTo: 'info@magnetmarket.gr',
-
-        //                 // optional array of files
-        //                 attachments: []
-        //                 //  products.map(product => {
-        //                 //     return ({
-        //                 //         filename: product.image,
-        //                 //         href: `http://localhost:1337${product.image}`,
-        //                 //         cid: product.id
-        //                 //     })
-        //                 // }),
-        //             },
-        //             {
-        //                 // required - Ref ID defined in the template designer (won't change on import)
-        //                 templateReferenceId: templateReferenceId,
-
-        //                 // If provided here will override the template's subject.
-        //                 // Can include variables like `Thank you for your order {{= USER.firstName }}!`
-        //                 subject: `Magnetmarket - Η παραγγελία σας με κωδικό #${order.id} είναι σε κατάσταση: ${order.status}!`,
-        //             },
-        //             {
-        //                 // this object must include all variables you're using in your email template
-        //                 emailVariables
-        //             }
-        //         );
-        //     // await strapi.plugins["email"].services.email.sendTemplatedEmail(
-        //     //     {
-        //     //         from: "info@magnetmarket.gr",
-        //     //         to: `info@magnetmarket.gr;giorgos_mitrakos@yahoo.com;kkoulogiannis@gmail.com;`,
-        //     //     },
-        //     //     emailOrderNotificationTemplate
-        //     // );
-        // } catch (error) {
-        //     console.log(error)
-        // }
 
     },
 

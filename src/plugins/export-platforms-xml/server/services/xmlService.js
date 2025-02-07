@@ -89,7 +89,7 @@ module.exports = ({ strapi }) => ({
                     let newEntry = {
                         productId: product.id,
                         title: product.name,
-                        productURL: `https://magnetmarket.gr/product/${slugify(`${product.name.replaceAll("/", "-").replaceAll("|", "")}`, { lower: true, remove: /[^A-Za-z0-9-_.~-\s]*$/g })}`,
+                        productURL: `https://magnetmarket.gr/product/${product.slug}`,
                         imageURL: product.image ? `https://api.magnetmarket.eu/${product.image.url}` : "",
                         category_path: categoryPath,
                         price: parseFloat(price).toFixed(2),
@@ -98,8 +98,7 @@ module.exports = ({ strapi }) => ({
                         brand: product.brand ? product.brand?.name : "",
                         mpn: product.mpn,
                         sku: product.sku,
-                        stock: product.inventory > 0 ? product.inventory
-                            : (cheaperAvailableSupplier && cheaperAvailableSupplier.name.toLowerCase() === "globalsat" ? 1 : 2),
+                        stock: 'Y',
                         Barcode: product.barcode,
                     }
 
@@ -136,7 +135,8 @@ module.exports = ({ strapi }) => ({
                     let newEntry = {
                         uniqueID: product.id,
                         name: product.name,
-                        link: `https://magnetmarket.gr/product/${slugify(`${product.name.replaceAll("/", "-").replaceAll("|", "")}`, { lower: true, remove: /[^A-Za-z0-9-_.~-\s]*$/g })}`,
+                        // link: `https://magnetmarket.gr/product/${slugify(`${product.name.replaceAll("/", "-").replaceAll("|", "")}`, { lower: true, remove: /[^A-Za-z0-9-_.~-\s]*$/g })}`,
+                        link: `https://magnetmarket.gr/product/${product.slug}`,
                         image: product.image ? `https://api.magnetmarket.eu/${product.image.url}` : "",
                         category: categoryPath,
                         price: parseFloat(price).toFixed(2),
@@ -187,7 +187,7 @@ module.exports = ({ strapi }) => ({
                         MPN: product.mpn,
                         manufacturer: product.brand?.name,
                         description: product.description,
-                        url: `https://magnetmarket.gr/product/${slugify(`${product.name.replaceAll("/", "-").replaceAll("|", "")}`, { lower: true, remove: /[^A-Za-z0-9-_.~-\s]*$/g })}`,
+                        url: `https://magnetmarket.gr/product/${product.slug}`,
                         image: product.image ? `https://api.magnetmarket.eu/${product.image.url}` : "",
                         // additional_image: product.additionalImages ? `https://api.magnetmarket.eu/${product.additionalImages[0]}` : "",
                         category: category.name,
@@ -339,7 +339,7 @@ module.exports = ({ strapi }) => ({
             }
             else {
                 if (platformName === "skroutz") { availability = "Διαθέσιμο από 4-10 ημέρες" }
-                else if (platformName === "bestprice") { availability = "Παράδοση σε 4–7 ημέρες " }
+                else if (platformName === "bestprice") { availability = "Παράδοση σε 1–3 ημέρες" }
                 else {
                     availability = cheaperAvailableSupplier.availability
                 }
@@ -347,14 +347,14 @@ module.exports = ({ strapi }) => ({
         }
         else if (cheaperAvailableSupplier.availability < 5) {
             if (platformName === "skroutz") { availability = "Διαθέσιμο από 4-10 ημέρες" }
-            else if (platformName === "bestprice") { availability = "Παράδοση σε 4–10 ημέρες" }
+            else if (platformName === "bestprice") { availability = "Παράδοση σε 1–3 ημέρες" }
             else {
                 availability = cheaperAvailableSupplier.availability
             }
         }
         else {
             if (platformName === "skroutz") { availability = "Διαθέσιμο από 10 έως 30 ημέρες" }
-            else if (platformName === "bestprice") { availability = "Παράδοση σε 15–30 ημέρες" }
+            else if (platformName === "bestprice") { availability = "Παράδοση σε 1–3 ημέρες" }
 
             else {
                 availability = cheaperAvailableSupplier.availability
