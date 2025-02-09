@@ -356,6 +356,37 @@ module.exports = ({ strapi }) => ({
             // Αν δεν υπάρχει ο προμηθευτής σε αυτο το προϊόν ενημερώνω τη συσχέτιση
             if (findImport === -1) { data.related_import = [...relatedImportIds, product.entry.id] }
 
+            // Αναζητώ τον προμηθευτή
+            let supplierInfoIndex = supplierInfo.findIndex(o => o.name === product.entry.name)
+
+            if (supplierInfoIndex !== -1) {
+                if (supplierInfo[supplierInfoIndex].in_stock === false && entryCheck.notice_if_available) {
+                    const emailVariables = {
+                        product: {
+                            name: entryCheck.name,
+                            id: entryCheck.id,
+                            supplier: product.entry.name,
+                            supplierProductId: product.supplierCode
+                        },
+                    }
+                    await strapi.service('api::order.order').sendConfirmOrderEmail({ templateReferenceId: 10, to: ['giorgos_mitrakos@yahoo.com'], emailVariables, subject: "Ενημέρωση διαθεσιμότητας!" })
+
+                }
+            }
+            else {
+                if (entryCheck.notice_if_available) {
+                    const emailVariables = {
+                        product: {
+                            name: entryCheck.name,
+                            id: entryCheck.id,
+                            supplier: product.entry.name,
+                            supplierProductId: product.supplierCode
+                        },
+                    }
+                    await strapi.service('api::order.order').sendConfirmOrderEmail({ templateReferenceId: 10, to: ['giorgos_mitrakos@yahoo.com'], emailVariables, subject: "Ενημέρωση διαθεσιμότητας!" })
+                }
+            }
+
             // Αν το προϊόν δεν είναι σε κάποια κατηγορία ή αν είναι σε διαφορετική 
             // από ότι βρήκα στο μαπάρισμα του προμηθευτή ενημερώνω την κατηγορία.
             // εδώ κινδυνέυω αν εχει γίνει λάθος μαπάρισμα να αλλάζει το προϊόν συνεχώς κατηγορίες
@@ -492,18 +523,6 @@ module.exports = ({ strapi }) => ({
             }
 
             if (entryCheck.publishedAt === null) {
-
-                if (entryCheck.notice_if_available) {
-                    const emailVariables = {
-                        product: {
-                            name: entryCheck.name,
-                            id: entryCheck.id,
-                            supplier: product.entry.name,
-                            supplierProductId: product.supplierCode
-                        },
-                    }
-                    await strapi.service('api::order.order').sendConfirmOrderEmail({ templateReferenceId: 10, to: ['giorgos_mitrakos@yahoo.com',"info@magnetmarket.gr","kkoulogiannis@gmail.com"], emailVariables, subject: "Ενημέρωση διαθεσιμότητας!" })
-                }
 
                 // if (product.entry.name.toLowerCase() === "globalsat") {
                 data.need_verify = false
