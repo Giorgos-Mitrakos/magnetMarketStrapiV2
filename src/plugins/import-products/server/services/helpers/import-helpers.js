@@ -369,7 +369,7 @@ module.exports = ({ strapi }) => ({
                             supplierProductId: product.supplierCode
                         },
                     }
-                    await strapi.service('api::order.order').sendConfirmOrderEmail({ templateReferenceId: 10, to: ['giorgos_mitrakos@yahoo.com'], emailVariables, subject: "Ενημέρωση διαθεσιμότητας!" })
+                    await strapi.service('api::order.order').sendConfirmOrderEmail({ templateReferenceId: 10, to: ['giorgos_mitrakos@yahoo.com',"info@magnetmarket.gr","kkoulogiannis@gmail.com"], emailVariables, subject: "Ενημέρωση διαθεσιμότητας!" })
 
                 }
             }
