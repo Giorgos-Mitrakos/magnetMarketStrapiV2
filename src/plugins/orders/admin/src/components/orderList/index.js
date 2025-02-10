@@ -71,11 +71,16 @@ const OrderList = () => {
                                 <Checkbox aria-label={`Select ${order.id}`} />
                             </Td>
                             <Td>
-                                <Typography textColor="neutral800">{order.id}</Typography>
+                                <Link to={`/plugins/${pluginId}/${order.id}`}>
+                                    <Typography textColor="neutral800">{order.id}</Typography>
+                                </Link>
                             </Td>
                             <Td>
                                 <Link to={`/plugins/${pluginId}/${order.id}`}>
-                                    <Typography textColor="neutral800">{order.billing_address.firstname} {order.billing_address.lastname}</Typography>
+                                    {order.isInvoice ?
+                                        <Typography textColor="neutral800">{order.billing_address.companyName}</Typography> :
+                                        <Typography textColor="neutral800">{order.billing_address.firstname} {order.billing_address.lastname}</Typography>
+                                    }
                                 </Link>
                             </Td>
                             <Td>

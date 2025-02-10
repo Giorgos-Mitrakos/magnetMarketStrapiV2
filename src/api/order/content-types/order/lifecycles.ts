@@ -69,13 +69,35 @@ export default {
 
         switch (order.status) {
             case 'Σε αναμονή':
-                templateReferenceId = 1;
+                if (order.isInvoice) {
+                    if (order.different_shipping) {
+                        templateReferenceId = 13;
+                    }
+                    else { templateReferenceId = 12; }
+                }
+                else {
+                    if (order.different_shipping) {
+                        templateReferenceId = 1;
+                    }
+                    else { templateReferenceId = 11; }
+                }
+                break;
+            case 'Σε επεξεργασία':
+                if (order.isInvoice) {
+                    if (order.different_shipping) {
+                        templateReferenceId = 15;
+                    }
+                    else { templateReferenceId = 16; }
+                }
+                else {
+                    if (order.different_shipping) {
+                        templateReferenceId = 2;
+                    }
+                    else { templateReferenceId = 14; }
+                }
                 break;
             case 'Εκκρεμεί πληρωμή':
                 templateReferenceId = 3;
-                break;
-            case 'Σε επεξεργασία':
-                templateReferenceId = 2;
                 break;
             case 'Ολοκληρωμένη':
                 templateReferenceId = 4;
@@ -98,6 +120,10 @@ export default {
             billing: {
                 firstname: `${billing.firstname}`,
                 lastname: `${billing.lastname}`,
+                companyName: billing.companyName,
+                businessActivity: billing.businessActivity,
+                afm: billing.afm,
+                doy: billing.doy,
                 country: `${billing.country}`,
                 state: `${billing.state}`,
                 city: `${billing.city}`,
@@ -131,7 +157,7 @@ export default {
 
         try {
             await strapi.service('api::order.order').sendConfirmOrderEmail({ templateReferenceId, to: order.user.email, emailVariables, subject: `Magnetmarket - Η παραγγελία σας με κωδικό #${order.id} είναι σε κατάσταση: ${order.status}!` })
-            await strapi.service('api::order.order').sendConfirmOrderEmail({ templateReferenceId: 8, to: ['giorgos_mitrakos@yahoo.com',"info@magnetmarket.gr","kkoulogiannis@gmail.com"], emailVariables, subject: `Νέα παραγγελία στο site, Αρ.παρ #${order.id}` })
+            await strapi.service('api::order.order').sendConfirmOrderEmail({ templateReferenceId: 8, to: ['giorgos_mitrakos@yahoo.com', "info@magnetmarket.gr", "kkoulogiannis@gmail.com"], emailVariables, subject: `Νέα παραγγελία στο site, Αρ.παρ #${order.id}` })
         } catch (error) {
             console.log(error)
         }

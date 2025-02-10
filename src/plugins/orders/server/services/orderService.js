@@ -10,7 +10,7 @@ module.exports = ({ strapi }) => ({
 
     const offset = (parseInt(page) - 1) * 10
     const orders = await strapi.db.query('api::order.order').findWithCount({
-      select: ['products', 'total', 'status', 'different_shipping', 'createdAt', 'billing_address', 'shipping_address'],
+      // select: ['products', 'total', 'status', 'different_shipping', 'createdAt', 'billing_address', 'shipping_address'],
       orderBy: { createdAt: 'DESC' },
       limit: 10,
       offset: offset,
