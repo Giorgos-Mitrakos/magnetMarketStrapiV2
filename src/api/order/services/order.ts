@@ -371,8 +371,6 @@ export default factories.createCoreService('api::order.order', ({ strapi }) => (
 
             }
 
-            // await this.sendConfirmOrderEmail({ addresses, cartItems, totalCost, orderId: newOrder.id })
-
             return {
                 status: "succeed",
                 message: "Επιτυχής Καταχώρηση",
