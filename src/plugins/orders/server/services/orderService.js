@@ -63,7 +63,7 @@ module.exports = ({ strapi }) => ({
           shipping: true,
           payment: true,
           comments: true
-      },
+        },
       });
 
       let comments = order.comments
@@ -99,6 +99,10 @@ module.exports = ({ strapi }) => ({
           billing: {
             firstname: `${billing.firstname}`,
             lastname: `${billing.lastname}`,
+            companyName: billing.companyName,
+            businessActivity: billing.businessActivity,
+            afm: billing.afm,
+            doy: billing.doy,
             country: `${billing.country}`,
             state: `${billing.state}`,
             city: `${billing.city}`,
@@ -129,7 +133,22 @@ module.exports = ({ strapi }) => ({
             total: order.total.toFixed(2)
           },
         }
-        await strapi.service('api::order.order').sendConfirmOrderEmail({ templateReferenceId: 9, to: billing.email, emailVariables, subject: `Magnetmarket - Μήνυμα για την παραγγελία #${order.id}!` })
+
+        let templateReferenceId= 9
+        if (order.isInvoice) {
+          if (order.different_shipping) {
+            templateReferenceId = 37;
+          }
+          else { templateReferenceId = 36; }
+        }
+        else {
+          if (order.different_shipping) {
+            templateReferenceId = 35;
+          }
+          else { templateReferenceId = 9; }
+        }
+
+        await strapi.service('api::order.order').sendConfirmOrderEmail({ templateReferenceId: templateReferenceId, to: billing.email, emailVariables, subject: `Magnetmarket - Μήνυμα για την παραγγελία #${order.id}!` })
 
 
       }

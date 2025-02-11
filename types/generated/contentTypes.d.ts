@@ -651,6 +651,7 @@ export interface ApiOrderOrder extends Schema.CollectionType {
     draftAndPublish: true;
   };
   attributes: {
+    Article_39a: Attribute.Component<'order.article-39a'>;
     billing_address: Attribute.JSON & Attribute.Required;
     comments: Attribute.Component<'shipping.comment', true>;
     createdAt: Attribute.DateTime;

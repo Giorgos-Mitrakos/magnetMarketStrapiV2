@@ -219,6 +219,17 @@ export interface ImportsContainsName extends Schema.Component {
   };
 }
 
+export interface OrderArticle39A extends Schema.Component {
+  collectionName: 'components_order_article_39as';
+  info: {
+    displayName: 'article 39a';
+  };
+  attributes: {
+    isTaxFree: Attribute.Boolean & Attribute.DefaultTo<false>;
+    one_use_code: Attribute.String;
+  };
+}
+
 export interface PaymentRange extends Schema.Component {
   collectionName: 'components_payment_ranges';
   info: {
@@ -500,6 +511,7 @@ declare module '@strapi/types' {
       'homepage.single-banner': HomepageSingleBanner;
       'homepage.triple-banner': HomepageTripleBanner;
       'imports.contains-name': ImportsContainsName;
+      'order.article-39a': OrderArticle39A;
       'payment.range': PaymentRange;
       'payment.tran-ticket': PaymentTranTicket;
       'products.chars': ProductsChars;

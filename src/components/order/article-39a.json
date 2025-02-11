@@ -1,0 +1,16 @@
+{
+  "collectionName": "components_order_article_39as",
+  "info": {
+    "displayName": "article 39a"
+  },
+  "options": {},
+  "attributes": {
+    "isTaxFree": {
+      "type": "boolean",
+      "default": false
+    },
+    "one_use_code": {
+      "type": "string"
+    }
+  }
+}
