@@ -26,6 +26,15 @@
       "enum": [
         "_blank"
       ]
+    },
+    "title": {
+      "type": "string"
+    },
+    "text_body": {
+      "type": "text"
+    },
+    "backgroundColor": {
+      "type": "string"
     }
   }
 }

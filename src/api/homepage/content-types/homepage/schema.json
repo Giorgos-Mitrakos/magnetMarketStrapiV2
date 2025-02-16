@@ -12,18 +12,6 @@
   },
   "pluginOptions": {},
   "attributes": {
-    "Carousel": {
-      "type": "dynamiczone",
-      "components": [
-        "global.banner"
-      ]
-    },
-    "fixed_hero_banners": {
-      "type": "dynamiczone",
-      "components": [
-        "global.banner"
-      ]
-    },
     "body": {
       "type": "dynamiczone",
       "components": [
@@ -34,7 +22,9 @@
         "homepage.double-banner",
         "homepage.hot-or-sale",
         "homepage.categories-banner",
-        "homepage.brands-banner"
+        "homepage.brands-banner",
+        "global.carousel",
+        "global.site-features"
       ]
     }
   }

@@ -54,10 +54,24 @@ export interface GlobalBanner extends Schema.Component {
     displayName: 'Banner';
   };
   attributes: {
+    backgroundColor: Attribute.String;
     href: Attribute.String & Attribute.Required;
     image: Attribute.Media<'images'> & Attribute.Required;
     link_label: Attribute.String;
     target: Attribute.Enumeration<['_blank']>;
+    text_body: Attribute.Text;
+    title: Attribute.String;
+  };
+}
+
+export interface GlobalCarousel extends Schema.Component {
+  collectionName: 'components_global_carousels';
+  info: {
+    description: '';
+    displayName: 'Carousel';
+  };
+  attributes: {
+    Banner: Attribute.Component<'global.banner', true>;
   };
 }
 
@@ -83,6 +97,16 @@ export interface GlobalLinkSection extends Schema.Component {
   attributes: {
     Label: Attribute.String;
     links: Attribute.Component<'global.link', true>;
+  };
+}
+
+export interface GlobalSiteFeatures extends Schema.Component {
+  collectionName: 'components_global_site_features';
+  info: {
+    displayName: 'Site Features';
+  };
+  attributes: {
+    visible: Attribute.Boolean & Attribute.Required & Attribute.DefaultTo<true>;
   };
 }
 
@@ -500,8 +524,10 @@ declare module '@strapi/types' {
       'categories.filters': CategoriesFilters;
       'categories.percentage': CategoriesPercentage;
       'global.banner': GlobalBanner;
+      'global.carousel': GlobalCarousel;
       'global.link': GlobalLink;
       'global.link-section': GlobalLinkSection;
+      'global.site-features': GlobalSiteFeatures;
       'homepage.banner-list-products': HomepageBannerListProducts;
       'homepage.brands-banner': HomepageBrandsBanner;
       'homepage.categories-banner': HomepageCategoriesBanner;

@@ -128,16 +128,16 @@ const OrderPage = () => {
                             {order.billing_address.isInvoice ?
                                 <>
                                     <Box>
-                                        <Typography as="h3" variant="beta">{order.billing_address.companyName}</Typography>
+                                        <Typography as="h3" variant="omega">{order.billing_address.companyName}</Typography>
                                     </Box>
                                     <Box>
-                                        <Typography as="h3" variant="beta">{order.billing_address.businessActivity}</Typography>
+                                        <Typography as="h3" variant="omega">{order.billing_address.businessActivity}</Typography>
                                     </Box>
                                     <Box>
-                                        <Typography as="h3" variant="beta">{order.billing_address.afm}</Typography>
+                                        <Typography as="h3" variant="omega">{order.billing_address.afm}</Typography>
                                     </Box>
                                     <Box>
-                                        <Typography as="h3" variant="beta">{order.billing_address.doy}</Typography>
+                                        <Typography as="h3" variant="omega">{order.billing_address.doy}</Typography>
                                     </Box>
                                 </>
                                 :

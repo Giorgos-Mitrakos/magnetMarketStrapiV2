@@ -586,10 +586,11 @@ export interface ApiHomepageHomepage extends Schema.SingleType {
         'homepage.double-banner',
         'homepage.hot-or-sale',
         'homepage.categories-banner',
-        'homepage.brands-banner'
+        'homepage.brands-banner',
+        'global.carousel',
+        'global.site-features'
       ]
     >;
-    Carousel: Attribute.DynamicZone<['global.banner']>;
     createdAt: Attribute.DateTime;
     createdBy: Attribute.Relation<
       'api::homepage.homepage',
@@ -597,7 +598,6 @@ export interface ApiHomepageHomepage extends Schema.SingleType {
       'admin::user'
     > &
       Attribute.Private;
-    fixed_hero_banners: Attribute.DynamicZone<['global.banner']>;
     publishedAt: Attribute.DateTime;
     updatedAt: Attribute.DateTime;
     updatedBy: Attribute.Relation<

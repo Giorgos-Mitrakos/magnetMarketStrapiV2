@@ -1,0 +1,14 @@
+{
+  "collectionName": "components_global_site_features",
+  "info": {
+    "displayName": "Site Features"
+  },
+  "options": {},
+  "attributes": {
+    "visible": {
+      "type": "boolean",
+      "default": true,
+      "required": true
+    }
+  }
+}

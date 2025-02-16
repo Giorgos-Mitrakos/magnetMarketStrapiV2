@@ -1,0 +1,15 @@
+{
+  "collectionName": "components_global_carousels",
+  "info": {
+    "displayName": "Carousel",
+    "description": ""
+  },
+  "options": {},
+  "attributes": {
+    "Banner": {
+      "type": "component",
+      "repeatable": true,
+      "component": "global.banner"
+    }
+  }
+}
