@@ -39,9 +39,9 @@ export default factories.createCoreService('api::category.category', ({ strapi }
     },
 
     async brandFilter(ctx) {
-        const { name, searchParams } = ctx.request.body
+        const { name, level, searchParams } = ctx.request.body
 
-        let filterBrandString = {}
+        // let filterBrandString = {}
         const filterCharString = []
         const values = []
 
@@ -83,58 +83,168 @@ export default factories.createCoreService('api::category.category', ({ strapi }
             }
         }
 
-        filterBrandString = {
+        const filterBrandString = {
             name: { $in: values }
         }
 
         let filters: ICategory
+        let populate = {}
 
         if (values.length > 0) {
+            let populateProducts = {
+                products: {
+                    select: ['id'],
+                    where: {
+                        brand: filterBrandString,
+                        publishedAt: {
+                            $notNull: true,
+                        },
+                        $and: filterCharString
+                    },
+                    populate: {
+                        brand: true
+                    }
+                }
+            }
+
+            switch (level) {
+                case 1:
+                    populate = {
+                        categories: {
+                            populate: {
+                                categories: {
+                                    populate: populateProducts
+                                }
+                            }
+                        }
+                    }
+
+                    break;
+                case 2:
+                    populate = {
+                        categories: {
+                            populate: populateProducts
+                        }
+                    }
+
+                    break;
+                case 3:
+                    populate = populateProducts
+                    break;
+
+                default:
+                    populate = {
+                        products: {
+                            select: ['id'],
+                            where: {
+                                brand: filterBrandString,
+                                publishedAt: {
+                                    $notNull: true,
+                                },
+                                $and: filterCharString
+                            },
+                            populate: {
+                                brand: true
+                            }
+                        }
+                    }
+                    break;
+            }
             filters = await strapi.db.query("api::category.category").findOne({
                 select: ['id',],
                 where: { slug: name },
-                populate: {
-                    products: {
-                        select: ['id'],
-                        where: {
-                            brand: filterBrandString,
-                            publishedAt: {
-                                $notNull: true,
-                            },
-                            $and: filterCharString
-                        },
-                        populate: {
-                            brand: true
-                        }
-                    }
-                },
+                populate: populate
             });
         }
         else {
+            let populateProducts = {
+                products: {
+                    select: ['id'],
+                    where: {
+                        publishedAt: {
+                            $notNull: true,
+                        },
+                        $and: filterCharString
+                    },
+                    populate: {
+                        brand: true
+                    }
+                }
+            }
+
+            switch (level) {
+                case 1:
+                    populate = {
+                        categories: {
+                            populate: {
+                                categories: {
+                                    populate: populateProducts
+                                }
+                            }
+                        }
+                    }
+                    break;
+                case 2:
+                    populate = {
+                        categories: {
+                            populate: populateProducts
+                        }
+                    }
+
+                    break;
+                case 3:
+                    populate = populateProducts
+                    break;
+
+                default:
+                    populate = populateProducts
+                    break;
+            }
+
             filters = await strapi.db.query("api::category.category").findOne({
                 select: ['id',],
                 where: { slug: name },
-                populate: {
-                    products: {
-                        select: ['id'],
-                        where: {
-                            publishedAt: {
-                                $notNull: true,
-                            },
-                            $and: filterCharString
-                        },
-                        populate: {
-                            brand: true
-                        }
-                    }
-                },
+                populate: populate,
             });
         }
 
-        const brands = filters.products.map(product => {
-            if (product.brand && product.brand !== null && product.brand !== undefined)
-                return product.brand.name
-        });
+        let brands = []
+
+        switch (level) {
+            case 1:
+                brands = filters.categories.flatMap(cat => {
+                    return cat.categories.flatMap(cat2 => {
+                        return cat2.products.map(product => {
+                            if (product.brand && product.brand !== null && product.brand !== undefined) {
+                                return product.brand.name
+                            }
+                        })
+                    })
+                })
+                break;
+            case 2:
+                brands = filters.categories.flatMap(cat => {
+                    return cat.products.map(product => {
+                        if (product.brand && product.brand !== null && product.brand !== undefined) {
+                            return product.brand.name
+                        }
+                    })
+                })
+                break;
+            case 3:
+                brands = filters.products.map(product => {
+                    if (product.brand && product.brand !== null && product.brand !== undefined)
+                        return product.brand.name
+                });
+                break;
+
+            default:
+                brands = filters.products.map(product => {
+                    if (product.brand && product.brand !== null && product.brand !== undefined)
+                        return product.brand.name
+                });
+                break;
+        }
 
         const notNullBrands = brands.filter(x => x !== undefined)
 
@@ -144,7 +254,7 @@ export default factories.createCoreService('api::category.category', ({ strapi }
     },
 
     async categoryFilter(ctx) {
-        const { name, searchParams } = ctx.request.body
+        const { name, level, searchParams } = ctx.request.body
 
         const categoryFilters: ICategory = await strapi.db.query("api::category.category").findOne({
             select: ['id',],
@@ -171,7 +281,7 @@ export default factories.createCoreService('api::category.category', ({ strapi }
                     continue
 
                 if (searchParam.name === "brands") {
-                    
+
                     if (typeof searchParam.value === "string") {
                         values.push(searchParam.value)
                     }
@@ -207,105 +317,201 @@ export default factories.createCoreService('api::category.category', ({ strapi }
                 name: { $in: values }
             }
 
-            let products: IProduct[]
+            let products: []
+
+            let populateProducts: any = {
+                products: {
+                    select: ['id'],
+                    where: {
+                        $and: [
+                            { publishedAt: { $notNull: true, } },
+                            { prod_chars: { name: `${filter.name}` } }
+                        ]
+                    },
+                    populate: {
+                        prod_chars: {
+                            select: ['name', 'value'],
+                            where: {
+                                name: `${filter.name}`,
+                            },
+                        }
+                    },
+                }
+            }
 
             if (filterCharString.length > 0) {
                 if (values.length > 0) {
-                    
-                    products = await strapi.db.query("api::product.product").findMany({
-                        select: ['id',],
-                        where: {
-                            $and: [
-                                { category: { slug: name } },
-                                { publishedAt: { $notNull: true, } },
-                                { $and: filterCharString },
-                                { brand: filterBrandString }
-                            ]
-                        },
-                        populate: {
-                            prod_chars: {
-                                select: ['name', 'value'],
-                                where: {
-                                    name: `${filter.name}`,
-                                },
-                            }
-                        },
-                    });
+                    populateProducts = {
+                        products: {
+                            select: ['id'],
+                            where: {
+                                $and: [
+                                    { publishedAt: { $notNull: true, } },
+                                    { $and: filterCharString },
+                                    { brand: filterBrandString }
+                                ]
+                            },
+                            populate: {
+                                prod_chars: {
+                                    select: ['name', 'value'],
+                                    where: {
+                                        name: `${filter.name}`,
+                                    },
+                                }
+                            },
+                        }
+                    }
                 }
                 else {
-                    products = await strapi.db.query("api::product.product").findMany({
-                        select: ['id',],
-                        where: {
-                            $and: [
-                                { category: { slug: name } },
-                                { publishedAt: { $notNull: true, } },
-                                { $and: filterCharString }
-                            ]
-                        },
-                        populate: {
-                            prod_chars: {
-                                select: ['name', 'value'],
-                                where: {
-                                    name: `${filter.name}`,
-                                },
-                            }
-                        },
-                    });
+                    populateProducts = {
+                        products: {
+                            select: ['id'],
+                            where: {
+                                $and: [
+                                    { publishedAt: { $notNull: true, } },
+                                    { $and: filterCharString }
+                                ]
+                            },
+                            populate: {
+                                prod_chars: {
+                                    select: ['name', 'value'],
+                                    where: {
+                                        name: `${filter.name}`,
+                                    },
+                                }
+                            },
+                        }
+                    }
                 }
             }
             else {
                 if (values.length > 0) {
-                    products = await strapi.db.query("api::product.product").findMany({
-                        select: ['id',],
-                        where: {
-                            $and: [
-                                { category: { slug: name } },
-                                { publishedAt: { $notNull: true, } },
-                                { prod_chars: { name: `${filter.name}` } },
-                                { brand: filterBrandString }
-                            ]
-                        },
-                        populate: {
-                            prod_chars: {
-                                select: ['name', 'value'],
-                                where: {
-                                    name: `${filter.name}`,
-                                },
-                            }
-                        },
-                    });
+                    populateProducts = {
+                        products: {
+                            select: ['id'],
+                            where: {
+                                $and: [
+                                    { publishedAt: { $notNull: true, } },
+                                    { brand: filterBrandString },
+                                    { prod_chars: { name: `${filter.name}` } }
+                                ]
+                            },
+                            populate: {
+                                prod_chars: {
+                                    select: ['name', 'value'],
+                                    where: {
+                                        name: `${filter.name}`,
+                                    },
+                                }
+                            },
+                        }
+                    }
                 }
                 else {
-                    products = await strapi.db.query("api::product.product").findMany({
-                        select: ['id',],
-                        where: {
-                            $and: [
-                                { category: { slug: name } },
-                                { publishedAt: { $notNull: true, } },
-                                { prod_chars: { name: `${filter.name}` } }
-                            ]
-                        },
-                        populate: {
-                            prod_chars: {
-                                select: ['name', 'value'],
-                                where: {
-                                    name: `${filter.name}`,
-                                },
-                            }
-                        },
-                    });
+                    populateProducts = {
+                        products: {
+                            select: ['id'],
+                            where: {
+                                $and: [
+                                    { publishedAt: { $notNull: true, } },
+                                    { prod_chars: { name: `${filter.name}` } }
+                                ]
+                            },
+                            populate: {
+                                prod_chars: {
+                                    select: ['name', 'value'],
+                                    where: {
+                                        name: `${filter.name}`,
+                                    },
+                                }
+                            },
+                        }
+                    }
                 }
             }
 
-            const chars = products.map(product => {
-                for (let char of product.prod_chars) {
-                    if (char.name === filter.name) {
-                        return char.value
-                    }
-                }
-            });
+            let populateString: any = {}
 
-            const notNullchars = chars.filter(x => x !== undefined)
+            switch (level) {
+                case 1:
+                    populateString = {
+                        categories: {
+                            populate: {
+                                categories: {
+                                    populate: populateProducts
+                                }
+                            }
+                        }
+                    }
+                    break;
+                case 2:
+                    populateString = {
+                        categories: {
+                            populate: populateProducts
+                        }
+                    }
+                    break;
+                case 3:
+                    populateString = populateProducts
+                    break;
+                default:
+                    populateString = populateProducts
+                    break;
+            }
+
+            const category = await strapi.db.query("api::category.category").findOne({
+                where: { slug: name },
+                populate: populateString
+            })
+
+            switch (level) {
+                case 1:
+                    products = category.categories.flatMap(cat => {
+                        return cat.categories.flatMap(cat1 => {
+                            return cat1.products.map(product => {
+                                for (let char of product.prod_chars) {
+                                    if (char.name === filter.name) {
+                                        return char.value
+                                    }
+                                }
+                            })
+                        })
+                    })
+                    break;
+
+                case 2:
+                    products = category.categories.flatMap(cat => {
+                        return cat.products.map(product => {
+                            for (let char of product.prod_chars) {
+                                if (char.name === filter.name) {
+                                    return char.value
+                                }
+                            }
+                        })
+                    })
+                    break;
+
+                case 3:
+                    products = category.products.map(product => {
+                        for (let char of product.prod_chars) {
+                            if (char.name === filter.name) {
+                                return char.value
+                            }
+                        }
+                    })
+                    break;
+                default:
+                    products = category.products.map(product => {
+                        for (let char of product.prod_chars) {
+                            if (char.name === filter.name) {
+                                return char.value
+                            }
+                        }
+                    })
+                    break;
+            }
+
+            const notNullchars = products.filter(x => x !== undefined)
 
             const unique = this.getDistinctValuesAndCounts(notNullchars);
 
