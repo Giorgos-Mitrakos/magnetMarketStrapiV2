@@ -20,5 +20,12 @@ export default factories.createCoreController('api::product.product',
                 type: "POST",
             };
         },
+        async brandFilters(ctx) {
+            ctx.body = await strapi.service('api::product.product').brandFilters(ctx);
+            return {
+                okay: true,
+                type: "POST",
+            };
+        },
 
     }));
