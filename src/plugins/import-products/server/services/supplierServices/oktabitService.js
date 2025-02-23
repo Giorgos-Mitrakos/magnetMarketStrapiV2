@@ -28,7 +28,7 @@ module.exports = ({ strapi }) => ({
                 recycle_tax: 'kostos_anakyklosis_proiontos',
                 in_offer: 'on_offer',
                 name: 'titlos',
-                brand: 'brand_name',
+                brand: 'brand',
                 mpn: 'part_no',
                 model: null,
                 barcode: 'ean_code',
@@ -136,6 +136,8 @@ module.exports = ({ strapi }) => ({
                 .service('importHelpers')
                 .getXmlData(url, config)
 
+            console.log(response)
+
             const { data } = await response
 
             if (message === 'Error')
@@ -156,6 +158,6 @@ module.exports = ({ strapi }) => ({
     findProductWeight(mappedFields) {
         let weightChar = mappedFields.chars.find(x => x.name.toLowerCase().includes("βάρος") && !x.name.toLowerCase().includes("μέγιστο"))
         if (weightChar)
-        return 0
+            return 0
     }
 });
