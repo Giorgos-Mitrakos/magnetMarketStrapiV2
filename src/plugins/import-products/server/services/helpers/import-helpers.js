@@ -218,7 +218,7 @@ module.exports = ({ strapi }) => ({
             ]
 
             const data = {
-                name: product.name,
+                name: product.name.replaceAll('&apos;', "'"),
                 slug: this.createSlug(product.name, product.mpn),
                 category: categoryInfo.id,
                 price: parseFloat(productPrices.generalPrice.price).toFixed(2),
@@ -369,7 +369,7 @@ module.exports = ({ strapi }) => ({
                             supplierProductId: product.supplierCode
                         },
                     }
-                    await strapi.service('api::order.order').sendConfirmOrderEmail({ templateReferenceId: 10, to: ['giorgos_mitrakos@yahoo.com',"info@magnetmarket.gr","kkoulogiannis@gmail.com"], emailVariables, subject: "Ενημέρωση διαθεσιμότητας!" })
+                    await strapi.service('api::order.order').sendConfirmOrderEmail({ templateReferenceId: 10, to: ['giorgos_mitrakos@yahoo.com', "info@magnetmarket.gr", "kkoulogiannis@gmail.com"], emailVariables, subject: "Ενημέρωση διαθεσιμότητας!" })
 
                 }
             }
@@ -662,9 +662,9 @@ module.exports = ({ strapi }) => ({
 
     createSlug(name, mpn) {
         try {
-            const newName = name.replace('-', ' ')
+            const newName = name.replaceAll('-', ' ').replaceAll('&apos;', " ")
             if (!mpn) {
-                const slug = slugify(`${newName}`, { lower: true, remove: /[^A-Za-z0-9_.~\s]/g })
+                const slug = slugify(`${newName}`, { lower: true, remove: /[^A-Za-z0-9_'.~\s]/g })
                 return slug
             }
 

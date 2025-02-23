@@ -136,7 +136,7 @@ module.exports = ({ strapi }) => ({
                 .service('importHelpers')
                 .getXmlData(url, config)
 
-            console.log(response)
+            
 
             const { data } = await response
 

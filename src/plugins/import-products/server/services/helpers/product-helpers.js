@@ -410,7 +410,7 @@ module.exports = ({ strapi }) => ({
                 for (const [key, value] of Object.entries(attributes)) {
                     const char = {}
                     char.name = key.trim()
-                    char.value = value.trim()
+                    char.value = value.replaceAll('&apos;', "'").trim()
                     chars.push(char)
                 }
             }
