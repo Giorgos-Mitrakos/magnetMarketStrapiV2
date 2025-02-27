@@ -423,8 +423,8 @@ module.exports = ({ strapi }) => ({
                             continue
                         {
                             const char = {}
-                            char.name = this.createFields('$.key', productChar)
-                            char.value = this.createFields('$.value', productChar)
+                            char.name = this.createFields('$.key', productChar.trim())
+                            char.value = this.createFields('$.value', productChar.trim())
                             chars.push(char)
                         }
                     }
@@ -436,8 +436,8 @@ module.exports = ({ strapi }) => ({
                         return
 
                     const char = {}
-                    char.name = this.createFields('$.key', attributes)
-                    char.value = this.createFields('$.value', attributes)
+                    char.name = this.createFields('$.key', attributes.trim())
+                    char.value = this.createFields('$.value', attributes.trim())
                     chars.push(char)
 
                 }
@@ -448,14 +448,14 @@ module.exports = ({ strapi }) => ({
                         for (let productChar of attributes) {
                             if (productChar.name && productChar.value) {
                                 const char = {}
-                                char.name = this.createFields('name', productChar)
-                                char.value = this.createFields('value', productChar)
+                                char.name = this.createFields('name', productChar.trim())
+                                char.value = this.createFields('value', productChar.trim())
                                 chars.push(char)
                             }
                             else if (productChar.Name && productChar.Value) {
                                 const char = {}
-                                char.name = this.createFields('Name', productChar)
-                                char.value = this.createFields('Value', productChar)
+                                char.name = this.createFields('Name', productChar.trim())
+                                char.value = this.createFields('Value', productChar.trim())
                                 chars.push(char)
                             }
                         }
@@ -463,14 +463,14 @@ module.exports = ({ strapi }) => ({
                     else {
                         if (attributes.name && attributes.value) {
                             const char = {}
-                            char.name = this.createFields('name', attributes)
-                            char.value = this.createFields('value', attributes)
+                            char.name = this.createFields('name', attributes.trim())
+                            char.value = this.createFields('value', attributes.trim())
                             chars.push(char)
                         }
                         else if (attributes.Name && attributes.Value) {
                             const char = {}
-                            char.name = this.createFields('Name', attributes)
-                            char.value = this.createFields('value', attributes)
+                            char.name = this.createFields('Name', attributes.trim())
+                            char.value = this.createFields('value', attributes.trim())
                             chars.push(char)
                         }
                     }
