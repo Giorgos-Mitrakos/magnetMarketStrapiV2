@@ -141,16 +141,9 @@ const OrderPage = () => {
                                     </Box>
                                 </>
                                 :
-                                <>
-                                    <Flex gap={1}>
-                                        <Box>
-                                            <Typography as="h3" variant="omega">{order.billing_address.firstname}</Typography>
-                                        </Box>
-                                        <Box>
-                                            <Typography as="h3" variant="omega">{order.billing_address.lastname}</Typography>
-                                        </Box>
-                                    </Flex>
-                                </>}
+                                <Box>
+                                    <Typography as="h3" variant="omega">{order.billing_address.firstname} {order.billing_address.lastname}</Typography>
+                                </Box>}
                             <Box>
                                 <Typography as="h3" variant="omega">{order.billing_address.street}</Typography>
                             </Box>
@@ -185,6 +178,16 @@ const OrderPage = () => {
                                     </Box>
                                     <Box>
                                         <Typography as="h3" variant="omega">{order.billing_address.telephone}</Typography>
+                                    </Box>
+                                </>
+                            }
+                            {order.delivery_notes &&
+                                <>
+                                    <Box paddingTop={2}>
+                                        <Typography as="h3" variant="omega" fontWeight="bold">Σχόλια</Typography>
+                                    </Box>
+                                    <Box>
+                                        <Typography as="h3" variant="omega">{order.delivery_notes}</Typography>
                                     </Box>
                                 </>
                             }

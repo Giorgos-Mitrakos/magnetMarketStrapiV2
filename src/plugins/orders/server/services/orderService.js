@@ -35,7 +35,7 @@ module.exports = ({ strapi }) => ({
     const { id } = ctx.request.body
 
     const order = await strapi.entityService.findOne('api::order.order', id, {
-      fields: ['products', 'total', 'status', 'different_shipping', 'createdAt', 'billing_address', 'shipping_address'],
+      fields: ['products', 'total', 'status', 'different_shipping', 'createdAt', 'billing_address', 'shipping_address','delivery_notes'],
       populate: {
         user: {
           populate: {
