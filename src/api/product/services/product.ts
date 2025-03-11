@@ -144,65 +144,71 @@ export default factories.createCoreService('api::product.product', ({ strapi }) 
     },
 
     async brandFilters(ctx) {
-        const { brand, searchParams } = ctx.request.body
+        try {
+            const { brand, searchParams } = ctx.request.body
 
-        let searchFilter = {}
-        if (searchParams.Κατηγορίες) {
-            searchFilter = {
-                where: {
-                    slug: searchParams.Κατηγορίες
-                }
-            }
-        }
-
-        const brands: IBrand = await await strapi.db.query('api::brand.brand').findOne({
-            where: {
-                slug: brand
-            },
-            populate: {
-                products: {
+            let searchFilter = {}
+            if (searchParams.Κατηγορίες) {
+                searchFilter = {
                     where: {
-                        publishedAt: {
-                            $notNull: true,
-                        },
-                    },
-                    populate: {
-                        category: {
-                            select: ['id', 'name', 'slug']
-                        },
+                        slug: searchParams.Κατηγορίες
                     }
                 }
             }
-        })
 
-        const categories = brands.products.map(cat => { return cat.category })
+            const brands: IBrand = await await strapi.db.query('api::brand.brand').findOne({
+                where: {
+                    slug: brand
+                },
+                populate: {
+                    products: {
+                        where: {
+                            publishedAt: {
+                                $notNull: true,
+                            },
+                        },
+                        populate: {
+                            category: {
+                                select: ['id', 'name', 'slug']
+                            },
+                        }
+                    }
+                }
+            })
+
+            const categories = brands ? brands.products.map(cat => { return cat.category }) : []
 
 
 
-        // const brands = []
-        // const categories = []
+            // const brands = []
+            // const categories = []
 
-        // products.forEach(product => {
-        //     if (product.brand && product.brand !== null && product.brand !== undefined)
-        //         brands.push(product.brand.name)
+            // products.forEach(product => {
+            //     if (product.brand && product.brand !== null && product.brand !== undefined)
+            //         brands.push(product.brand.name)
 
-        //     if (product.category && product.category !== null && product.category !== undefined)
-        //         categories.push(product.category.name)
-        // });
+            //     if (product.category && product.category !== null && product.category !== undefined)
+            //         categories.push(product.category.name)
+            // });
 
-        // const notNullBrands = brands.filter(x => x !== undefined)
+            // const notNullBrands = brands.filter(x => x !== undefined)
 
-        // const uniqueBrands = this.getDistinctValuesAndCounts(notNullBrands);
+            // const uniqueBrands = this.getDistinctValuesAndCounts(notNullBrands);
 
-        const notNullCategories = categories.filter(x => x !== undefined)
+            const notNullCategories = categories.filter(x => x !== undefined)
 
-        const uniqueCategories = this.getDistinctValuesAndCounts(notNullCategories);
+            const uniqueCategories = this.getDistinctValuesAndCounts(notNullCategories);
 
-        const filters = [
-            // { title: 'Κατασκευαστές', filterValues: uniqueBrands },
-            { title: 'Κατηγορίες', filterValues: uniqueCategories }
-        ]
+            const filters = [
+                // { title: 'Κατασκευαστές', filterValues: uniqueBrands },
+                { title: 'Κατηγορίες', filterValues: uniqueCategories }
+            ]
+            console.log(filters)
+            return filters
 
-        return filters
+
+        } catch (error) {
+            console.log(error)
+        }
     },
 }));
