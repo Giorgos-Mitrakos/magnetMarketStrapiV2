@@ -58,10 +58,14 @@ export default {
         const shipping = order.shipping_address.valueOf() as IShipping
         const products = order.products.valueOf() as IOrderProduct[]
 
-        const productsRows = products.map(product => ({ ...product, productTotal: product.quantity * product.price }
+        const productsRows = products.map(product => ({ ...product, productTotal: product.is_sale && product.sale_price > 0 ? product.quantity * product.sale_price : product.quantity * product.price }
         ))
 
         const productsCost = products.reduce((total, item) => {
+            if (item.is_sale && item.sale_price > 0) {
+                return total + item.sale_price * item.quantity
+            }
+
             return total + item.price * item.quantity
         }, 0)
 
