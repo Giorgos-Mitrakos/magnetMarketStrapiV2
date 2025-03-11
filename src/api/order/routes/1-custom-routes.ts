@@ -26,5 +26,18 @@ export default {
             //   auth:true
             // }
         },
+        {
+            method: "POST",
+            path: "/order/sendEmail",
+            handler: "order.sendEmail",
+            config: {
+                auth: false,
+                // middlewares: ["api::order.add-user"],
+                // See the usage section below for middleware naming conventions
+            },
+            // config:{
+            //   auth:true
+            // }
+        },
     ]
 };

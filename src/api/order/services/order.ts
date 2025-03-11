@@ -439,5 +439,17 @@ export default factories.createCoreService('api::order.order', ({ strapi }) => (
         } catch (error) {
             console.log(error)
         }
-    }
+    },
+
+    async sendEmail(ctx) {
+        const { to, subject, text } = ctx.request.body
+
+        await strapi.plugins['email'].services.email.send({
+            to: to,
+            from: `info@magnetmarket.gr`,
+            subject: subject,
+            text: text
+        });
+
+    },
 }));
