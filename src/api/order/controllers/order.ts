@@ -15,9 +15,7 @@ export default factories.createCoreController('api::order.order',
         },
 
         async saveTicket(ctx) {
-            const apiToken = ctx.request.headers.authorization?.replace('Bearer', '')
-            console.log(apiToken)
-
+            const apiToken = ctx.request.headers.authorization?.replace('Bearer', '').trim()
             if (apiToken !== process.env.ADMIN_JWT_SECRET) {
                 return ctx.unauthorized('Invalid api token')
             }
@@ -31,9 +29,8 @@ export default factories.createCoreController('api::order.order',
 
         async getTicket(ctx) {
 
-            const apiToken = ctx.request.headers.authorization?.replace('Bearer', '')
-            console.log(apiToken)
-
+            const apiToken = ctx.request.headers.authorization?.replace('Bearer', '').trim()
+            
             if (apiToken !== process.env.ADMIN_JWT_SECRET) {
                 return ctx.unauthorized('Invalid api token')
             }
@@ -47,10 +44,9 @@ export default factories.createCoreController('api::order.order',
 
         async sendEmail(ctx) {
 
-            const apiToken = ctx.request.headers.authorization?.replace('Bearer', '')
+            const apiToken = ctx.request.headers.authorization?.replace('Bearer', '').trim()
 
             if (apiToken !== process.env.ADMIN_JWT_SECRET) {
-                console.log(apiToken !== process.env.ADMIN_JWT_SECRET)
                 return ctx.unauthorized('Invalid api token')
             }
 
