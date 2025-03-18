@@ -18,8 +18,23 @@ export default {
             path: "/order/saveTicket",
             handler: "order.saveTicket",
             config: {
-                auth: false,
-                middlewares: ["api::order.add-user"],
+                auth: {
+                    scope: ['authenticated'], // Use scope or other options as per your needs
+                }
+                // See the usage section below for middleware naming conventions
+            },
+            // config:{
+            //   auth:true
+            // }
+        },
+        {
+            method: "POST",
+            path: "/order/getTicket",
+            handler: "order.getTicket",
+            config: {
+                auth: {
+                    scope: ['authenticated'], // Use scope or other options as per your needs
+                }
                 // See the usage section below for middleware naming conventions
             },
             // config:{
@@ -31,8 +46,9 @@ export default {
             path: "/order/sendEmail",
             handler: "order.sendEmail",
             config: {
-                auth: false,
-                middlewares: ["api::order.add-user"],
+                auth: {
+                    scope: ['authenticated'], // Use scope or other options as per your needs
+                }
                 // See the usage section below for middleware naming conventions
             },
             // config:{

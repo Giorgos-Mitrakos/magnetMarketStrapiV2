@@ -427,6 +427,8 @@ export default factories.createCoreService('api::order.order', ({ strapi }) => (
         try {
             const { orderId, TransTicket } = ctx.request.body
 
+            console.log({ orderId, TransTicket })
+
             await strapi.entityService.update('api::order.order', orderId, {
                 data: {
                     TranTicket: {
@@ -436,6 +438,21 @@ export default factories.createCoreService('api::order.order', ({ strapi }) => (
             })
 
             return { ResultCode: 0, message: "Ticket Saved" }
+        } catch (error) {
+            console.log(error)
+        }
+    },
+
+    async getTicket(ctx) {
+        try {
+            const { orderId } = ctx.request.body
+
+            const ticket = await strapi.entityService.findOne('api::order.order', orderId, {
+                fields: ['id'],
+                populate: ['TranTicket']
+            })
+
+            return ticket
         } catch (error) {
             console.log(error)
         }

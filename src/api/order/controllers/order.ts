@@ -22,6 +22,14 @@ export default factories.createCoreController('api::order.order',
             };
         },
 
+        async getTicket(ctx) {
+            ctx.body = await strapi.service('api::order.order').getTicket(ctx);
+            return {
+                okay: true,
+                type: "POST",
+            };
+        },
+
         async sendEmail(ctx) {
             ctx.body = await strapi.service('api::order.order').sendEmail(ctx);
             return {
