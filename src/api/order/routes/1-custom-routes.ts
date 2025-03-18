@@ -18,9 +18,7 @@ export default {
             path: "/order/saveTicket",
             handler: "order.saveTicket",
             config: {
-                auth: {
-                    scope: ['authenticated'], // Use scope or other options as per your needs
-                }
+                auth: false
                 // See the usage section below for middleware naming conventions
             },
             // config:{
@@ -32,9 +30,7 @@ export default {
             path: "/order/getTicket",
             handler: "order.getTicket",
             config: {
-                auth: {
-                    scope: ['authenticated'], // Use scope or other options as per your needs
-                }
+                auth: false
                 // See the usage section below for middleware naming conventions
             },
             // config:{
@@ -46,9 +42,7 @@ export default {
             path: "/order/sendEmail",
             handler: "order.sendEmail",
             config: {
-                auth: {
-                    scope: ['authenticated'], // Use scope or other options as per your needs
-                }
+                auth: false
                 // See the usage section below for middleware naming conventions
             },
             // config:{

@@ -15,6 +15,13 @@ export default factories.createCoreController('api::order.order',
         },
 
         async saveTicket(ctx) {
+            const apiToken = ctx.request.headers.authorization?.replace('Bearer', '')
+            console.log(apiToken)
+
+            if (apiToken !== process.env.ADMIN_JWT_SECRET) {
+                return ctx.unauthorized('Invalid api token')
+            }
+
             ctx.body = await strapi.service('api::order.order').saveTicket(ctx);
             return {
                 okay: true,
@@ -23,6 +30,14 @@ export default factories.createCoreController('api::order.order',
         },
 
         async getTicket(ctx) {
+
+            const apiToken = ctx.request.headers.authorization?.replace('Bearer', '')
+            console.log(apiToken)
+
+            if (apiToken !== process.env.ADMIN_JWT_SECRET) {
+                return ctx.unauthorized('Invalid api token')
+            }
+
             ctx.body = await strapi.service('api::order.order').getTicket(ctx);
             return {
                 okay: true,
@@ -31,12 +46,20 @@ export default factories.createCoreController('api::order.order',
         },
 
         async sendEmail(ctx) {
+
+            const apiToken = ctx.request.headers.authorization?.replace('Bearer', '')
+
+            if (apiToken !== process.env.ADMIN_JWT_SECRET) {
+                console.log(apiToken !== process.env.ADMIN_JWT_SECRET)
+                return ctx.unauthorized('Invalid api token')
+            }
+
             ctx.body = await strapi.service('api::order.order').sendEmail(ctx);
             return {
                 okay: true,
                 type: "POST",
             };
         },
-        
+
     })
 );

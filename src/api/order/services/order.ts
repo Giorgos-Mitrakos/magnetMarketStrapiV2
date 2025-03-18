@@ -427,7 +427,7 @@ export default factories.createCoreService('api::order.order', ({ strapi }) => (
         try {
             const { orderId, TransTicket } = ctx.request.body
 
-            console.log({ orderId, TransTicket })
+            
 
             await strapi.entityService.update('api::order.order', orderId, {
                 data: {
