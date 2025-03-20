@@ -277,14 +277,18 @@ export interface PaymentTranTicket extends Schema.Component {
   collectionName: 'components_payment_tran_tickets';
   info: {
     description: '';
-    displayName: 'TranTicket';
+    displayName: 'Bank_info';
   };
   attributes: {
-    ResultDescription: Attribute.Text;
+    ApprovalCode: Attribute.String;
+    MerchantReference: Attribute.String;
+    PackageNo: Attribute.Integer;
+    PaymentMethod: Attribute.String;
+    ResponseCode: Attribute.String;
+    ResponseDescription: Attribute.Text;
     StatusFlag: Attribute.String;
     SupportReferenceID: Attribute.String;
     TraceID: Attribute.String;
-    TransactionDateTime: Attribute.DateTime;
     TransactionId: Attribute.Integer;
     TranTicket: Attribute.String;
   };

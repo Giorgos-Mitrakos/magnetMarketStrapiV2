@@ -1,7 +1,7 @@
 {
   "collectionName": "components_payment_tran_tickets",
   "info": {
-    "displayName": "TranTicket",
+    "displayName": "Bank_info",
     "description": ""
   },
   "options": {},
@@ -12,19 +12,31 @@
     "SupportReferenceID": {
       "type": "string"
     },
-    "ResultDescription": {
+    "ResponseDescription": {
       "type": "text"
     },
     "StatusFlag": {
       "type": "string"
     },
-    "TransactionDateTime": {
-      "type": "datetime"
-    },
     "TransactionId": {
       "type": "integer"
     },
     "TraceID": {
+      "type": "string"
+    },
+    "ResponseCode": {
+      "type": "string"
+    },
+    "MerchantReference": {
+      "type": "string"
+    },
+    "ApprovalCode": {
+      "type": "string"
+    },
+    "PackageNo": {
+      "type": "integer"
+    },
+    "PaymentMethod": {
       "type": "string"
     }
   }

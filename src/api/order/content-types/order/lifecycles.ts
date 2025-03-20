@@ -1,4 +1,3 @@
-import product from "../../../product/controllers/product"
 
 interface IBilling {
     companyName: string

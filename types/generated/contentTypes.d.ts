@@ -652,6 +652,7 @@ export interface ApiOrderOrder extends Schema.CollectionType {
   };
   attributes: {
     Article_39a: Attribute.Component<'order.article-39a'>;
+    Bank_info: Attribute.Component<'payment.tran-ticket'> & Attribute.Private;
     billing_address: Attribute.JSON & Attribute.Required;
     comments: Attribute.Component<'shipping.comment', true>;
     createdAt: Attribute.DateTime;
@@ -669,7 +670,7 @@ export interface ApiOrderOrder extends Schema.CollectionType {
       Attribute.Required &
       Attribute.SetMinMax<
         {
-          max: 3;
+          max: 24;
           min: 1;
         },
         number
@@ -705,7 +706,6 @@ export interface ApiOrderOrder extends Schema.CollectionType {
         },
         number
       >;
-    TranTicket: Attribute.Component<'payment.tran-ticket'> & Attribute.Private;
     updatedAt: Attribute.DateTime;
     updatedBy: Attribute.Relation<
       'api::order.order',

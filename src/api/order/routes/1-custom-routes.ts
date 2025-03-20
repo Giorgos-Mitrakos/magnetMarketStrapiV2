@@ -9,9 +9,6 @@ export default {
                 middlewares: ["api::order.add-user"],
                 // See the usage section below for middleware naming conventions
             },
-            // config:{
-            //   auth:true
-            // }
         },
         {
             method: "POST",
@@ -21,9 +18,15 @@ export default {
                 auth: false
                 // See the usage section below for middleware naming conventions
             },
-            // config:{
-            //   auth:true
-            // }
+        },
+        {
+            method: "POST",
+            path: "/order/saveBankResponse",
+            handler: "order.saveBankResponse",
+            config: {
+                auth: false
+                // See the usage section below for middleware naming conventions
+            },
         },
         {
             method: "POST",
@@ -33,9 +36,6 @@ export default {
                 auth: false
                 // See the usage section below for middleware naming conventions
             },
-            // config:{
-            //   auth:true
-            // }
         },
         {
             method: "POST",
@@ -45,9 +45,6 @@ export default {
                 auth: false
                 // See the usage section below for middleware naming conventions
             },
-            // config:{
-            //   auth:true
-            // }
         },
     ]
 };

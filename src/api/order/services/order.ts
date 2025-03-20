@@ -6,7 +6,6 @@ import { factories } from '@strapi/strapi';
 import type { Attribute } from "@strapi/strapi";
 export type IProduct = Attribute.GetValues<"api::product.product">;
 export type IOrder = Attribute.GetValues<"api::order.order">;
-const { render } = require('@react-email/components');
 
 export default factories.createCoreService('api::order.order', ({ strapi }) => ({
 
@@ -427,11 +426,9 @@ export default factories.createCoreService('api::order.order', ({ strapi }) => (
         try {
             const { orderId, TransTicket } = ctx.request.body
 
-            
-
             await strapi.entityService.update('api::order.order', orderId, {
                 data: {
-                    TranTicket: {
+                    Bank_info: {
                         TranTicket: TransTicket
                     }
                 }
@@ -443,16 +440,70 @@ export default factories.createCoreService('api::order.order', ({ strapi }) => (
         }
     },
 
+    async saveBankResponse(ctx) {
+        try {
+            const { bankResponse } = ctx.request.body
+
+            const ticket: IOrder = await strapi.entityService.findOne('api::order.order', bankResponse.MerchantReference, {
+                fields: ['id, status'],
+                populate: ['Bank_info']
+            })
+
+            let status = ticket.status
+
+            if (bankResponse.ResultCode && bankResponse.ResultCode.trim() === 0) {
+                if (bankResponse.StatusFlag === "success") {
+                    status = "Σε αναμονή"
+                }
+                else {
+                    status = "Εκκρεμεί πληρωμή"
+                }
+            }
+            else {
+                status = "Αποτυχημένη"
+            }
+
+            await strapi.entityService.update('api::order.order', bankResponse.MerchantReference, {
+                data: {
+                    status: status,
+                    Bank_info: {
+                        TranTicket: ticket.Bank_info.TranTicket,
+                        SupportReferenceID: bankResponse.SupportReferenceID,
+                        ResponseDescription: bankResponse.ResponseDescription,
+                        StatusFlag: bankResponse.StatusFlag,
+                        TransactionId: bankResponse.TransactionId,
+                        TraceID: bankResponse.TraceID,
+                        ResponseCode: bankResponse.ResponseCode,
+                        MerchantReference: bankResponse.MerchantReference,
+                        ApprovalCode: bankResponse.ApprovalCode,
+                        PackageNo: bankResponse.PackageNo,
+                        PaymentMethod: bankResponse.PaymentMethod
+                    }
+                }
+            })
+
+            return { message: "Saved" }
+        } catch (error) {
+            console.log(error)
+        }
+    },
+
     async getTicket(ctx) {
         try {
             const { orderId } = ctx.request.body
 
-            const ticket = await strapi.entityService.findOne('api::order.order', orderId, {
+            const ticket: IOrder = await strapi.entityService.findOne('api::order.order', orderId, {
                 fields: ['id'],
-                populate: ['TranTicket']
+                populate: ['Bank_info']
             })
 
-            return ticket
+            const transTicket = ticket?.Bank_info.TranTicket
+
+            if (!transTicket)
+                return { Flag: 'fail', ticket: null }
+
+
+            return { Flag: 'success', ticket: transTicket }
         } catch (error) {
             console.log(error)
         }

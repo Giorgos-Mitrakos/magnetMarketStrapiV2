@@ -4,9 +4,6 @@
 
 import { factories } from '@strapi/strapi';
 import type { Attribute } from "@strapi/strapi";
-import { where } from 'lodash/fp';
-import category from '../../category/controllers/category';
-import product from '../controllers/product';
 export type IProduct = Attribute.GetValues<"api::product.product">;
 export type IBrand = Attribute.GetValues<"api::brand.brand">;
 
