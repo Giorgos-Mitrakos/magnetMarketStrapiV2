@@ -6,7 +6,7 @@ export default {
             handler: "order.createOrder",
             config: {
                 auth: false,
-                middlewares: ["api::order.add-user"],
+                // middlewares: ["api::order.add-user"],
                 // See the usage section below for middleware naming conventions
             },
         },
