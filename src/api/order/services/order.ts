@@ -451,7 +451,7 @@ export default factories.createCoreService('api::order.order', ({ strapi }) => (
 
             let status = ticket.status
 
-            if (bankResponse.ResultCode && bankResponse.ResultCode.trim() === 0) {
+            if (bankResponse.ResultCode && bankResponse.ResultCode.trim() === '0') {
                 if (bankResponse.StatusFlag === "success") {
                     status = "Σε αναμονή"
                 }
