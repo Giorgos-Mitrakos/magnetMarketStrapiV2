@@ -453,10 +453,10 @@ export default factories.createCoreService('api::order.order', ({ strapi }) => (
 
             if (bankResponse.ResultCode && bankResponse.ResultCode.trim() === '0') {
                 if (bankResponse.StatusFlag === "success") {
-                    status = "Σε αναμονή"
+                    status = "Εκκρεμεί πληρωμή"                    
                 }
                 else {
-                    status = "Εκκρεμεί πληρωμή"
+                    status = "Σε αναμονή"
                 }
             }
             else {

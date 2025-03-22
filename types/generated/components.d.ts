@@ -282,14 +282,14 @@ export interface PaymentTranTicket extends Schema.Component {
   attributes: {
     ApprovalCode: Attribute.String;
     MerchantReference: Attribute.String;
-    PackageNo: Attribute.Integer;
+    PackageNo: Attribute.String;
     PaymentMethod: Attribute.String;
     ResponseCode: Attribute.String;
     ResponseDescription: Attribute.Text;
     StatusFlag: Attribute.String;
     SupportReferenceID: Attribute.String;
     TraceID: Attribute.String;
-    TransactionId: Attribute.Integer;
+    TransactionId: Attribute.String;
     TranTicket: Attribute.String;
   };
 }
