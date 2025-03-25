@@ -456,7 +456,7 @@ export default factories.createCoreService('api::order.order', ({ strapi }) => (
                     status = "Εκκρεμεί πληρωμή"                    
                 }
                 else {
-                    status = "Σε αναμονή"
+                    status = "Αποτυχημένη"
                 }
             }
             else {
