@@ -50,6 +50,16 @@
       "type": "boolean",
       "default": true,
       "required": true
+    },
+    "payments": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::payment.payment"
+    },
+    "isFreeShipping": {
+      "type": "boolean",
+      "default": false,
+      "required": true
     }
   }
 }

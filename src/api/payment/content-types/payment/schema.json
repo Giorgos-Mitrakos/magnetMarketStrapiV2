@@ -39,6 +39,12 @@
       "type": "boolean",
       "default": true,
       "required": true
+    },
+    "installments": {
+      "displayName": "installments",
+      "type": "component",
+      "repeatable": false,
+      "component": "payment.installments"
     }
   }
 }

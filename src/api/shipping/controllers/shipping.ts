@@ -20,6 +20,13 @@ export default factories.createCoreController('api::shipping.shipping',
                 type: "POST",
             };
         },
+        async findPaymentMethod(ctx) {
+            ctx.body = await strapi.service('api::shipping.shipping').findPaymentMethod(ctx);
+            return {
+                okay: true,
+                type: "POST",
+            };
+        },
         async findCartTotal(ctx) {
             ctx.body = await strapi.service('api::shipping.shipping').findCartTotal(ctx);
             return {
@@ -27,13 +34,4 @@ export default factories.createCoreController('api::shipping.shipping',
                 type: "POST",
             };
         },
-        // async updateUser(ctx) {
-        //   ctx.body = await strapi.service('api::shipping.shipping').updateMyAddress(ctx);
-
-
-        //   return {
-        //     okay: true,
-        //     type: "POST",
-        //   };
-        // },
     }));

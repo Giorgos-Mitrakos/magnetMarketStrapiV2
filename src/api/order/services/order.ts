@@ -11,7 +11,7 @@ export default factories.createCoreService('api::order.order', ({ strapi }) => (
 
     async createNewOrder(ctx) {
         try {
-            const { cartItems, addresses, shippingMethod, paymentMethod, shippingCost, paymentCost, cartTotal, installments } = ctx.request.body
+            const { cartItems, addresses, shippingMethod, paymentMethod, shippingCost, paymentCost, cartTotal, installments, totalCost } = ctx.request.body
 
             const user = ctx.state.user;
 
@@ -42,7 +42,7 @@ export default factories.createCoreService('api::order.order', ({ strapi }) => (
                 return x
             })
 
-            const totalCost = cartTotal + paymentCost.cost + shippingCost.cost
+            // const totalCost = cartTotal + paymentCost.cost + shippingCost.cost
 
             if (!user) {
                 const checkIfUserExists = await strapi.db.query('plugin::users-permissions.user').findOne({
@@ -102,7 +102,7 @@ export default factories.createCoreService('api::order.order', ({ strapi }) => (
                     }
 
                     const shipping = {
-                        name: shippingMethod.pickup ? "Παραλαβή από το κατάστημα" : shippingMethod.shipping,
+                        name: shippingMethod.shipping,
                         cost: shippingCost.cost
                     }
 
@@ -219,7 +219,7 @@ export default factories.createCoreService('api::order.order', ({ strapi }) => (
                     }
 
                     const shipping = {
-                        name: shippingMethod.pickup ? "Παραλαβή από το κατάστημα" : shippingMethod.shipping,
+                        name: shippingMethod.shipping,
                         cost: shippingCost.cost
                     }
 
@@ -338,7 +338,7 @@ export default factories.createCoreService('api::order.order', ({ strapi }) => (
                 }
 
                 const shipping = {
-                    name: shippingMethod.pickup ? "Παραλαβή από το κατάστημα" : shippingMethod.shipping,
+                    name: shippingMethod.shipping,
                     cost: shippingCost.cost
                 }
 
@@ -452,8 +452,8 @@ export default factories.createCoreService('api::order.order', ({ strapi }) => (
             let status = ticket.status
 
             if (bankResponse.ResultCode && bankResponse.ResultCode.trim() === '0') {
-                if (bankResponse.StatusFlag === "success") {
-                    status = "Εκκρεμεί πληρωμή"                    
+                if (bankResponse.StatusFlag === "Success") {
+                    status = "Σε αναμονή"                    
                 }
                 else {
                     status = "Αποτυχημένη"

@@ -766,6 +766,7 @@ export interface ApiPaymentPayment extends Schema.CollectionType {
     > &
       Attribute.Private;
     icon: Attribute.Media<'images'>;
+    installments: Attribute.Component<'payment.installments'>;
     isActive: Attribute.Boolean &
       Attribute.Required &
       Attribute.DefaultTo<true>;
@@ -1056,7 +1057,15 @@ export interface ApiShippingShipping extends Schema.CollectionType {
     isActive: Attribute.Boolean &
       Attribute.Required &
       Attribute.DefaultTo<true>;
+    isFreeShipping: Attribute.Boolean &
+      Attribute.Required &
+      Attribute.DefaultTo<false>;
     name: Attribute.String & Attribute.Required & Attribute.Unique;
+    payments: Attribute.Relation<
+      'api::shipping.shipping',
+      'oneToMany',
+      'api::payment.payment'
+    >;
     publishedAt: Attribute.DateTime;
     Regions_file: Attribute.Media<'files'>;
     update_regions: Attribute.Boolean & Attribute.DefaultTo<false>;

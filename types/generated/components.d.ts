@@ -254,6 +254,37 @@ export interface OrderArticle39A extends Schema.Component {
   };
 }
 
+export interface PaymentInstallments extends Schema.Component {
+  collectionName: 'components_payment_installments';
+  info: {
+    description: '';
+    displayName: 'installments';
+  };
+  attributes: {
+    annual_rate: Attribute.Decimal &
+      Attribute.Required &
+      Attribute.DefaultTo<20>;
+    free_rate_months: Attribute.Integer &
+      Attribute.Required &
+      Attribute.SetMinMax<
+        {
+          max: 36;
+        },
+        number
+      > &
+      Attribute.DefaultTo<0>;
+    max_installments: Attribute.Integer &
+      Attribute.Required &
+      Attribute.SetMinMax<
+        {
+          max: 36;
+          min: 0;
+        },
+        number
+      >;
+  };
+}
+
 export interface PaymentRange extends Schema.Component {
   collectionName: 'components_payment_ranges';
   info: {
@@ -542,6 +573,7 @@ declare module '@strapi/types' {
       'homepage.triple-banner': HomepageTripleBanner;
       'imports.contains-name': ImportsContainsName;
       'order.article-39a': OrderArticle39A;
+      'payment.installments': PaymentInstallments;
       'payment.range': PaymentRange;
       'payment.tran-ticket': PaymentTranTicket;
       'products.chars': ProductsChars;

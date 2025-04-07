@@ -23,6 +23,20 @@ export default factories.createCoreService('api::shipping.shipping', ({ strapi }
         }
 
         const findShippingFees = async ({ country, state, city, shippingMethod, totalWeight }) => {
+            const shipper: IShipping = await strapi.db.query('api::shipping.shipping').findOne({
+                select: ['id', 'name', 'isFreeShipping'],
+                where: { id: shippingMethod.id },
+                populate: {
+                    disprosites_fees: true,
+                    Zones: {
+                        populate: {
+                            states: true,
+                            fees: true
+                        }
+                    }
+                },
+            })
+
             const countryShip = await strapi.db.query('api::country.country').findOne({
                 select: ['name', 'id'],
                 populate: {
@@ -40,24 +54,11 @@ export default factories.createCoreService('api::shipping.shipping', ({ strapi }
                 where: { name: country },
             });
 
+
             const shippings = countryShip.states[0].regions[0].shippings
             const shippingIds = shippings.map(x => x.id)
 
-            const shipper: IShipping = await strapi.db.query('api::shipping.shipping').findOne({
-                select: ['id', 'name'],
-                where: { name: shippingMethod.shipping },
-                populate: {
-                    disprosites_fees: true,
-                    Zones: {
-                        populate: {
-                            states: true,
-                            fees: true
-                        }
-                    }
-                },
-            })
-
-            if (shippings && shippingIds.includes(Number(shippingMethod.id))) {
+            if (shippings && shippingIds.includes(Number(shippingMethod.shipping))) {
 
                 return calcShipping({ basic_fee: shipper.disprosites_fees.basic_fee, basic_weight: shipper.disprosites_fees.basic_weight, fee_above_weight: shipper.disprosites_fees.fee_above_weight, totalWeight })
             }
@@ -76,30 +77,19 @@ export default factories.createCoreService('api::shipping.shipping', ({ strapi }
         }
 
         try {
-
-            // function parseNestedJSON(json) {
-            //     const data = JSON.parse(json);
-
-            //     // Recursively parse any nested objects 
-            //     for (const key in data) {
-            //         if (typeof data[key] === 'string' && data[key].startsWith('{')) {
-            //             data[key] = parseNestedJSON(data[key]);
-            //         }
-            //     }
-
-            //     return data;
-            // }
-
-            // console.log("Type:", typeof ctx.request.body)
-            // console.log("request:", ctx.request.body)
-            // const requestBody = parseNestedJSON(ctx.request.body)
             const { addresses, cartItems, shippingMethod } = ctx.request.body
+
+            const shipper: IShipping = await strapi.db.query('api::shipping.shipping').findOne({
+                select: ['id', 'isFreeShipping'],
+                where: { id: shippingMethod.id },
+            })
+
+            if (shipper.isFreeShipping)
+                return { cost: 0 }
+
             const totalWeight = cartItems.reduce((accumulator, item) => {
                 return accumulator += item.quantity * item.weight;
             }, 0)
-
-            if (shippingMethod && shippingMethod.pickup)
-                return { cost: 0 }
 
             if (addresses && shippingMethod.shipping && shippingMethod.shipping !== "") {
                 if (addresses.different_shipping) {
@@ -122,18 +112,27 @@ export default factories.createCoreService('api::shipping.shipping', ({ strapi }
 
     async findPaymentCost(ctx) {
 
-        const { paymentMethod, shippingMethod } = ctx.request.body
-
-        if (shippingMethod.pickup === true) {
-            return { cost: 0 }
-        }
+        const { paymentMethod } = ctx.request.body
 
         const payment = await strapi.db.query("api::payment.payment").findOne({
             select: ['name', 'price'],
-            where: { name: paymentMethod.payment }
+            where: { id: paymentMethod.id }
         })
         return { cost: payment.price }
-        // return { cost: 15 }
+    },
+
+    async findPaymentMethod(ctx) {
+
+        const { paymentMethod } = ctx.request.body
+
+        const payment = await strapi.db.query("api::payment.payment").findOne({
+            where: { id: paymentMethod.id },
+            populate: {
+                installments: true,
+                range: true
+            }
+        })
+        return payment
     },
 
     async findCartTotal(ctx) {

@@ -1,0 +1,27 @@
+{
+  "collectionName": "components_payment_installments",
+  "info": {
+    "displayName": "installments",
+    "description": ""
+  },
+  "options": {},
+  "attributes": {
+    "max_installments": {
+      "type": "integer",
+      "required": true,
+      "max": 36,
+      "min": 0
+    },
+    "free_rate_months": {
+      "type": "integer",
+      "required": true,
+      "default": 0,
+      "max": 36
+    },
+    "annual_rate": {
+      "type": "decimal",
+      "required": true,
+      "default": 20
+    }
+  }
+}
