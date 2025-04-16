@@ -4,7 +4,7 @@ import CustomPagination from '../customPagination';
 import { useEffect, useState } from 'react';
 import { useFetchClient } from '@strapi/helper-plugin';
 import pluginId from '../../pluginId';
-import { useParams, useLocation } from "react-router-dom"
+import { useLocation } from "react-router-dom"
 
 const OrderList = () => {
     const { search } = useLocation();
@@ -16,7 +16,8 @@ const OrderList = () => {
     const [totalPages, setTotalPages] = useState(0)
     const [isLoading, setIsLoading] = useState(true)
 
-    const page = searchParams.get("page") | 1
+    const rawPage = parseInt(searchParams.get("page"), 10);
+    const page = isNaN(rawPage) ? 1 : rawPage;    
 
     useEffect(() => {
         const fetchImport = async () => {

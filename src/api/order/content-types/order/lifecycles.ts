@@ -185,44 +185,87 @@ export default {
                 break;
         }
 
-        const emailVariables = {
-            billing: {
-                firstname: `${billing.firstname}`,
-                lastname: `${billing.lastname}`,
-                companyName: billing.companyName,
-                businessActivity: billing.businessActivity,
-                afm: billing.afm,
-                doy: billing.doy,
-                country: `${billing.country}`,
-                state: `${billing.state}`,
-                city: `${billing.city}`,
-                street: `${billing.street}`,
-                zipCode: `${billing.zipCode}`,
-                mobilePhone: `${billing.mobilePhone}`,
-                telephone: `${billing.telephone}`,
-            },
-            shipping: {
-                firstname: `${shipping.firstname}`,
-                lastname: `${shipping.lastname}`,
-                country: `${shipping.country}`,
-                state: `${shipping.state}`,
-                city: `${shipping.city}`,
-                street: `${shipping.street}`,
-                zipCode: `${shipping.zipCode}`,
-                mobilePhone: `${shipping.mobilePhone}`,
-                telephone: `${shipping.telephone}`,
-            },
-            order: {
-                id: order.id,
-                products: productsRows,
-                productsCost: productsCost.toFixed(2),
-                shippingName: order.shipping.name,
-                shippingCost: order.shipping.cost.toFixed(2),
-                paymentName: order.payment.name,
-                paymentCost: order.payment.cost.toFixed(2),
-                total: order.total.toFixed(2)
-            },
-        }
+        const installmentsCost = order.total - (productsCost + order.shipping.cost + order.shipping.cost)
+
+        const emailVariables = installmentsCost > 0 ?
+            {
+                billing: {
+                    firstname: `${billing.firstname}`,
+                    lastname: `${billing.lastname}`,
+                    companyName: billing.companyName,
+                    businessActivity: billing.businessActivity,
+                    afm: billing.afm,
+                    doy: billing.doy,
+                    country: `${billing.country}`,
+                    state: `${billing.state}`,
+                    city: `${billing.city}`,
+                    street: `${billing.street}`,
+                    zipCode: `${billing.zipCode}`,
+                    mobilePhone: `${billing.mobilePhone}`,
+                    telephone: `${billing.telephone}`,
+                },
+                shipping: {
+                    firstname: `${shipping.firstname}`,
+                    lastname: `${shipping.lastname}`,
+                    country: `${shipping.country}`,
+                    state: `${shipping.state}`,
+                    city: `${shipping.city}`,
+                    street: `${shipping.street}`,
+                    zipCode: `${shipping.zipCode}`,
+                    mobilePhone: `${shipping.mobilePhone}`,
+                    telephone: `${shipping.telephone}`,
+                },
+                order: {
+                    id: order.id,
+                    products: productsRows,
+                    productsCost: productsCost.toFixed(2),
+                    shippingName: order.shipping.name,
+                    shippingCost: order.shipping.cost.toFixed(2),
+                    paymentName: order.payment.name,
+                    paymentCost: order.payment.cost.toFixed(2),
+                    installmentsCost: installmentsCost.toFixed(2),
+                    total: order.total.toFixed(2)
+                },
+            }
+            :
+            {
+                billing: {
+                    firstname: `${billing.firstname}`,
+                    lastname: `${billing.lastname}`,
+                    companyName: billing.companyName,
+                    businessActivity: billing.businessActivity,
+                    afm: billing.afm,
+                    doy: billing.doy,
+                    country: `${billing.country}`,
+                    state: `${billing.state}`,
+                    city: `${billing.city}`,
+                    street: `${billing.street}`,
+                    zipCode: `${billing.zipCode}`,
+                    mobilePhone: `${billing.mobilePhone}`,
+                    telephone: `${billing.telephone}`,
+                },
+                shipping: {
+                    firstname: `${shipping.firstname}`,
+                    lastname: `${shipping.lastname}`,
+                    country: `${shipping.country}`,
+                    state: `${shipping.state}`,
+                    city: `${shipping.city}`,
+                    street: `${shipping.street}`,
+                    zipCode: `${shipping.zipCode}`,
+                    mobilePhone: `${shipping.mobilePhone}`,
+                    telephone: `${shipping.telephone}`,
+                },
+                order: {
+                    id: order.id,
+                    products: productsRows,
+                    productsCost: productsCost.toFixed(2),
+                    shippingName: order.shipping.name,
+                    shippingCost: order.shipping.cost.toFixed(2),
+                    paymentName: order.payment.name,
+                    paymentCost: order.payment.cost.toFixed(2),
+                    total: order.total.toFixed(2)
+                },
+            }
 
         try {
             let newOrderTemplate = 8
@@ -238,8 +281,8 @@ export default {
                 }
                 else { templateReferenceId = 11; }
             }
-            // await strapi.service('api::order.order').sendConfirmOrderEmail({ templateReferenceId, to: order.user.email, emailVariables, subject: `Magnetmarket - Η παραγγελία σας με κωδικό #${order.id} είναι σε κατάσταση: ${order.status}!` })
-            // await strapi.service('api::order.order').sendConfirmOrderEmail({ templateReferenceId: newOrderTemplate, to: ['giorgos_mitrakos@yahoo.com', "info@magnetmarket.gr", "kkoulogiannis@gmail.com"], emailVariables, subject: `Νέα παραγγελία στο site, Αρ.παρ #${order.id}` })
+            await strapi.service('api::order.order').sendConfirmOrderEmail({ templateReferenceId, to: order.user.email, emailVariables, subject: `Magnetmarket - Η παραγγελία σας με κωδικό #${order.id} είναι σε κατάσταση: ${order.status}!` })
+            await strapi.service('api::order.order').sendConfirmOrderEmail({ templateReferenceId: newOrderTemplate, to: ['giorgos_mitrakos@yahoo.com', "info@magnetmarket.gr", "kkoulogiannis@gmail.com"], emailVariables, subject: `Νέα παραγγελία στο site, Αρ.παρ #${order.id}` })
         } catch (error) {
             console.log(error)
         }
@@ -386,44 +429,87 @@ export default {
                     break;
             }
 
-            const emailVariables = {
-                billing: {
-                    firstname: `${billing.firstname}`,
-                    lastname: `${billing.lastname}`,
-                    companyName: billing.companyName,
-                    businessActivity: billing.businessActivity,
-                    afm: billing.afm,
-                    doy: billing.doy,
-                    country: `${billing.country}`,
-                    state: `${billing.state}`,
-                    city: `${billing.city}`,
-                    street: `${billing.street}`,
-                    zipCode: `${billing.zipCode}`,
-                    mobilePhone: `${billing.mobilePhone}`,
-                    telephone: `${billing.telephone}`,
-                },
-                shipping: {
-                    firstname: `${shipping.firstname}`,
-                    lastname: `${shipping.lastname}`,
-                    country: `${shipping.country}`,
-                    state: `${shipping.state}`,
-                    city: `${shipping.city}`,
-                    street: `${shipping.street}`,
-                    zipCode: `${shipping.zipCode}`,
-                    mobilePhone: `${shipping.mobilePhone}`,
-                    telephone: `${shipping.telephone}`,
-                },
-                order: {
-                    id: order.id,
-                    products: productsRows,
-                    productsCost: productsCost.toFixed(2),
-                    shippingName: order.shipping.name,
-                    shippingCost: order.shipping.cost.toFixed(2),
-                    paymentName: order.payment.name,
-                    paymentCost: order.payment.cost.toFixed(2),
-                    total: order.total.toFixed(2)
-                },
-            }
+            const installmentsCost = order.total - (productsCost + order.shipping.cost + order.shipping.cost)
+
+            const emailVariables = installmentsCost > 0 ?
+                {
+                    billing: {
+                        firstname: `${billing.firstname}`,
+                        lastname: `${billing.lastname}`,
+                        companyName: billing.companyName,
+                        businessActivity: billing.businessActivity,
+                        afm: billing.afm,
+                        doy: billing.doy,
+                        country: `${billing.country}`,
+                        state: `${billing.state}`,
+                        city: `${billing.city}`,
+                        street: `${billing.street}`,
+                        zipCode: `${billing.zipCode}`,
+                        mobilePhone: `${billing.mobilePhone}`,
+                        telephone: `${billing.telephone}`,
+                    },
+                    shipping: {
+                        firstname: `${shipping.firstname}`,
+                        lastname: `${shipping.lastname}`,
+                        country: `${shipping.country}`,
+                        state: `${shipping.state}`,
+                        city: `${shipping.city}`,
+                        street: `${shipping.street}`,
+                        zipCode: `${shipping.zipCode}`,
+                        mobilePhone: `${shipping.mobilePhone}`,
+                        telephone: `${shipping.telephone}`,
+                    },
+                    order: {
+                        id: order.id,
+                        products: productsRows,
+                        productsCost: productsCost.toFixed(2),
+                        shippingName: order.shipping.name,
+                        shippingCost: order.shipping.cost.toFixed(2),
+                        paymentName: order.payment.name,
+                        paymentCost: order.payment.cost.toFixed(2),
+                        installmentsCost: installmentsCost.toFixed(2),
+                        total: order.total.toFixed(2)
+                    },
+                }
+                :
+                {
+                    billing: {
+                        firstname: `${billing.firstname}`,
+                        lastname: `${billing.lastname}`,
+                        companyName: billing.companyName,
+                        businessActivity: billing.businessActivity,
+                        afm: billing.afm,
+                        doy: billing.doy,
+                        country: `${billing.country}`,
+                        state: `${billing.state}`,
+                        city: `${billing.city}`,
+                        street: `${billing.street}`,
+                        zipCode: `${billing.zipCode}`,
+                        mobilePhone: `${billing.mobilePhone}`,
+                        telephone: `${billing.telephone}`,
+                    },
+                    shipping: {
+                        firstname: `${shipping.firstname}`,
+                        lastname: `${shipping.lastname}`,
+                        country: `${shipping.country}`,
+                        state: `${shipping.state}`,
+                        city: `${shipping.city}`,
+                        street: `${shipping.street}`,
+                        zipCode: `${shipping.zipCode}`,
+                        mobilePhone: `${shipping.mobilePhone}`,
+                        telephone: `${shipping.telephone}`,
+                    },
+                    order: {
+                        id: order.id,
+                        products: productsRows,
+                        productsCost: productsCost.toFixed(2),
+                        shippingName: order.shipping.name,
+                        shippingCost: order.shipping.cost.toFixed(2),
+                        paymentName: order.payment.name,
+                        paymentCost: order.payment.cost.toFixed(2),
+                        total: order.total.toFixed(2)
+                    },
+                }
 
             try {
                 await strapi.service('api::order.order').sendConfirmOrderEmail({ templateReferenceId, to: order.user.email, emailVariables, subject: `Magnetmarket - Η παραγγελία σας με κωδικό #${order.id} είναι σε κατάσταση: ${event.params.data.status}!` })

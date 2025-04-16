@@ -1,13 +1,12 @@
 import { Dots, NextLink, PageLink, Pagination, PreviousLink } from '@strapi/design-system';
 import pluginId from '../../pluginId';
 
-const CustonPagination = ({ totalPages, active }) => {
+const CustomPagination = ({ totalPages, active }) => {
     // const totalPages = Math.ceil(total / 10)
-    const activePage = parseInt(active)
+    const activePage = Number(active)
     const maxPage = Math.min(totalPages, activePage + 1)// Math.max(currentPage + 1, 4))
-    const minPage = Math.max(1, active - 1)// Math.min(currentPage - 1, maxPage - 3))
+    const minPage = Math.max(1, activePage - 1)// Math.min(currentPage - 1, maxPage - 3))
 
-    console.log("active:", active, "minPage:", minPage, "maxPage:", maxPage)
     return (
         <Pagination activePage={activePage} pageCount={totalPages}>
             <PreviousLink to={`/plugins/${pluginId}?page=${activePage-1}`}>Go to previous page</PreviousLink>
@@ -37,4 +36,4 @@ const CustonPagination = ({ totalPages, active }) => {
     )
 }
 
-export default CustonPagination
+export default CustomPagination

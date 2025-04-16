@@ -104,6 +104,9 @@ const OrderPage = () => {
                                         <Typography textColor="neutral800" fontWeight='bold' variant='epsilon'>{new Date(order.createdAt).toLocaleDateString('el-GR')} {new Date(order.createdAt).toLocaleTimeString('el-GR')}</Typography>
                                     </Box>
                                     <Box>
+                                        <Typography textColor="neutral800" fontWeight='bold' variant='epsilon'>Τρόπος πληρωμής: {order.payment.name}</Typography>
+                                    </Box>
+                                    <Box>
                                         <Typography as="h4" variant="omega">Κατασταση:</Typography>
                                     </Box>
                                     <Box paddingTop={2} paddingRight={5}>

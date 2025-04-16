@@ -111,8 +111,6 @@ export default factories.createCoreService('api::order.order', ({ strapi }) => (
                         cost: paymentCost.cost
                     }
 
-
-
                     newOrder = await strapi.entityService.create('api::order.order', {
                         data: {
                             products: cartItems,
@@ -121,7 +119,7 @@ export default factories.createCoreService('api::order.order', ({ strapi }) => (
                             total: totalCost,
                             installments: installments || 1,
                             user: newUser.id,
-                            status: 'Σε αναμονή',
+                            status: 'Εκκρεμεί πληρωμή',
                             different_shipping: addresses.different_shipping,
                             isInvoice: addresses.billing.isInvoice,
                             billing_address: addresses.billing,
@@ -236,7 +234,7 @@ export default factories.createCoreService('api::order.order', ({ strapi }) => (
                             total: totalCost,
                             installments: installments || 1,
                             user: checkIfUserExists.id,
-                            status: 'Σε αναμονή',
+                            status: 'Εκκρεμεί πληρωμή',
                             different_shipping: addresses.different_shipping,
                             isInvoice: addresses.billing.isInvoice,
                             billing_address: addresses.billing,
@@ -355,7 +353,7 @@ export default factories.createCoreService('api::order.order', ({ strapi }) => (
                         total: totalCost,
                         installments: installments || 1,
                         user: findUser.id,
-                        status: 'Σε αναμονή',
+                        status: 'Εκκρεμεί πληρωμή',
                         different_shipping: addresses.different_shipping,
                         isInvoice: addresses.billing.isInvoice,
                         billing_address: addresses.billing,

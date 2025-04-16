@@ -35,7 +35,7 @@ module.exports = ({ strapi }) => ({
     const { id } = ctx.request.body
 
     const order = await strapi.entityService.findOne('api::order.order', id, {
-      fields: ['products', 'total', 'status', 'different_shipping', 'createdAt', 'billing_address', 'shipping_address','delivery_notes'],
+      fields: ['products', 'total', 'status', 'different_shipping', 'createdAt', 'billing_address', 'shipping_address', 'delivery_notes'],
       populate: {
         user: {
           populate: {
@@ -134,7 +134,7 @@ module.exports = ({ strapi }) => ({
           },
         }
 
-        let templateReferenceId= 9
+        let templateReferenceId = 9
         if (order.isInvoice) {
           if (order.different_shipping) {
             templateReferenceId = 37;
