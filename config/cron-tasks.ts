@@ -386,7 +386,7 @@ export default {
                 .createXml('bestprice');
         },
         options: {
-            rule: "6 * * * *",
+            rule: "3 * * * *",
         },
     },
 

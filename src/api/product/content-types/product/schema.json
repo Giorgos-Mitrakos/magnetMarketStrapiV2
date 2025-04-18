@@ -193,8 +193,7 @@
     },
     "is_in_house": {
       "type": "boolean",
-      "default": false,
-      "private": true
+      "default": false
     },
     "notice_if_available": {
       "type": "boolean",

@@ -916,9 +916,7 @@ export interface ApiProductProduct extends Schema.CollectionType {
     inventory: Attribute.Integer & Attribute.DefaultTo<0>;
     is_fixed_price: Attribute.Boolean & Attribute.DefaultTo<false>;
     is_hot: Attribute.Boolean & Attribute.DefaultTo<false>;
-    is_in_house: Attribute.Boolean &
-      Attribute.Private &
-      Attribute.DefaultTo<false>;
+    is_in_house: Attribute.Boolean & Attribute.DefaultTo<false>;
     is_sale: Attribute.Boolean & Attribute.DefaultTo<false>;
     length: Attribute.Decimal & Attribute.DefaultTo<0>;
     model: Attribute.String;

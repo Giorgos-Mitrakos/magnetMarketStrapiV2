@@ -86,13 +86,14 @@ module.exports = ({ strapi }) => ({
                     let { cheaperAvailableSupplier, availability, price } = this.createAvailabilityAndPrice(product, suppliers, platform, category)
 
                     if (!price) { continue }
+
                     let newEntry = {
                         productId: product.id,
                         title: product.name,
                         productURL: `https://magnetmarket.gr/product/${product.slug}`,
                         imageURL: product.image ? `https://api.magnetmarket.eu/${product.image.url}` : "",
                         category_path: categoryPath,
-                        price: parseFloat(price).toFixed(2),
+                        price: price,
                         weight: product.weight,
                         availability,
                         brand: product.brand ? product.brand?.name : "",
@@ -280,10 +281,20 @@ module.exports = ({ strapi }) => ({
                 }
                 else if (platform.name.toLowerCase() === "bestprice") {
                     if (product.is_in_house) {
-                        return { availability: "Παράδοση σε 1–3 ημέρες", price: product.price }
+                        let finalPrice = parseFloat(product.price).toFixed(2)
+
+                        if (product.is_sale && product.sale_price) {
+                            finalPrice = parseFloat(product.sale_price).toFixed(2)
+                        }
+                        return { availability: "Άμεσα διαθέσιμο", price: finalPrice }
                     }
                     else {
-                        return { availability: "Παράδοση σε 1–3 ημέρες", price: product.price }
+                        let finalPrice = parseFloat(product.price).toFixed(2)
+
+                        if (product.is_sale && product.sale_price) {
+                            finalPrice = parseFloat(product.sale_price).toFixed(2)
+                        }
+                        return { availability: "Παράδοση σε 1–3 ημέρες", price: finalPrice }
                     }
                 }
                 else {
