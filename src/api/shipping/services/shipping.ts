@@ -84,7 +84,7 @@ export default factories.createCoreService('api::shipping.shipping', ({ strapi }
                 where: { id: shippingMethod.id },
             })
 
-            if (shipper.isFreeShipping)
+            if (!shipper || shipper.isFreeShipping)
                 return { cost: 0 }
 
             const totalWeight = cartItems.reduce((accumulator, item) => {
