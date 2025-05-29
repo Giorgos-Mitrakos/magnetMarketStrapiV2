@@ -1,6 +1,7 @@
 'use strict';
 
 const xlsx = require('xlsx')
+const fs = require('fs');
 
 module.exports = ({ strapi }) => ({
     async parseSmart4AllXml({ entry }) {
@@ -63,6 +64,11 @@ module.exports = ({ strapi }) => ({
 
                 if (products.length === 0)
                     return { "message": "xml is empty" }
+
+                if (entry.importedFile===null || !fs.existsSync(`./public${entry.importedFile.url}`)) {
+                    // console.log(fs.existsSync(`./public${entry.importedFile.url}`))
+                    return { "message": "Δεν υπάρχει το excel αρχείο!" }
+                }
 
                 // Διαβάζω το excel αρχείο που στέλνουν καθημερινά!
 

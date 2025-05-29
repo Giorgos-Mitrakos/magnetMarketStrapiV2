@@ -71,6 +71,9 @@ const UploadFileForm = () => {
         else if (response.data.message === "xml is empty") {
             alert("Το xml του Προμηθευτή είναι άδειο, Παρακαλώ προσπαθήστε αργότερα")
         }
+        else if (response.data.message === "Δεν υπάρχει το excel αρχείο!") {
+            alert("Δεν υπάρχει το excel αρχείο, Ανεβάστε το και ξαναπροσπαθήστε!")
+        }
         else if (response.data.message === "Error") {
             alert("Κάποιο σφάλμα δημιουργήθηκε")
         }
