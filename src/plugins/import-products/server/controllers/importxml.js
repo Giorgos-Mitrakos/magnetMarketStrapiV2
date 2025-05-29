@@ -84,12 +84,12 @@ module.exports = ({ strapi }) => ({
                 .service('questService')
                 .parseQuest(ctx.request.body);
         }
-        // else if (ctx.request.body.entry.name.toLowerCase() === 'smart4all') {
-        //     ctx.body = await strapi
-        //         .plugin('import-products')
-        //         .service('parseService')
-        //         .parseSmart4AllXml(ctx.request.body);
-        // }
+        else if (ctx.request.body.entry.name.toLowerCase() === 'smart4all') {
+            ctx.body = await strapi
+                .plugin('import-products')
+                .service('smart4allService')
+                .parseSmart4AllXml(ctx.request.body);
+        }
         // else if (ctx.request.body.entry.name.toLowerCase() === 'damkalidis') {
         //     ctx.body = await strapi
         //         .plugin('import-products')

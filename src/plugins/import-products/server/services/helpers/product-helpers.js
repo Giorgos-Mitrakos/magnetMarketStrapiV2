@@ -442,10 +442,27 @@ module.exports = ({ strapi }) => ({
 
                 }
             }
+            else if (entry.name.toLowerCase() === 'smart4all') {
+                if (Array.isArray(attributes)) {
+                    for (let productChar of attributes) {
+                        const char = {}
+                        char.name = this.createFields('FEATURE_NAME', productChar)
+                        char.value = this.createFields('FEATURE_VALUE', productChar)
+                        chars.push(char)
+                    }
+                }
+                else {
+                    const char = {}
+                    char.name = this.createFields('FEATURE_NAME', attributes)
+                    char.value = this.createFields('FEATURE_VALUE', attributes)
+                    chars.push(char)
+                }
+            }
             else {
                 try {
                     if (Array.isArray(attributes)) {
                         for (let productChar of attributes) {
+
                             if (productChar.name && productChar.value) {
                                 const char = {}
                                 char.name = this.createFields('name', productChar.trim())
@@ -476,7 +493,7 @@ module.exports = ({ strapi }) => ({
                     }
 
                 } catch (error) {
-                    console.log(error, attributes)
+                    console.log(error)
                 }
             }
 
@@ -675,7 +692,7 @@ module.exports = ({ strapi }) => ({
 
             return { entryCheck }
         } catch (error) {
-            console.log(error)
+            console.log(error, "mpn:", mpn)
         }
     },
 
