@@ -65,7 +65,7 @@ module.exports = ({ strapi }) => ({
                 if (products.length === 0)
                     return { "message": "xml is empty" }
 
-                if (entry.importedFile===null || !fs.existsSync(`./public${entry.importedFile.url}`)) {
+                if (entry.importedFile === null || !fs.existsSync(`./public${entry.importedFile.url}`)) {
                     // console.log(fs.existsSync(`./public${entry.importedFile.url}`))
                     return { "message": "Δεν υπάρχει το excel αρχείο!" }
                 }
@@ -111,6 +111,10 @@ module.exports = ({ strapi }) => ({
                     const mpn = findProductInExcel.PN || findProductInExcel.SKU || findProductInExcel["Εναλλακτικός Κωδικός"]
 
                     product.mpn = String(mpn)
+
+                    if (product.barcode === null || product.barcode === "") {
+                        product.barcode = String(findProductInExcel.EAN) 
+                    }
 
                     // // Αν δεν υπάρχει ούτε mpn ούτε barcode προχώρα στην επόμενη εγγραφή
                     // if (!product.mpn && !product.barcode)

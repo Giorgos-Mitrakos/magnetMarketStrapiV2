@@ -574,11 +574,19 @@ module.exports = ({ strapi }) => ({
                     return b.name.length - a.name.length;
                 });
 
-                const brandFound = sortedBrandArray.find(x => name?.toLowerCase().includes(x.name.toLowerCase()))
+                const first3words = name?.trim().split(' ').slice(0, 3).join(' ')
+                const brandFoundInFirst3Words = sortedBrandArray.find(x => first3words?.toLowerCase().includes(x.name.toLowerCase()));
 
-                if (brandFound) {
-                    brandId = brandFound.id
+                if (brandFoundInFirst3Words) {
+                    brandId = brandFoundInFirst3Words.id
                     return { brandId }
+                }
+                else {
+                    const brandFound = sortedBrandArray.find(x => name?.toLowerCase().includes(x.name.toLowerCase()))
+                    if (brandFound) {
+                        brandId = brandFoundInFirst3Words.id
+                        return { brandId }
+                    }
                 }
 
                 return { brandId: null }

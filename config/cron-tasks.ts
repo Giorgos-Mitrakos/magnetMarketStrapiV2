@@ -335,6 +335,30 @@ export default {
         },
     },
 
+    updateSmart4All: {
+        task: async ({ strapi }) => {
+            // Add your own logic here (e.g. send a queue of email, create a database backup, etc.).
+            const entry = await strapi.db.query('plugin::import-products.importxml').findOne({
+                where: { name: "Smart4All" },
+                populate: {
+                    importedFile: true,
+                    stock_map: {
+                        fields: ['name'],
+                        sort: 'name:asc',
+                    },
+                },
+            })
+
+            await strapi
+                .plugin('import-products')
+                .service('smart4allService')
+                .parseSmart4AllXml({ entry });
+        },
+        options: {
+            rule: "7 * * * *",
+        },
+    },
+
     updateAll: {
         task: async ({ strapi }) => {
             // Add your own logic here (e.g. send a queue of email, create a database backup, etc.).
@@ -414,7 +438,7 @@ export default {
                 .findNotRelatedFiles();
         },
         options: {
-            rule: "*/2 * * * *",
+            rule: "5 3 1 */2 *",
         },
     },
 };

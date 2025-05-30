@@ -10,8 +10,8 @@ module.exports = ({ strapi }) => ({
         try {
             puppeteer.use(StealthPlugin())
             return await puppeteer.launch({
-                headless: true,
-                // executablePath: 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+                headless: false,
+                executablePath: 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
                 args: ['--no-sandbox', '--disable-setuid-sandbox']
             });
         } catch (error) {

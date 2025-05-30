@@ -14,69 +14,71 @@ module.exports = ({ strapi }) => ({
     async getAndConvertImgToWep(product) {
 
         try {
-            let productName = product.name.replaceAll(/[^A-Za-z0-9-_\.~]/g, "").replaceAll(/[\s+]/g, "-").replace("\t", "");
+            const imageIDS = { mainImage: [], additionalImages: [], imgUrls: [] };
+            let index = 0;
 
-            let index = 0
-            const imageIDS = { mainImage: [], additionalImages: [], imgUrls: [] }
+            const productName = product.name
+                .replaceAll(/[^A-Za-z0-9-_.~]/g, "")
+                .replaceAll(/\s+/g, "-")
+                .replaceAll("\t", "");
 
-            for (let imgUrl of product.imagesSrc) {
-                console.log("imgUrl:", imgUrl.url)
+            for (const imgUrl of product.imagesSrc) {
+                console.log("imgUrl:", imgUrl.url);
                 index += 1;
-                const sharpStream = sharp({
-                    failOnError: false
-                });
+
+                let response;
+                try {
+                    response = await fetch(imgUrl.url);
+                    if (!response.ok) throw new Error("Invalid response");
+                } catch (err) {
+                    console.error("Fetch failed:", imgUrl.url, err);
+                    continue;
+                }
+
+                let buffer;
+                try {
+                    const arrayBuffer = await response.arrayBuffer();
+                    buffer = Buffer.from(arrayBuffer);
+                } catch (err) {
+                    console.error("Failed to convert image to buffer:", imgUrl.url, err);
+                    break;
+                }
+
+                const tmpPath = `./public/tmp/${productName}_${index}.webp`;
 
                 try {
-                    let cont = false;
-                    const { body } = await fetch(imgUrl.url, {
-                        method: 'get',
-                        responseType: 'arrayBuffer'
-                    }).catch(err => {
-                        cont = true;
-                    })
+                    const isWindows = process.platform === 'win32';
+                    const format = isWindows ? 'jpeg' : 'webp';
 
-                    if (cont) {
-                        break;
+                    await sharp(buffer)
+                        .resize({ width: 1024 })
+                        .toFormat(format)
+                        .toFile(tmpPath);
+
+                    const image = await this.upload(tmpPath, "uploads", productName);
+
+                    if (index === 1) {
+                        imageIDS.mainImage.push(image.id);
+                    } else {
+                        imageIDS.additionalImages.push(image.id);
                     }
 
-                    const readableStream = stream.Readable.fromWeb(body);
-
-                    readableStream.pipe(sharpStream)
-
-                    imageIDS.imgUrls.push(imgUrl)
-
-                    await sharpStream
-                        .resize({ width: 1024 })
-                        .toFormat('jpg')
-                        .toFile(`./public/tmp/${productName}_${index}.jpg`)
-                        .then(async () => {
-                            const image = await this.upload(`./public/tmp/${productName}_${index}.jpg`, 'uploads', productName);
-                            return image
-                        })
-                        .then((image) => {
-                            index === 1 ? imageIDS.mainImage.push(image.id)
-                                : imageIDS.additionalImages.push(image.id)
-                        })
-                        .catch(err => {
-                            console.error("Error processing files, let's clean it up", err, "File:", productName, imgUrl, "supplier Code:", product.supplierCode);
-                            try {
-                                if (fs.existsSync(`./public/tmp/${productName}_${index}.jpg`)) {
-                                    fs.unlinkSync(`./public/tmp/${productName}_${index}.jpg`);
-                                }
-                            } catch (e) {
-                                console.log(e)
-                                return
-                            }
-                        })
-
-                } catch (error) {
-                    console.log("Image error Error:", error)
+                    imageIDS.imgUrls.push(imgUrl);
+                } catch (err) {
+                    console.error("Image processing error:", err, "File:", tmpPath);
+                    try {
+                        if (fs.existsSync(tmpPath)) {
+                            fs.unlinkSync(tmpPath);
+                        }
+                    } catch (e) {
+                        console.log("Failed to clean up:", e);
+                    }
                 }
             }
 
-            if (imageIDS.imgUrls.length === 0) { return }
+            return imageIDS.imgUrls.length ? imageIDS : null;
 
-            return imageIDS
+
         } catch (error) {
             console.log("Error in converting Image:", error)
         }
@@ -357,18 +359,6 @@ module.exports = ({ strapi }) => ({
                 }
             }
 
-            for (let carousel of homepage.Carousel) {
-                if (carousel.image) {
-                    attachedImageIds.push(carousel.image.id)
-                }
-            }
-
-            for (let fixed_hero_banners of homepage.fixed_hero_banners) {
-                if (fixed_hero_banners.image) {
-                    attachedImageIds.push(fixed_hero_banners.image.id)
-                }
-            }
-
             for (let body of homepage.body) {
                 if (body.__component === 'homepage.single-banner') {
                     attachedImageIds.push(body.singleBanner.id)
@@ -381,6 +371,14 @@ module.exports = ({ strapi }) => ({
                     attachedImageIds.push(body.leftTripleBanner.id)
                     attachedImageIds.push(body.middleTripleBanner.id)
                     attachedImageIds.push(body.rightTripleBanner.id)
+                }
+                else if (body.__component === 'global.carousel') {
+                    for (let banner of body.Banner) {
+                        attachedImageIds.push(banner.id)
+                    }
+                    // attachedImageIds.push(body.leftTripleBanner.id)
+                    // attachedImageIds.push(body.middleTripleBanner.id)
+                    // attachedImageIds.push(body.rightTripleBanner.id)
                 }
             }
 
