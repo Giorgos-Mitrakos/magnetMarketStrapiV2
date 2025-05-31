@@ -300,9 +300,11 @@ module.exports = ({ strapi }) => ({
                 }
 
                 const retailPriceWrapper = priceWrapper.querySelector('.b2b_rrp_price');
-                const retailPriceSpanWrapper = retailPriceWrapper.querySelectorAll('span');
-                const retail_price = retailPriceSpanWrapper[1].textContent.replace('€', '').replace(',', '').trim();
-                product.retail_price = parseFloat(retail_price)
+                if (retailPriceWrapper) {
+                    const retailPriceSpanWrapper = retailPriceWrapper.querySelectorAll('span');
+                    const retail_price = retailPriceSpanWrapper[1].textContent.replace('€', '').replace(',', '').trim();
+                    product.retail_price = parseFloat(retail_price)
+                }
 
                 const stockWrapper = productsCard.querySelector('.in-stock');
                 if (stockWrapper) { product.stockLevel = stockWrapper.textContent.trim(); }

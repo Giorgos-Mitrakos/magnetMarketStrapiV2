@@ -70,7 +70,7 @@ module.exports = ({ strapi }) => ({
                     const product = await strapi
                         .plugin('import-products')
                         .service('productHelpers')
-                        .createProductFields(entry, dt, importRef)
+                        .createProductFields(entry, dt, importRef) 
 
                     product.link = `https://www.mywestnet.com/el${product.link}`
 

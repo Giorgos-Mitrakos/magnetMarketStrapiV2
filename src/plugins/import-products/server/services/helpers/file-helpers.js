@@ -23,7 +23,6 @@ module.exports = ({ strapi }) => ({
                 .replaceAll("\t", "");
 
             for (const imgUrl of product.imagesSrc) {
-                console.log("imgUrl:", imgUrl.url);
                 index += 1;
 
                 let response;
