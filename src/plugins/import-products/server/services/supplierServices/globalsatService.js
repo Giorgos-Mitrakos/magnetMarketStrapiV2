@@ -289,9 +289,15 @@ module.exports = ({ strapi }) => ({
                 product.supplierCode = skuSpansWrapper[1].textContent.trim();
 
                 const priceWrapper = productsCard.querySelector('.price');
-                const priceSpan = priceWrapper.querySelector('.current');
+                const priceCurrentSpan = priceWrapper.querySelector('span.current');
+                const priceSpecialSpan = priceWrapper.querySelector('span.specials');
 
-                product.wholesale = priceSpan.textContent.replace('€', '').replace(',', '').trim();
+                if (priceCurrentSpan) {
+                    product.wholesale = priceCurrentSpan.textContent.replace('€', '').replace(',', '').trim();
+                }
+                else {
+                    product.wholesale = priceSpecialSpan.textContent.replace('€', '').replace(',', '').trim();
+                }
 
                 const retailPriceWrapper = priceWrapper.querySelector('.b2b_rrp_price');
                 const retailPriceSpanWrapper = retailPriceWrapper.querySelectorAll('span');
@@ -681,9 +687,16 @@ module.exports = ({ strapi }) => ({
                         break;
                 }
 
-                const wholesaleNode = document.querySelector("#product-price-current_unit_exl");
-                const wholesaleSpansWrapper = wholesaleNode.querySelectorAll('span');
-                product.wholesale = wholesaleSpansWrapper[wholesaleSpansWrapper.length - 1].textContent.replace("€", "").replace(",", "").trim();
+                const wholesaleCurrentNode = document.querySelector("#product-price-current_unit_exl.current-exl");
+                const wholesaleSpecialNode = document.querySelector("#product-price-special_unit_exl.special-ex");
+                if (wholesaleCurrentNode) {
+                    const wholesaleSpansWrapper = wholesaleCurrentNode.querySelectorAll('span');
+                    product.wholesale = wholesaleSpansWrapper[wholesaleSpansWrapper.length - 1].textContent.replace("€", "").replace(",", "").trim();
+                }
+                else {
+                    const wholesaleSpansWrapper = wholesaleSpecialNode.querySelectorAll('span');
+                    product.wholesale = wholesaleSpecialNode.textContent.split("€")[0].replace(",", "").trim();
+                }
 
                 const retailNode = document.querySelector("#product-price-rrp-b2b");
 

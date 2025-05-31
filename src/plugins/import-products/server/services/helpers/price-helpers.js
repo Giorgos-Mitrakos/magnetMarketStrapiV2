@@ -45,12 +45,14 @@ module.exports = ({ strapi }) => ({
         const skroutz = existedProduct.platforms.find(x => x.platform === "Skroutz")
         const shopflix = existedProduct.platforms.find(x => x.platform === "Shopflix")
 
-        if (minSupplierPrice.name.toLowerCase() === "globalsat") {
-          const retailPrice = parseFloat(minSupplierPrice.retail_price)
-          const suggestedPrice = parseFloat(retailPrice - 0.5)
-          this.createPrices(existedProduct, prices, minPrices, suggestedPrice, skroutz, shopflix)
-        }
-        else if (minSupplierPrice.name.toLowerCase() === "telehermes") {
+        // Εδώ αφαίρεσα τις προτεινόμενες τιμές της globalsat
+        // if (minSupplierPrice.name.toLowerCase() === "globalsat") {
+        //   const retailPrice = parseFloat(minSupplierPrice.retail_price)
+        //   const suggestedPrice = parseFloat(retailPrice - 0.5)
+        //   this.createPrices(existedProduct, prices, minPrices, suggestedPrice, skroutz, shopflix)
+        // }
+        // else 
+        if (minSupplierPrice.name.toLowerCase() === "telehermes") {
           const retailPrice = parseFloat(minSupplierPrice.retail_price)
           const suggestedPrice = parseFloat(retailPrice - 0.5)
           this.createPrices(existedProduct, prices, minPrices, suggestedPrice, skroutz, shopflix)
@@ -74,20 +76,23 @@ module.exports = ({ strapi }) => ({
           this.createPrices(existedProduct, prices, minPrices, suggestedPrice, skroutz, shopflix)
         }
         else {
-          let isGlobalsat = filteredSupplierInfo?.find(x => x.name.toLowerCase() === "globalsat")
-          const retailPrice = isGlobalsat ? isGlobalsat.retail_price : null
-            // (product.retail_price ? parseFloat(product.retail_price) : null)
-          const suggestedPrice = retailPrice ? parseFloat(retailPrice) : null
-          this.createPrices(existedProduct, prices, minPrices, suggestedPrice, skroutz, shopflix)
+          // Εδώ αφαίρεσα τις προτεινόμενες τιμές της globalsat
+          // let isGlobalsat = filteredSupplierInfo?.find(x => x.name.toLowerCase() === "globalsat")
+          // const retailPrice = isGlobalsat ? isGlobalsat.retail_price : null
+          //   // (product.retail_price ? parseFloat(product.retail_price) : null)
+          // const suggestedPrice = retailPrice ? parseFloat(retailPrice) : null
+          this.createPrices(existedProduct, prices, minPrices, null, skroutz, shopflix)
         }
       }
       else {
-        if (minSupplierPrice.name.toLowerCase() === "globalsat") {
-          const retailPrice = parseFloat(product.retail_price)
-          const suggestedPrice = parseFloat(retailPrice - 0.5)
-          this.createPrices(null, prices, minPrices, suggestedPrice, null, null)
-        }
-        else if (minSupplierPrice.name.toLowerCase() === "telehermes") {
+        // Εδώ αφαίρεσα τις προτεινόμενες τιμές της globalsat
+        // if (minSupplierPrice.name.toLowerCase() === "globalsat") {
+        //   const retailPrice = parseFloat(product.retail_price)
+        //   const suggestedPrice = parseFloat(retailPrice - 0.5)
+        //   this.createPrices(null, prices, minPrices, suggestedPrice, null, null)
+        // }
+        // else 
+        if (minSupplierPrice.name.toLowerCase() === "telehermes") {
           const retailPrice = parseFloat(product.retail_price)
           this.createPrices(null, prices, minPrices, retailPrice, null, null)
         }
