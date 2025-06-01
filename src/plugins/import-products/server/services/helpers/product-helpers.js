@@ -584,7 +584,7 @@ module.exports = ({ strapi }) => ({
                 else {
                     const brandFound = sortedBrandArray.find(x => name?.toLowerCase().includes(x.name.toLowerCase()))
                     if (brandFound) {
-                        brandId = brandFoundInFirst3Words.id
+                        brandId = brandFound.id
                         return { brandId }
                     }
                 }
