@@ -109,7 +109,7 @@ module.exports = ({ strapi }) => ({
       return { "message": "ok" }
     }
     catch (err) {
-      console.log(err);
+      console.log(err); 
     }
   },
 
@@ -232,8 +232,6 @@ module.exports = ({ strapi }) => ({
 
         const products = data.Data
           .filter(filterStock)
-
-        console.log(products)
 
         if (products.length === 0)
           return { "message": "xml is empty" }

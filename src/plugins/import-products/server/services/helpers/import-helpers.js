@@ -260,7 +260,7 @@ module.exports = ({ strapi }) => ({
                 .replaceAll('&gt;', ">")
                 .replaceAll('&lt;', "<")
                 .replaceAll('&nbsp;', " ") 
-                .replace(/[^\x00-\x7F]/g, "")
+                // .replace(/[^\x00-\x7F]/g, "") 
                 .replace(/[\u2000-\u2BFF]/g, "")
                 .trim()
             }

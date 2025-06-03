@@ -19,10 +19,10 @@ module.exports = ({ strapi }) => ({
                 splitter: null,
                 category: 'Category',
                 subcategory: 'SubCategory',
-                sub2category: 'Category3',
+                sub2category: 'SubCategory2',
                 stock_level: 'Availability',
                 wholesale: 'WholesalePrice',
-                retail_price: 'Suggested_x0020_Web_x0020_Price',
+                retail_price: 'Suggested_Web_Price',
                 recycle_tax: 'Eisfora',
                 in_offer: null,
                 name: 'Description',
@@ -34,7 +34,7 @@ module.exports = ({ strapi }) => ({
                 description: 'DetailedDescription',
                 short_description: 'DetailedDescriptionPre',
                 image: 'ImageLink',
-                additional_images: null,
+                additional_images: 'ImageLink2',
                 additional_files: 'ProductPdf',
                 supplierProductURL: 'ProIDLink',
                 attributes: null,
@@ -67,6 +67,10 @@ module.exports = ({ strapi }) => ({
                         .service('productHelpers')
                         .createProductFields(entry, dt, importRef)
 
+                    product.wholesale = product.wholesale.replace(",", ".")
+                    product.retail_price = product.retail_price.replace(",", ".")
+                    product.recycle_tax = product.recycle_tax.replace(",", ".")
+
                     // Αν δεν υπάρχει ούτε mpn ούτε barcode προχώρα στην επόμενη εγγραφή
                     if (!product.mpn && !product.barcode)
                         continue
@@ -82,7 +86,7 @@ module.exports = ({ strapi }) => ({
                         weightInKilos.push(weightInKilos2)
 
                     if (weightInKilos.length > 0) {
-                        let weightsList = []
+                        let weightsList = [] 
                         let weightFlattenArray = weightInKilos.flat()
                         weightFlattenArray.forEach(wt => {
                             let result = wt.match(/\d{1,3}(.|,)\d{0,3}/)

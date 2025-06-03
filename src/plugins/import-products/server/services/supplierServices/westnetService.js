@@ -237,14 +237,10 @@ module.exports = ({ strapi }) => ({
                 .service('importHelpers')
                 .parseXml(await data)
 
-            console.log(xml.products.product.length)
-
             const availableProducts = strapi
                 .plugin('import-products')
                 .service('productHelpers')
                 .filterData(xml.products.product, importRef.categoryMap, importRef.mapFields)
-
-                console.log(availableProducts.length)
                 
             return { products: availableProducts }
 
