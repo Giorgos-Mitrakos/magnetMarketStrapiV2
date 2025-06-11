@@ -366,19 +366,24 @@ module.exports = ({ strapi }) => ({
                     }
 
                     for (let productGroupNumber of productGroupsNumbers) {
-                        const group = { index: productGroupNumber }
-                        const groupLabels = await productGroups[productGroupNumber].$$('label')
+                        try {
+                            const group = { index: productGroupNumber }
+                            const groupLabels = await productGroups[productGroupNumber].$$('label')
 
-                        if (groupLabels.length > 0) {
-                            const productGroupsLabelsNumbers = []
-                            for (let i = 0; i < groupLabels.length; i++) {
-                                productGroupsLabelsNumbers.push(i)
+                            if (groupLabels.length > 0) {
+                                const productGroupsLabelsNumbers = []
+                                for (let i = 0; i < groupLabels.length; i++) {
+                                    productGroupsLabelsNumbers.push(i)
+                                }
+
+                                group.labels = productGroupsLabelsNumbers
                             }
 
-                            group.labels = productGroupsLabelsNumbers
-                        }
+                            card.groups.push(group)
 
-                        card.groups.push(group)
+                        } catch (error) {
+                            console.log("Κάποιο λάθος στο productGroupNumber")
+                        }
                     }
                 }
                 cards.push(card)
@@ -386,70 +391,99 @@ module.exports = ({ strapi }) => ({
 
             const products = []
             for await (let card of cards) {
-                if (card.groups.length > 0) {
-                    await strapi
-                        .plugin('import-products')
-                        .service('scrapHelpers')
-                        .sleep(strapi
+                try {
+                    if (card.groups.length > 0) {
+                        await strapi
                             .plugin('import-products')
                             .service('scrapHelpers')
-                            .randomWait(300, 500))
-
-                    let firstGroup = card.groups[0]
-                    let secondGroup = card.groups[1]
-                    if (firstGroup.labels.length > 0) {
-                        for await (let firstGroupLabel of firstGroup.labels) {
-                            await strapi
+                            .sleep(strapi
                                 .plugin('import-products')
                                 .service('scrapHelpers')
-                                .sleep(strapi
+                                .randomWait(300, 500))
+
+                        let firstGroup = card.groups[0]
+                        let secondGroup = card.groups[1]
+                        if (firstGroup.labels.length > 0) {
+                            for await (let firstGroupLabel of firstGroup.labels) {
+                                await strapi
                                     .plugin('import-products')
                                     .service('scrapHelpers')
-                                    .randomWait(300, 700))
-                            if (secondGroup && secondGroup.labels.length > 1) {
-                                for await (let secondGroupLabel of secondGroup.labels) {
-                                    await strapi
+                                    .sleep(strapi
                                         .plugin('import-products')
                                         .service('scrapHelpers')
-                                        .sleep(strapi
+                                        .randomWait(300, 700))
+                                if (secondGroup && secondGroup.labels.length > 1) {
+                                    for await (let secondGroupLabel of secondGroup.labels) {
+                                        await strapi
                                             .plugin('import-products')
                                             .service('scrapHelpers')
-                                            .randomWait(500, 800))
+                                            .sleep(strapi
+                                                .plugin('import-products')
+                                                .service('scrapHelpers')
+                                                .randomWait(500, 800))
 
-                                    let cardGroups = await this.findCardGroups(page, card)
-                                    const firstGroupLabels = await cardGroups[firstGroup.index].$$('label')
-                                    await firstGroupLabels[firstGroupLabel].waitForSelector('.js-list-prod');
-                                    const firstGroupLabelNumber = await firstGroupLabels[firstGroupLabel].$(".js-list-prod")
-                                    await firstGroupLabelNumber.scrollIntoView({ behavior: 'smooth' });
+                                        let cardGroups = await this.findCardGroups(page, card)
+                                        const firstGroupLabels = await cardGroups[firstGroup.index].$$('label')
+                                        await firstGroupLabels[firstGroupLabel].waitForSelector('.js-list-prod');
+                                        const firstGroupLabelNumber = await firstGroupLabels[firstGroupLabel].$(".js-list-prod")
+                                        await firstGroupLabelNumber.scrollIntoView({ behavior: 'smooth' });
 
-                                    if (firstGroup.labels.length > 1) {
+                                        if (firstGroup.labels.length > 1) {
+                                            await strapi
+                                                .plugin('import-products')
+                                                .service('scrapHelpers')
+                                                .retryClick(
+                                                    firstGroupLabelNumber,
+                                                    page,
+                                                    10, // retry this 10 times,
+                                                    false
+                                                );
+                                        }
+
+                                        cardGroups = await this.findCardGroups(page, card)
+                                        const secondGroupLabels = await cardGroups[secondGroup.index].$$('label')
+
+                                        await secondGroupLabels[secondGroupLabel].waitForSelector('.js-list-prod');
+                                        const secondGroupLabelNumber = await secondGroupLabels[secondGroupLabel].$(".js-list-prod")
+                                        await secondGroupLabelNumber.scrollIntoView({ behavior: 'smooth' });
                                         await strapi
                                             .plugin('import-products')
                                             .service('scrapHelpers')
                                             .retryClick(
-                                                firstGroupLabelNumber,
+                                                secondGroupLabelNumber,
+                                                page,
+                                                10, // retry this 10 times,
+                                                false
+                                            );
+
+                                        const product = await this.scrapCard(await page, card.index)
+                                        if (product) {
+                                            const findProduct = products.findIndex(x => x.mpn === product.mpn)
+                                            if (findProduct === -1)
+                                                products.push(product)
+                                        }
+                                    }
+                                }
+                                else {
+                                    const cardListWrapper = await page.$('div.list-productlisting');
+                                    const cardList = await cardListWrapper.$$("div.item")
+                                    const cardGroups = await cardList[card.index].$$('.radioBox2')
+                                    const firstGroupLabels = await cardGroups[firstGroup.index].$$('label')
+
+                                    await firstGroupLabels[firstGroupLabel].waitForSelector('.js-list-prod');
+                                    const labelNumber = await firstGroupLabels[firstGroupLabel].$(".js-list-prod")
+                                    if (firstGroup.labels.length > 1) {
+                                        await labelNumber.scrollIntoView({ behavior: 'smooth' });
+                                        await strapi
+                                            .plugin('import-products')
+                                            .service('scrapHelpers')
+                                            .retryClick(
+                                                labelNumber,
                                                 page,
                                                 10, // retry this 10 times,
                                                 false
                                             );
                                     }
-
-                                    cardGroups = await this.findCardGroups(page, card)
-                                    const secondGroupLabels = await cardGroups[secondGroup.index].$$('label')
-
-                                    await secondGroupLabels[secondGroupLabel].waitForSelector('.js-list-prod');
-                                    const secondGroupLabelNumber = await secondGroupLabels[secondGroupLabel].$(".js-list-prod")
-                                    await secondGroupLabelNumber.scrollIntoView({ behavior: 'smooth' });
-                                    await strapi
-                                        .plugin('import-products')
-                                        .service('scrapHelpers')
-                                        .retryClick(
-                                            secondGroupLabelNumber,
-                                            page,
-                                            10, // retry this 10 times,
-                                            false
-                                        );
-
                                     const product = await this.scrapCard(await page, card.index)
                                     if (product) {
                                         const findProduct = products.findIndex(x => x.mpn === product.mpn)
@@ -458,49 +492,26 @@ module.exports = ({ strapi }) => ({
                                     }
                                 }
                             }
-                            else {
-                                const cardListWrapper = await page.$('div.list-productlisting');
-                                const cardList = await cardListWrapper.$$("div.item")
-                                const cardGroups = await cardList[card.index].$$('.radioBox2')
-                                const firstGroupLabels = await cardGroups[firstGroup.index].$$('label')
-
-                                await firstGroupLabels[firstGroupLabel].waitForSelector('.js-list-prod');
-                                const labelNumber = await firstGroupLabels[firstGroupLabel].$(".js-list-prod")
-                                if (firstGroup.labels.length > 1) {
-                                    await labelNumber.scrollIntoView({ behavior: 'smooth' });
-                                    await strapi
-                                        .plugin('import-products')
-                                        .service('scrapHelpers')
-                                        .retryClick(
-                                            labelNumber,
-                                            page,
-                                            10, // retry this 10 times,
-                                            false
-                                        );
-                                }
-                                const product = await this.scrapCard(await page, card.index)
-                                if (product) {
-                                    const findProduct = products.findIndex(x => x.mpn === product.mpn)
-                                    if (findProduct === -1)
-                                        products.push(product)
-                                }
-                            }
                         }
                     }
-                }
-                else {
-                    const product = await this.scrapCard(await page, card.index)
-                    if (product) {
-                        const findProduct = products.findIndex(x => x.mpn === product.mpn)
-                        if (findProduct === -1)
-                            products.push(product)
+                    else {
+                        const product = await this.scrapCard(await page, card.index)
+                        if (product) {
+                            const findProduct = products.findIndex(x => x.mpn === product.mpn)
+                            if (findProduct === -1)
+                                products.push(product)
+                        }
                     }
+
+                } catch (error) {
+                    console.log("Κάποιο λάθος στο cards loop")
                 }
             }
 
             return products
 
         } catch (error) {
+            console.log("Κάποιο λάθος στο scrapeProducts")
             console.log(error)
         }
         finally {

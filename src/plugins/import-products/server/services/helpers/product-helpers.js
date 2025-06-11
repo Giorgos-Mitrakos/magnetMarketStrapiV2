@@ -458,44 +458,58 @@ module.exports = ({ strapi }) => ({
                     chars.push(char)
                 }
             }
-            else {
-                try {
-                    if (Array.isArray(attributes)) {
-                        for (let productChar of attributes) {
-
+            else if (entry.name.toLowerCase() === 'westnet')
+                if (Array.isArray(attributes)) {
+                    for (let productChar of attributes) {
+                        {
+                            console.log(productChar)
                             if (productChar.name && productChar.value) {
                                 const char = {}
-                                char.name = this.createFields('name', productChar.trim())
-                                char.value = this.createFields('value', productChar.trim())
-                                chars.push(char)
-                            }
-                            else if (productChar.Name && productChar.Value) {
-                                const char = {}
-                                char.name = this.createFields('Name', productChar.trim())
-                                char.value = this.createFields('Value', productChar.trim())
+                                char.name = this.createFields('name', productChar)
+                                char.value = this.createFields('value', productChar)
                                 chars.push(char)
                             }
                         }
                     }
-                    else {
-                        if (attributes.name && attributes.value) {
-                            const char = {}
-                            char.name = this.createFields('name', attributes.trim())
-                            char.value = this.createFields('value', attributes.trim())
-                            chars.push(char)
-                        }
-                        else if (attributes.Name && attributes.Value) {
-                            const char = {}
-                            char.name = this.createFields('Name', attributes.trim())
-                            char.value = this.createFields('value', attributes.trim())
-                            chars.push(char)
-                        }
-                    }
-
-                } catch (error) {
-                    console.log(error)
                 }
-            }
+                else {
+                    try {
+                        if (Array.isArray(attributes)) {
+                            for (let productChar of attributes) {
+
+                                if (productChar.name && productChar.value) {
+                                    const char = {}
+                                    char.name = this.createFields('name', productChar.trim())
+                                    char.value = this.createFields('value', productChar.trim())
+                                    chars.push(char)
+                                }
+                                else if (productChar.Name && productChar.Value) {
+                                    const char = {}
+                                    char.name = this.createFields('Name', productChar.trim())
+                                    char.value = this.createFields('Value', productChar.trim())
+                                    chars.push(char)
+                                }
+                            }
+                        }
+                        else {
+                            if (attributes.name && attributes.value) {
+                                const char = {}
+                                char.name = this.createFields('name', attributes.trim())
+                                char.value = this.createFields('value', attributes.trim())
+                                chars.push(char)
+                            }
+                            else if (attributes.Name && attributes.Value) {
+                                const char = {}
+                                char.name = this.createFields('Name', attributes.trim())
+                                char.value = this.createFields('value', attributes.trim())
+                                chars.push(char)
+                            }
+                        }
+
+                    } catch (error) {
+                        console.log(error)
+                    }
+                }
 
             const parsedChars = strapi
                 .plugin('import-products')
