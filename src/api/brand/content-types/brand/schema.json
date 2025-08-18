@@ -33,7 +33,7 @@
       "target": "api::product.product",
       "mappedBy": "brand"
     },
-    "useRetailPrice": {
+    "suppliersWithRetailPrice": {
       "type": "relation",
       "relation": "manyToMany",
       "target": "plugin::import-products.importxml",
