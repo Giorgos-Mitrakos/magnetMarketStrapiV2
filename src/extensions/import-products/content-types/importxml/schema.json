@@ -15,7 +15,7 @@
       "visible": true
     },
     "content-type-builder": {
-      "visible": false
+      "visible": true
     }
   },
   "attributes": {
@@ -131,10 +131,10 @@
       "mappedBy": "related_import"
     },
     "stock_map": {
-        "type": "relation",
-        "relation": "oneToMany",
-        "target": "plugin::import-products.stockmap",
-        "mappedBy": "related_import"
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "plugin::import-products.stockmap",
+      "mappedBy": "related_import"
     }
   }
 }

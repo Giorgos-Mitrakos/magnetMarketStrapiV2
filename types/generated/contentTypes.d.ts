@@ -420,6 +420,11 @@ export interface ApiBrandBrand extends Schema.CollectionType {
     >;
     publishedAt: Attribute.DateTime;
     slug: Attribute.UID<'api::brand.brand', 'name'> & Attribute.Required;
+    suppliersWithRetailPrice: Attribute.Relation<
+      'api::brand.brand',
+      'manyToMany',
+      'plugin::import-products.importxml'
+    >;
     updatedAt: Attribute.DateTime;
     updatedBy: Attribute.Relation<
       'api::brand.brand',
@@ -488,6 +493,11 @@ export interface ApiCategoryCategory extends Schema.CollectionType {
     >;
     publishedAt: Attribute.DateTime;
     slug: Attribute.UID<'api::category.category', 'name'> & Attribute.Required;
+    suppliersWithRetailPrice: Attribute.Relation<
+      'api::category.category',
+      'manyToMany',
+      'plugin::import-products.importxml'
+    >;
     updatedAt: Attribute.DateTime;
     updatedBy: Attribute.Relation<
       'api::category.category',
@@ -1843,6 +1853,20 @@ export interface PluginImportProductsImportxml extends Schema.CollectionType {
     > &
       Attribute.Private;
     useRetailPrice: Attribute.Boolean & Attribute.DefaultTo<false>;
+    useRetailPriceBrands: Attribute.Relation<
+      'plugin::import-products.importxml',
+      'manyToMany',
+      'api::brand.brand'
+    >;
+    useRetailPriceCategories: Attribute.Relation<
+      'plugin::import-products.importxml',
+      'manyToMany',
+      'api::category.category'
+    >;
+    useRetailPriceContainName: Attribute.Component<
+      'imports.use-retail-price',
+      true
+    >;
     whitelist_map: Attribute.Relation<
       'plugin::import-products.importxml',
       'oneToMany',
