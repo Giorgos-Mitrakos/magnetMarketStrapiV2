@@ -43,7 +43,7 @@ export default {
                 .parseGlobalsat({ entry });
         },
         options: {
-            rule: "12 6-22 * * *",
+            rule: "52 6-22 * * *",
         },
     },
 
@@ -139,33 +139,33 @@ export default {
                 .parseZegetronXml({ entry });
         },
         options: {
-            rule: "54 8,12 * * *",
+            rule: "55 8,12 * * *",
         },
     },
 
-    updateDOTMEDIAwithScrapping: {
-        task: async ({ strapi }) => {
-            // Add your own logic here (e.g. send a queue of email, create a database backup, etc.).
-            const entry = await strapi.db.query('plugin::import-products.importxml').findOne({
-                where: { name: "DotMedia" },
-                populate: {
-                    importedFile: true,
-                    stock_map: {
-                        fields: ['name'],
-                        sort: 'name:asc',
-                    },
-                },
-            })
+    // updateDOTMEDIAwithScrapping: {
+    //     task: async ({ strapi }) => {
+    //         // Add your own logic here (e.g. send a queue of email, create a database backup, etc.).
+    //         const entry = await strapi.db.query('plugin::import-products.importxml').findOne({
+    //             where: { name: "DotMedia" },
+    //             populate: {
+    //                 importedFile: true,
+    //                 stock_map: {
+    //                     fields: ['name'],
+    //                     sort: 'name:asc',
+    //                 },
+    //             },
+    //         })
 
-            await strapi
-                .plugin('import-products')
-                .service('dotmediaService')
-                .scrapDotMedia({ entry });
-        },
-        options: {
-            rule: "10 5 * * *",
-        },
-    },
+    //         await strapi
+    //             .plugin('import-products')
+    //             .service('dotmediaService')
+    //             .scrapDotMedia({ entry });
+    //     },
+    //     options: {
+    //         rule: "10 5 * * *",
+    //     },
+    // },
 
     updateDOTMEDIAwithXML: {
         task: async ({ strapi }) => {
@@ -187,7 +187,7 @@ export default {
                 .parseDotMediaXml({ entry });
         },
         options: {
-            rule: "10 10,16,18,22 * * *",
+            rule: "40 11,16,18,21 * * *",
         },
     },
 
@@ -211,7 +211,7 @@ export default {
                 .parseTelehermesXml({ entry });
         },
         options: {
-            rule: "5 8,11,14,16,18,22 * * *",
+            rule: "45 7,11,14,16,18,21 * * *",
         },
     },
 
@@ -235,7 +235,7 @@ export default {
                 .parseCpiXml({ entry });
         },
         options: {
-            rule: "25 9,18 * * *",
+            rule: "25 9,12,15,18 * * *",
         },
     },
 
@@ -331,7 +331,7 @@ export default {
                 .parseStefinetXml({ entry });
         },
         options: {
-            rule: "53 * * * *",
+            rule: "48 * * * *",
         },
     },
 
@@ -355,7 +355,7 @@ export default {
                 .parseSmart4AllXml({ entry });
         },
         options: {
-            rule: "7 * * * *",
+            rule: "56 * * * *",
         },
     },
 

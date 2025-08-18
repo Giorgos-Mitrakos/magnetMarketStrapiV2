@@ -60,6 +60,9 @@
       "type": "boolean",
       "default": false,
       "required": true
+    },
+    "tracking_url": {
+      "type": "string"
     }
   }
 }

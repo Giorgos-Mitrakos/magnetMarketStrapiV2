@@ -37,4 +37,10 @@ module.exports = ({ strapi }) => ({
       .service('orderService')
       .saveStatus(ctx);
   },
+  async sendVoucher(ctx) {
+    ctx.body = await strapi
+      .plugin('orders')
+      .service('orderService')
+      .sendVoucher(ctx);
+  },
 });

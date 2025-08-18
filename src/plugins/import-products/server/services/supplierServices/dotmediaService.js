@@ -32,12 +32,12 @@ module.exports = ({ strapi }) => ({
                 barcode: 'BarCode',
                 supplierCode: 'ProductID',
                 description: 'DetailedDescription',
-                short_description: 'DetailedDescriptionPre',
+                short_description: null,
                 image: 'ImageLink',
                 additional_images: 'ImageLink2',
                 additional_files: 'ProductPdf',
                 supplierProductURL: 'ProIDLink',
-                attributes: null,
+                attributes: 'DetailedDescriptionPre',
                 weight: null,
                 width: null,
                 length: null,
@@ -60,6 +60,16 @@ module.exports = ({ strapi }) => ({
                 if (products.length === 0)
                     return { "message": "xml is empty" }
 
+                // for await (let dt of products) {
+
+                //     const attributes = await strapi
+                //         .plugin('import-products')
+                //         .service('importHelpers')
+                //         .parseXml(`<attr>${dt.DetailedDescriptionPre}</attr>`)
+
+                //     console.log(dt.DetailedDescriptionPre, attributes.attr.Specification)
+                // }
+
                 for await (let dt of products) {
 
                     const product = await strapi
@@ -71,68 +81,85 @@ module.exports = ({ strapi }) => ({
                     product.retail_price = product.retail_price.replace(",", ".")
                     product.recycle_tax = product.recycle_tax.replace(",", ".")
 
+                    const attributes = await strapi
+                        .plugin('import-products')
+                        .service('importHelpers')
+                        .parseXml(`<attr>${dt.DetailedDescriptionPre}</attr>`)
+
+                    const chars = []
+                    for (let productChar of attributes.attr.Specification) {
+                        const char = {}
+                        char.name = productChar.Name[0]
+                        char.value = productChar.Value[0]
+                        chars.push(char)
+                    }
+
+                    const parsedChars = strapi
+                        .plugin('import-products')
+                        .service('charnameService')
+                        .parseChars(chars, importRef)
+
+                    product.prod_chars = parsedChars
+
                     // Αν δεν υπάρχει ούτε mpn ούτε barcode προχώρα στην επόμενη εγγραφή
                     if (!product.mpn && !product.barcode)
                         continue
 
-                    let weight = []
-                    let weightInKilos = []
-                    let weightInKilos1 = product.short_description.match(/(?<!Gross )Weight\s*:?\s*\d{1,3}(.|,|\s)\d{0,3}\s*kg/gmi)
-                    if (weightInKilos1 && weightInKilos1.length > 0)
-                        weightInKilos.push(weightInKilos1)
+                    // let weight = []
+                    // let weightInKilos = []
+                    // let weightInKilos1 = product.short_description.match(/(?<!Gross )Weight\s*:?\s*\d{1,3}(.|,|\s)\d{0,3}\s*kg/gmi)
+                    // if (weightInKilos1 && weightInKilos1.length > 0)
+                    //     weightInKilos.push(weightInKilos1)
 
-                    let weightInKilos2 = product.short_description.match(/(?<!Gross )Weight\s*\(kg\)\s*:?\s*\d{1,3}(.|,|\s)\d{0,3}/gmi)
-                    if (weightInKilos2 && weightInKilos2.length > 0)
-                        weightInKilos.push(weightInKilos2)
+                    // let weightInKilos2 = product.short_description.match(/(?<!Gross )Weight\s*\(kg\)\s*:?\s*\d{1,3}(.|,|\s)\d{0,3}/gmi)
+                    // if (weightInKilos2 && weightInKilos2.length > 0)
+                    //     weightInKilos.push(weightInKilos2)
 
-                    if (weightInKilos.length > 0) {
-                        let weightsList = [] 
-                        let weightFlattenArray = weightInKilos.flat()
-                        weightFlattenArray.forEach(wt => {
-                            let result = wt.match(/\d{1,3}(.|,)\d{0,3}/)
-                            if (result) { weightsList.push(result[0]) }
-                        });
-                        if (weightsList.length > 0) {
-                            let maxWeight = weightsList?.reduce((prev, current) => {
-                                return (parseFloat(prev.replace(",", ".")) > parseFloat(current.replace(",", "."))) ? prev : current
-                            })
-                            weight.push(parseFloat(maxWeight.replace(",", ".")) * 1000)
-                        }
-                    }
+                    // if (weightInKilos.length > 0) {
+                    //     let weightsList = []
+                    //     let weightFlattenArray = weightInKilos.flat()
+                    //     weightFlattenArray.forEach(wt => {
+                    //         let result = wt.match(/\d{1,3}(.|,)\d{0,3}/)
+                    //         if (result) { weightsList.push(result[0]) }
+                    //     });
+                    //     if (weightsList.length > 0) {
+                    //         let maxWeight = weightsList?.reduce((prev, current) => {
+                    //             return (parseFloat(prev.replace(",", ".")) > parseFloat(current.replace(",", "."))) ? prev : current
+                    //         })
+                    //         weight.push(parseFloat(maxWeight.replace(",", ".")) * 1000)
+                    //     }
+                    // }
 
-                    let weightInGrams = []
-                    let weightInGrams1 = product.short_description.match(/Weight\s*:?\s*\d*\s*g/gmi)
-                    if (weightInGrams1 && weightInGrams1.length > 0)
-                        weightInGrams.push(weightInGrams1)
+                    // let weightInGrams = []
+                    // let weightInGrams1 = product.short_description.match(/Weight\s*:?\s*\d*\s*g/gmi)
+                    // if (weightInGrams1 && weightInGrams1.length > 0)
+                    //     weightInGrams.push(weightInGrams1)
 
-                    let weightInGrams2 = product.short_description.match(/Weight\s*\((gram|g)\)\s*:?\s*\d*/gmi)
-                    if (weightInGrams2 && weightInGrams2.length > 0)
-                        weightInGrams.push(weightInGrams2)
+                    // let weightInGrams2 = product.short_description.match(/Weight\s*\((gram|g)\)\s*:?\s*\d*/gmi)
+                    // if (weightInGrams2 && weightInGrams2.length > 0)
+                    //     weightInGrams.push(weightInGrams2)
 
-                    if (weightInGrams.length > 0) {
-                        let weightsList = []
-                        let weightFlattenArray = weightInGrams.flat()
-                        weightFlattenArray.forEach(wt => {
-                            let result = wt.match(/\d{1,3}(.|,)\d{0,3}/)
-                            if (result) { weightsList.push(result[0]) }
-                        });
-                        if (weightsList.length > 0) {
-                            let maxWeight = weightsList?.reduce((prev, current) => {
-                                return (parseFloat(prev.replace(",", ".")) > parseFloat(current.replace(",", "."))) ? prev : current
-                            })
-                            weight.push(parseFloat(maxWeight.replace(",", ".")))
-                        }
-                    }
+                    // if (weightInGrams.length > 0) {
+                    //     let weightsList = []
+                    //     let weightFlattenArray = weightInGrams.flat()
+                    //     weightFlattenArray.forEach(wt => {
+                    //         let result = wt.match(/\d{1,3}(.|,)\d{0,3}/)
+                    //         if (result) { weightsList.push(result[0]) }
+                    //     });
+                    //     if (weightsList.length > 0) {
+                    //         let maxWeight = weightsList?.reduce((prev, current) => {
+                    //             return (parseFloat(prev.replace(",", ".")) > parseFloat(current.replace(",", "."))) ? prev : current
+                    //         })
+                    //         weight.push(parseFloat(maxWeight.replace(",", ".")))
+                    //     }
+                    // }
 
-                    if (weight.length > 0) {
-                        let maxWeight = weight.reduce((prev, current) => {
-                            return (parseFloat(prev) > parseFloat(current)) ? prev : current
-                        })
-                        product.weight = parseInt(maxWeight)
-                    }
-
-                    product.description = `${product.description} Χαρακτηριστικά\n 
-                        ${product.short_description}`
+                    // if (weight.length > 0) {
+                    //     let maxWeight = weight.reduce((prev, current) => {
+                    //         return (parseFloat(prev) > parseFloat(current)) ? prev : current
+                    //     })
+                    //     product.weight = parseInt(maxWeight)
+                    // }
 
                     product.short_description = null
 
@@ -223,6 +250,7 @@ module.exports = ({ strapi }) => ({
                 .plugin('import-products')
                 .service('productHelpers')
                 .filterData(xml.NewDataSet.table1, importRef.categoryMap, importRef.mapFields)
+
 
             return { products: availableProducts }
 

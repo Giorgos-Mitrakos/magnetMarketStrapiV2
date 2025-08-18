@@ -1,7 +1,8 @@
 {
   "collectionName": "components_products_price_progresses",
   "info": {
-    "displayName": "Price Progress"
+    "displayName": "Price Progress",
+    "description": ""
   },
   "options": {},
   "attributes": {
@@ -20,6 +21,9 @@
       "type": "decimal"
     },
     "initial_wholesale": {
+      "type": "decimal"
+    },
+    "retail_price": {
       "type": "decimal"
     }
   }

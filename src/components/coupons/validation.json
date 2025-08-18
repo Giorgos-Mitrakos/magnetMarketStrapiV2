@@ -1,0 +1,29 @@
+{
+  "collectionName": "components_coupons_validations",
+  "info": {
+    "displayName": "validation",
+    "description": ""
+  },
+  "options": {},
+  "attributes": {
+    "startDate": {
+      "type": "datetime"
+    },
+    "endDate": {
+      "type": "datetime"
+    },
+    "maxUses": {
+      "type": "integer"
+    },
+    "usesPerUser": {
+      "type": "integer",
+      "min": 0,
+      "default": 1
+    },
+    "singleUse": {
+      "type": "boolean",
+      "default": false,
+      "required": true
+    }
+  }
+}

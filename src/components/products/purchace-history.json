@@ -1,0 +1,18 @@
+{
+  "collectionName": "components_products_purchace_histories",
+  "info": {
+    "displayName": "purchace_history"
+  },
+  "options": {},
+  "attributes": {
+    "date": {
+      "type": "date"
+    },
+    "price": {
+      "type": "decimal"
+    },
+    "amount": {
+      "type": "integer"
+    }
+  }
+}

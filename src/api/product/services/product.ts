@@ -66,6 +66,7 @@ export default factories.createCoreService('api::product.product', ({ strapi }) 
             },
             filters: {
                 $or: [
+                    { id: search },
                     { name: { $containsi: search } },
                     { brand: { name: { $containsi: search } } },
                     { category: { name: { $containsi: search } } },

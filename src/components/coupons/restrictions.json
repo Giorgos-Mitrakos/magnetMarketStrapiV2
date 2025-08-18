@@ -1,0 +1,55 @@
+{
+  "collectionName": "components_coupons_restrictions",
+  "info": {
+    "displayName": "restrictions",
+    "description": ""
+  },
+  "options": {},
+  "attributes": {
+    "minCartValue": {
+      "type": "decimal",
+      "min": 0
+    },
+    "maxCartValue": {
+      "type": "decimal",
+      "min": 0
+    },
+    "newCustomersOnly": {
+      "type": "boolean",
+      "default": false,
+      "required": true
+    },
+    "recurrentCustomersOnly": {
+      "type": "boolean",
+      "default": false,
+      "required": true
+    },
+    "minPreviousOrders": {
+      "type": "integer",
+      "min": 0,
+      "default": 1
+    },
+    "orderTimeframe": {
+      "type": "enumeration",
+      "enum": [
+        "all_time",
+        "last_30_days",
+        "last_90_days",
+        "last_180_days",
+        "last_365_days",
+        "over_365_days"
+      ],
+      "default": "all_time"
+    },
+    "discountedProductsPolicy": {
+      "type": "enumeration",
+      "enum": [
+        "allow_with_discounts",
+        "exclude_discounted",
+        "apply_only_to_non_discounted"
+      ],
+      "default": "exclude_discounted",
+      "required": true
+    }
+  }
+}

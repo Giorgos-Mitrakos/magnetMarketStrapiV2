@@ -15,9 +15,9 @@ export default ({ env }) => ({
     enabled: true,
     resolve: './src/plugins/orders'
   },
-  'piraeusbank-gateway': {
+  'coupons-newsletter': {
     enabled: true,
-    resolve: './src/plugins/piraeusbank-gateway'
+    resolve: './src/plugins/coupons-newsletter'
   },
   upload: {
     config: {

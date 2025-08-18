@@ -332,7 +332,8 @@ module.exports = ({ strapi }) => ({
                 related_import: entry.id,
                 name: this.createFields(mapFields.name, dt),
                 supplierCode: this.createFields(mapFields.supplierCode, dt),
-                description: this.createFields(mapFields.description, dt),
+                description: this.createFields(mapFields.description, dt)
+                    .replace(/([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g, ''),
                 short_description: this.createFields(mapFields.short_description, dt),
                 category: {
                     title: category
@@ -458,11 +459,10 @@ module.exports = ({ strapi }) => ({
                     chars.push(char)
                 }
             }
-            else if (entry.name.toLowerCase() === 'westnet')
+            else if (entry.name.toLowerCase() === 'westnet') {
                 if (Array.isArray(attributes)) {
                     for (let productChar of attributes) {
                         {
-                            console.log(productChar)
                             if (productChar.name && productChar.value) {
                                 const char = {}
                                 char.name = this.createFields('name', productChar)
@@ -510,6 +510,29 @@ module.exports = ({ strapi }) => ({
                         console.log(error)
                     }
                 }
+            }
+            else if (entry.name.toLowerCase() === 'globalsat') {
+                const charStings = attributes.split("|")
+                for (let charSting of charStings) {
+                    if (charSting[0].trim() !== "") {
+                        const charSplit = charSting.split(":")
+
+                        const char = {}
+                        char.name = charSplit[0]?.trim()
+                        char.value = charSplit[1]?.trim()
+                        chars.push(char)
+                    }
+                }
+            }
+            // else if (entry.name.toLowerCase() === 'dotmedia') {
+
+            //     for (let productChar of attributes.attr.Specification) {
+            //         const char = {}
+            //         char.name = productChar.Name[0]
+            //         char.value = productChar.Value[0]
+            //         chars.push(char)
+            //     }
+            // }
 
             const parsedChars = strapi
                 .plugin('import-products')
@@ -529,7 +552,7 @@ module.exports = ({ strapi }) => ({
             let weight = 0
             if (!product.weight) {
                 if (product.length && product.width && product.height) {
-                    let calcWweight = parseInt(product.length) * parseInt(product.width) * parseInt(product.height) / 5
+                    let calcWweight = Number(product.length) * Number(product.width) * Number(product.height) / 5
                     weight = parseInt(calcWweight)
                 }
                 else if (product.recycle_tax) {
@@ -708,7 +731,7 @@ module.exports = ({ strapi }) => ({
                             }
                         }
                     },
-                    platforms: true
+                    platforms: true,
                 },
             });
 
@@ -773,208 +796,22 @@ module.exports = ({ strapi }) => ({
         }
     },
 
-    updateSupplierInfo(entryCheck, product, data, dbChange, importRef) {
-        try {
-            let isNeedUpdate = false
-
-            // Ελέγχω αν το προϊόν έχει προμηθευτή που δεν χρησιμοποιώ πλέον και το κάνει μη διαθέσιμο 
-            // για τον συγκεκριμένο προμηθευτή
-            let supplierInfo = entryCheck.supplierInfo.map(sup => {
-                let container = sup
-
-                if (importRef.suppliers.findIndex(s => s.name.toLowerCase() === sup.name.toLowerCase()) === -1) {
-                    container.in_stock = false
-                    isNeedUpdate = true
-                }
-                return container
-            })
-
-            const newSuppliers = []
-
-            for (let supplier of supplierInfo) {
-
-                const initialPriceProgress = supplier.price_progress.length
-                const price_progress = supplier.price_progress.filter(x =>
-                    x.wholesale && x.date
-                )
-                const afterFilterPriceProgress = price_progress.length
-                supplier.price_progress = price_progress
-                newSuppliers.push(supplier)
-
-                if (initialPriceProgress !== afterFilterPriceProgress)
-                    isNeedUpdate = true
-            }
-
-            supplierInfo = newSuppliers
-
-            if (isNeedUpdate) {
-                data.supplierInfo = supplierInfo
-                dbChange.typeOfChange = 'updated'
-            }
-
-            // Αναζητώ τον προμηθευτή
-            let supplierInfoUpdate = supplierInfo.findIndex(o => o.name === product.entry.name)
-
-            // αν υπάρχει ο προμηθευτής
-            // αλλίως δημιουργώ τον προμηθευτή για το προϊόν και κρατάω ιστορικό
-            if (supplierInfoUpdate !== -1) {
-                // ελέγχω αν η αποθηκευμένη τιμή χονδρικής είναι μηδενική
-                if (parseFloat(supplierInfo[supplierInfoUpdate].wholesale) <= 0) {
-                    // Αν η τιμή χονδρικής είναι μεγαλύτερη από μηδεν, την αποθηκεύω στον προμηθευτή
-                    // αλλιώς βάζω το προϊόν μη διαθέσιμο από τον προμηθευτή
-                    if (parseFloat(product.wholesale) > 0) {
-                        supplierInfo[supplierInfoUpdate].wholesale = parseFloat(product.wholesale)
-                        supplierInfo[supplierInfoUpdate].in_stock = true
-                        data.supplierInfo = supplierInfo
-                        dbChange.typeOfChange = 'updated'
-                    }
-                    else {
-                        if (product.entry.name.toLowerCase() !== 'dotmedia') {
-                            if (supplierInfo[supplierInfoUpdate].in_stock === true) {
-                                supplierInfo[supplierInfoUpdate].in_stock = false
-                                data.supplierInfo = supplierInfo
-                                dbChange.typeOfChange = 'updated'
-                            }
-                        }
-                        else {
-                            if (supplierInfo[supplierInfoUpdate].in_stock === false) {
-                                supplierInfo[supplierInfoUpdate].in_stock = true
-                                data.supplierInfo = supplierInfo
-                                dbChange.typeOfChange = 'republished'
-                            }
-                        }
-                    }
-                }
-                else {
-                    // Αν υπάρχει τιμή χονδρικής και είναι διαφορετική από την τιμή που έχω
-                    // αποθηκευμένη στη βάση τότε κρατάω ιστορικό και ενημερώνω με τη νέα τιμη
-                    // αλλιώς αν
-                    if (strapi
-                        .plugin('import-products')
-                        .service('priceHelpers')
-                        .is_not_equal(supplierInfo[supplierInfoUpdate].wholesale, product.wholesale)) {
-
-                        const price_progress = supplierInfo[supplierInfoUpdate].price_progress;
-
-                        const price_progress_data = this.createPriceProgress(product)
-
-                        price_progress.push(price_progress_data)
-
-                        supplierInfo[supplierInfoUpdate] = this.createSupplierInfoData(product, price_progress)
-
-                        if (supplierInfo[supplierInfoUpdate].retail_price !== product.retail_price) {
-                            supplierInfo[supplierInfoUpdate].retail_price = product.retail_price
-                        }
-
-                        data.supplierInfo = supplierInfo
-                        dbChange.typeOfChange = 'updated'
-                    }
-                    else {
-                        let isNeedUpdate = false
-                        if (product.retail_price && supplierInfo[supplierInfoUpdate].retail_price !== product.retail_price) {
-                            supplierInfo[supplierInfoUpdate].retail_price = product.retail_price
-                            isNeedUpdate = true
-                        }
-                        if (supplierInfo[supplierInfoUpdate].in_stock === false) {
-                            supplierInfo[supplierInfoUpdate].in_stock = true
-                            isNeedUpdate = true
-                        }
-
-                        if (isNeedUpdate) {
-                            data.supplierInfo = supplierInfo
-                            dbChange.typeOfChange = 'republished'
-                        }
-                    }
-                }
-            }
-            else {
-                const price_progress_data = this.createPriceProgress(product)
-
-                supplierInfo.push(this.createSupplierInfoData(product, price_progress_data))
-
-                dbChange.typeOfChange = 'created'
-                data.supplierInfo = supplierInfo
-            }
-
-        } catch (error) {
-            console.log(error)
+    updateProductWeight(entryCheck, product, categoryInfo, data, dbChange) {
+        if (!product.weight) {
+            product.weight = this.createProductWeight(product, categoryInfo);
         }
 
-    },
+        const newWeight = product.weight > 0
+            ? parseInt(product.weight)
+            : (categoryInfo.average_weight ? parseInt(categoryInfo.average_weight) : 0);
 
-    createPriceProgress(product) {
-        try {
-            let price_progress = {
-                date: new Date(),
-            }
-
-            if (product.in_offer) {
-                price_progress.in_offer = product.in_offer
-            }
-
-            if (product.discount) {
-                price_progress.discount = product.discount
-            }
-
-            if (product.initial_wholesale) {
-                price_progress.initial_wholesale = parseFloat(product.initial_wholesale).toFixed(2)
-            }
-
-            if (product.wholesale) {
-                price_progress.wholesale = parseFloat(product.wholesale).toFixed(2)
-            }
-
-            return price_progress
-
-        } catch (error) {
-            console.log(error)
+        if (((!entryCheck.weight || entryCheck.weight === 0) && newWeight !== 0) ||
+            (product.weight > 0 && parseInt(entryCheck.weight) !== parseInt(product.weight)) ||
+            (categoryInfo.average_weight && parseInt(entryCheck.weight) !== parseInt(categoryInfo.average_weight))
+        ) {
+            data.weight = newWeight;
+            dbChange.typeOfChange = 'updated';
         }
-
-    },
-
-    createSupplierInfoData(product, price_progress) {
-        try {
-
-            const supplierInfo = {
-                name: product.entry.name,
-                in_stock: true,
-                wholesale: parseFloat(product.wholesale).toFixed(2),
-                supplierProductId: product.supplierCode,
-                supplierProductURL: product.link,
-            }
-
-            if (Array.isArray(price_progress)) {
-                supplierInfo.price_progress = price_progress
-            }
-            else {
-                supplierInfo.price_progress = [price_progress]
-            }
-
-            if (product.in_offer) {
-                supplierInfo.in_offer = product.in_offer
-            }
-
-            if (product.initial_retail_price) {
-                supplierInfo.initial_retail_price = parseFloat(product.initial_retail_price).toFixed(2)
-            }
-
-            if (product.retail_price) {
-                supplierInfo.retail_price = parseFloat(product.retail_price).toFixed(2)
-            }
-
-            if (product.recycle_tax) {
-                supplierInfo.recycle_tax = parseFloat(product.recycle_tax).toFixed(2)
-            }
-
-            if (product.quantity) {
-                supplierInfo.quantity = parseInt(product.quantity)
-            }
-
-            return supplierInfo
-
-        } catch (error) {
-            console.log(error)
-        }
-    },
+    }
 
 });

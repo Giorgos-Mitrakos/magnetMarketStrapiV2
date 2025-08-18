@@ -84,6 +84,16 @@ module.exports = ({ strapi }) => ({
 
     async scrapNovatronCategories(importRef, entry) {
 
+        const supplier = await strapi.db.query('plugin::import-products.importxml').findOne({
+            select: ['name', 'useRetailPrice'],
+            where: { name: 'novatron' },
+            populate: {
+                useRetailPriceBrands: true,
+                useRetailPriceCategories: true,
+                useRetailPriceContainName: true
+            }
+        });
+
         const browser = await strapi
             .plugin('import-products')
             .service('scrapHelpers')
@@ -152,7 +162,7 @@ module.exports = ({ strapi }) => ({
                 .service('scrapHelpers')
                 .filterCategories(scrapCategories, importRef)
 
-            await this.scrapNovatronCategory(browser, newCategories, importRef, entry)
+            await this.scrapNovatronCategory(browser, newCategories, importRef, entry, supplier)
 
         } catch (error) {
             return { "message": "error" }
@@ -162,7 +172,7 @@ module.exports = ({ strapi }) => ({
         }
     },
 
-    async scrapNovatronCategory(browser, novatronCategories, importRef, entry) {
+    async scrapNovatronCategory(browser, novatronCategories, importRef, entry, supplier) {
         const loadImages = false;
 
         let page = await strapi
@@ -197,7 +207,8 @@ module.exports = ({ strapi }) => ({
                         const productsRow = productsGrid.querySelector(".row");
                         const productsList = productsRow.querySelectorAll(".product");
 
-                        let products = []
+                        const products = []
+                        const retailCheckProducts = []
                         for (let prod of productsList) {
                             const product = {}
                             const anchor = prod.querySelector("a");
@@ -247,10 +258,33 @@ module.exports = ({ strapi }) => ({
                         return products
                     })
 
+                    // function extendProductsWithRetailMatches(products, text, getRetailPrice) {
+                    const matches = scrap.filter(product =>
+                        strapi
+                            .plugin('import-products')
+                            .service('priceHelpers')
+                            .containsRetailPriceName(product.name, supplier)
+                    );
+
+                    const enrichedMatches = await Promise.all(
+                        matches.map(async (p) => {
+                            const enrichedProduct = await this.scrapNovatronProductForUpdates(browser, p.link, cat.title, sub.title, importRef, entry)
+                            return {
+                                ...p,
+                                retail_price: enrichedProduct.retail_price
+                            };
+                        })
+                    );
+
+                    const allProducts = scrap.map(p => {
+                        const enriched = enrichedMatches.find(m => m.name === p.name);
+                        return enriched ? enriched : p;
+                    });
+
                     const products = await strapi
                         .plugin('import-products')
                         .service('scrapHelpers')
-                        .updateAndFilterScrapProducts(scrap, cat.title, sub.title, null, importRef, entry)
+                        .updateAndFilterScrapProducts(allProducts, cat.title, sub.title, null, importRef, entry)
 
                     for (let prod of products) {
                         await strapi
@@ -428,7 +462,168 @@ module.exports = ({ strapi }) => ({
                 .service('scrapHelpers')
                 .importScrappedProduct(scrapProduct, importRef)
 
-        } catch (error) { 
+        } catch (error) {
+            console.log(error)
+        }
+        finally {
+            page.close()
+        }
+    },
+
+    async scrapNovatronProductForUpdates(browser, productLink, category, subcategory,
+        importRef, entry) {
+
+        const loadImages = true;
+
+        let page = await strapi
+            .plugin('import-products')
+            .service('scrapHelpers')
+            .createPage(await browser, loadImages)
+
+        try {
+            await strapi
+                .plugin('import-products')
+                .service('scrapHelpers')
+                .retry(
+                    () => page.goto(productLink, { waitUntil: "networkidle0" }),
+                    10, // retry this 10 times,
+                    false
+                );
+
+            let productUrl = page.url();
+            const urlArray = productUrl.split("/")
+            const productID = urlArray[urlArray.length - 1].split("?")[0]
+
+            const bodyHandle = await page.$("body");
+
+            let scrapProduct = await bodyHandle.evaluate(() => {
+                const product = {}
+
+                const productDetailsSection = document.querySelector("section.product-details");
+                const productImageWrapper = productDetailsSection.querySelector(".owl-thumbs");
+                const productImages = productImageWrapper.querySelectorAll("img");
+                product.imagesSrc = []
+                for (let imgSrc of productImages) {
+                    product.imagesSrc.push({ url: `https://novatronsec.com${imgSrc.getAttribute('src')}` })
+                }
+
+                const inOfferImage = productDetailsSection.querySelector(".active .product-image-badge");
+                if (inOfferImage) {
+                    product.in_offer = inOfferImage.getAttribute('src') === '/Content/img/prosfora-R.png'
+                }
+                else {
+                    product.in_offer = false
+                }
+                product.name = productDetailsSection.querySelector("h1.product-title").textContent.trim();
+                if (product.name.startsWith('TP-LINK')) {
+                    product.brand = 'TP-LINK'
+                }
+                else {
+                    product.brand = product.name.split("-")[0].trim()
+                }
+                product.short_description = productDetailsSection.querySelector("p.mini-description").textContent.trim();
+                const productPriceWrapper = productDetailsSection.querySelector("div.product-price");
+                product.wholesale = productPriceWrapper.querySelector("span").textContent.replace('€', '').replace(',', '.').trim();
+
+                const productPriceRetailWrapper = productDetailsSection.querySelector("div.product-price-retail");
+                product.retail_price = productPriceRetailWrapper.querySelector("span").textContent.replace('€', '').replace(',', '.').trim();
+
+                const productRow = productDetailsSection.querySelector("div.row");
+                const productStock = productRow.querySelector("div>span>img");
+                const stockImg = productStock.getAttribute('src').trim();
+                let stockLevelImg = stockImg.substring(stockImg.length - 5, stockImg.length - 4);
+
+                switch (stockLevelImg) {
+                    case '3':
+                        product.stockLevel = "InStock"
+                        product.status = "InStock"
+                        break;
+                    case '2':
+                        product.stockLevel = "MediumStock"
+                        product.status = "MediumStock"
+                        break;
+                    case '1':
+                        product.stockLevel = "LowStock"
+                        product.status = "LowStock"
+                        break;
+                    default:
+                        product.stockLevel = "OutOfStock"
+                        product.status = "OutOfStock"
+                        break;
+                }
+
+                const productDetailsExtraSection = document.querySelector("section.product-details-extra");
+
+                const productDescriptionWrapper = productDetailsExtraSection.querySelector("#description");
+
+                if (productDescriptionWrapper) {
+                    const additionalFilesWrapper = productDescriptionWrapper.querySelector(".additional-links a")
+                    if (additionalFilesWrapper) {
+                        product.additional_files = { url: additionalFilesWrapper.getAttribute("href") }
+                    }
+
+                    product.description = productDescriptionWrapper.querySelector("div:not(.additional-links)").innerHTML.trim();
+                }
+                const productFovSection = document.querySelector("section.fov");
+                if (productFovSection) {
+                    let productFovContainer = productFovSection.querySelector(".container");
+                    let productFovTitle = productFovContainer.querySelector("h4").textContent;
+                    let productFovTable = productFovContainer.querySelector("table").innerHTML;
+
+                    product.description += productFovTitle
+                    product.description += productFovTable
+                }
+
+                const productAdditionalInfoWrapper = productDetailsExtraSection.querySelector("#additional-information");
+
+                product.prod_chars = []
+
+                if (productAdditionalInfoWrapper) {
+                    let productAdditionalInfoTables = productAdditionalInfoWrapper.querySelectorAll("tbody");
+
+
+                    for (let tbl of productAdditionalInfoTables) {
+                        let tableRows = tbl.querySelectorAll("tr");
+
+                        for (let row of tableRows) {
+                            product.prod_chars.push({
+                                name: row.querySelector("th").textContent.trim(),
+                                value: row.querySelector("td").textContent.trim(),
+                            })
+                        }
+                    }
+                }
+
+                product.relativeProducts = []
+                const productRelativeWrapper = document.querySelector("section.relative-products");
+
+                if (productRelativeWrapper) {
+                    const productRelativeRow = productRelativeWrapper.querySelectorAll("div.product");
+                    for (let prod of productRelativeRow) {
+                        let relativeProductURL = prod.querySelector("a").getAttribute("href").trim();
+                        const urlArray = relativeProductURL.split("/")
+                        let relativeProductID = urlArray[urlArray.length - 1]
+
+                        product.relativeProducts.push({
+                            mpn: relativeProductID,
+                        })
+                    }
+                }
+
+                return product
+            })
+
+            scrapProduct.mpn = productID.toString()
+            scrapProduct.supplierCode = productID.toString()
+            scrapProduct.link = productUrl
+            scrapProduct.entry = entry
+            scrapProduct.category = { title: category }
+            scrapProduct.subcategory = { title: subcategory }
+            scrapProduct.sub2category = { title: null }
+
+            return scrapProduct
+
+        } catch (error) {
             console.log(error)
         }
         finally {

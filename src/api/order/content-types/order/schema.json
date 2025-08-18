@@ -43,6 +43,7 @@
     "status": {
       "type": "enumeration",
       "enum": [
+        "Επιβεβαιωμένη",
         "Εκκρεμεί πληρωμή",
         "Σε επεξεργασία",
         "Σε αναμονή",
@@ -101,6 +102,17 @@
       "type": "component",
       "repeatable": false,
       "component": "order.article-39a"
+    },
+    "coupon_usages": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::coupon-usage.coupon-usage",
+      "mappedBy": "order"
+    },
+    "discount": {
+      "type": "decimal",
+      "default": 0,
+      "min": 0
     }
   }
 }

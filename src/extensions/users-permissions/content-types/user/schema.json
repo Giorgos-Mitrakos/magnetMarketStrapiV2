@@ -82,6 +82,12 @@
       "relation": "oneToMany",
       "target": "api::order.order",
       "mappedBy": "user"
+    },
+    "coupon_usages": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::coupon-usage.coupon-usage",
+      "mappedBy": "user"
     }
   }
 }

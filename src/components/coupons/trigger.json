@@ -1,0 +1,38 @@
+{
+  "collectionName": "components_coupons_triggers",
+  "info": {
+    "displayName": "trigger",
+    "description": ""
+  },
+  "options": {},
+  "attributes": {
+    "triggerType": {
+      "type": "enumeration",
+      "enum": [
+        "manual",
+        "newsletter_signup",
+        "first_purchase",
+        "order_completion",
+        "cart_abandonment"
+      ],
+      "default": "manual"
+    },
+    "autoGenerate": {
+      "type": "boolean",
+      "default": false
+    },
+    "codePrefix": {
+      "type": "string",
+      "maxLength": 10
+    },
+    "deliveryMethod": {
+      "type": "enumeration",
+      "enum": [
+        "email",
+        "in_app",
+        "both"
+      ],
+      "default": "email"
+    }
+  }
+}

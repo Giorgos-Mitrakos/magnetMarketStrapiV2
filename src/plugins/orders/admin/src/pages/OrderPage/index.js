@@ -8,7 +8,7 @@ import React, { useEffect, useState } from 'react';
 // import PropTypes from 'prop-types';
 import { Box } from '@strapi/design-system/Box';
 import { BaseHeaderLayout } from '@strapi/design-system/Layout';
-import { Table, Thead, Tbody, Tr, Td, Th, Checkbox, VisuallyHidden, Link } from '@strapi/design-system';
+import { Table, Thead, Tbody, Tr, Td, Th, TextInput, VisuallyHidden } from '@strapi/design-system';
 import { useParams } from "react-router-dom"
 import { useFetchClient } from '@strapi/helper-plugin';
 import pluginId from '../../pluginId';
@@ -24,6 +24,7 @@ const OrderPage = () => {
     const [isLoading, setIsLoading] = useState(true)
     const [status, setStatus] = useState('')
     const [saving, setSaving] = useState(false);
+    const [voucher, setVoucher] = useState('')
 
     const handleNoteChanges = async () => {
         setIsLoading(true);
@@ -65,6 +66,19 @@ const OrderPage = () => {
         setSaving(false)
     };
 
+    const handleSendVoucherClick = async () => {
+        if (voucher !== '') {
+            setSaving(true)
+            const response = await post(`/${pluginId}/sendVoucher`,
+                {
+                    id,
+                    voucher,
+                });
+            handleNoteChanges()
+            setSaving(false)
+        }
+    }
+
     const totalProductsCost = order.products ? order.products.reduce((total, item) => {
         if (item.is_sale && item.sale_price) {
             return total + item.sale_price * item.quantity
@@ -86,7 +100,7 @@ const OrderPage = () => {
                 large: 5,
                 medium: 2,
                 initial: 1
-            }} background="primary200" marginBottom={10}>
+            }} background="primary200" marginBottom={10} marginRight={6}>
                 <GridItem background="neutral100" padding={1} col={9} s={12}>
                     <Grid padding={3} gap={{ large: 5 }}>
                         <GridItem background="neutral100" padding={1} col={4} s={12}>
@@ -111,6 +125,7 @@ const OrderPage = () => {
                                     </Box>
                                     <Box paddingTop={2} paddingRight={5}>
                                         <SingleSelect size="S" value={status} onValueChange={(e) => handleValueChange(e)}>
+                                            <SingleSelectOption value="Επιβεβαιωμένη">Επιβεβαιωμένη</SingleSelectOption>
                                             <SingleSelectOption value="Εκκρεμεί πληρωμή">Εκκρεμεί πληρωμή</SingleSelectOption>
                                             <SingleSelectOption value="Σε επεξεργασία">Σε επεξεργασία</SingleSelectOption>
                                             <SingleSelectOption value="Σε αναμονή">Σε αναμονή</SingleSelectOption>
@@ -207,10 +222,7 @@ const OrderPage = () => {
                             </Box>
                             <Flex gap={1}>
                                 <Box>
-                                    <Typography as="h3" variant="omega">{order.shipping_address.firstname}</Typography>
-                                </Box>
-                                <Box>
-                                    <Typography as="h3" variant="omega">{order.shipping_address.lastname}</Typography>
+                                    <Typography as="h3" variant="omega">{order.shipping_address.firstname} {order.shipping_address.lastname}</Typography>
                                 </Box>
                             </Flex>
                             <Box>
@@ -315,7 +327,7 @@ const OrderPage = () => {
                                     {order.products.map(product => (
                                         <Tr key={product.id}>
                                             <Td>
-                                                <img src={product.image} height={64} width={64} />
+                                                <img src={product.image.data.attributes.url} height={64} width={64} />
                                             </Td>
                                             <Td>
                                                 <Grid>
@@ -427,6 +439,16 @@ const OrderPage = () => {
                     </Grid>
                 </GridItem>
                 <GridItem background="neutral100" paddingTop={4} col={3} s={12}>
+                    <GridItem background="neutral100" paddingBottom={4} col={12}>
+                        <TextInput
+                            aria-label="Αριθμός Voucher"
+                            label="Αριθμός Voucher"
+                            placeholder="Αριθμός Voucher"
+                            size="M"
+                            type="text"
+                            onChange={(e) => setVoucher(e.target.value)} />
+                        <Button size="S" variant="default" marginTop={2} onClick={() => handleSendVoucherClick()}>Στείλε Voucher</Button>
+                    </GridItem>
                     <Notes noteChanges={handleNoteChanges} notes={order.comments} />
                 </GridItem>
             </Grid>}

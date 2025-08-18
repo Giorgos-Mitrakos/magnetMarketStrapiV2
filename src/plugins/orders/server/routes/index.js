@@ -31,11 +31,18 @@ module.exports = [
       policies: [],
     },
   },
-
   {
     method: 'POST',
     path: '/saveStatus',
     handler: 'orderController.saveStatus',
+    config: {
+      policies: [],
+    },
+  },
+  {
+    method: 'POST',
+    path: '/sendVoucher',
+    handler: 'orderController.sendVoucher',
     config: {
       policies: [],
     },

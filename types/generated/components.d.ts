@@ -47,6 +47,115 @@ export interface CategoriesPercentage extends Schema.Component {
   };
 }
 
+export interface CouponsRestrictions extends Schema.Component {
+  collectionName: 'components_coupons_restrictions';
+  info: {
+    description: '';
+    displayName: 'restrictions';
+  };
+  attributes: {
+    discountedProductsPolicy: Attribute.Enumeration<
+      [
+        'allow_with_discounts',
+        'exclude_discounted',
+        'apply_only_to_non_discounted'
+      ]
+    > &
+      Attribute.Required &
+      Attribute.DefaultTo<'exclude_discounted'>;
+    maxCartValue: Attribute.Decimal &
+      Attribute.SetMinMax<
+        {
+          min: 0;
+        },
+        number
+      >;
+    minCartValue: Attribute.Decimal &
+      Attribute.SetMinMax<
+        {
+          min: 0;
+        },
+        number
+      >;
+    minPreviousOrders: Attribute.Integer &
+      Attribute.SetMinMax<
+        {
+          min: 0;
+        },
+        number
+      > &
+      Attribute.DefaultTo<1>;
+    newCustomersOnly: Attribute.Boolean &
+      Attribute.Required &
+      Attribute.DefaultTo<false>;
+    orderTimeframe: Attribute.Enumeration<
+      [
+        'all_time',
+        'last_30_days',
+        'last_90_days',
+        'last_180_days',
+        'last_365_days',
+        'over_365_days'
+      ]
+    > &
+      Attribute.DefaultTo<'all_time'>;
+    recurrentCustomersOnly: Attribute.Boolean &
+      Attribute.Required &
+      Attribute.DefaultTo<false>;
+  };
+}
+
+export interface CouponsTrigger extends Schema.Component {
+  collectionName: 'components_coupons_triggers';
+  info: {
+    description: '';
+    displayName: 'trigger';
+  };
+  attributes: {
+    autoGenerate: Attribute.Boolean & Attribute.DefaultTo<false>;
+    codePrefix: Attribute.String &
+      Attribute.SetMinMaxLength<{
+        maxLength: 10;
+      }>;
+    deliveryMethod: Attribute.Enumeration<['email', 'in_app', 'both']> &
+      Attribute.DefaultTo<'email'>;
+    triggerType: Attribute.Enumeration<
+      [
+        'manual',
+        'newsletter_signup',
+        'first_purchase',
+        'order_completion',
+        'cart_abandonment'
+      ]
+    > &
+      Attribute.DefaultTo<'manual'>;
+  };
+}
+
+export interface CouponsValidation extends Schema.Component {
+  collectionName: 'components_coupons_validations';
+  info: {
+    description: '';
+    displayName: 'validation';
+  };
+  attributes: {
+    endDate: Attribute.DateTime;
+    maxUses: Attribute.Integer;
+    singleUse: Attribute.Boolean &
+      Attribute.Required &
+      Attribute.DefaultTo<false>;
+    startDate: Attribute.DateTime;
+    usesPerUser: Attribute.Integer &
+      Attribute.SetMinMax<
+        {
+          min: 0;
+        },
+        number
+      > &
+      Attribute.DefaultTo<1>;
+  };
+}
+
 export interface GlobalBanner extends Schema.Component {
   collectionName: 'components_global_banners';
   info: {
@@ -243,6 +352,16 @@ export interface ImportsContainsName extends Schema.Component {
   };
 }
 
+export interface ImportsUseRetailPrice extends Schema.Component {
+  collectionName: 'components_imports_use_retail_prices';
+  info: {
+    displayName: 'useRetailPrice';
+  };
+  attributes: {
+    text: Attribute.String & Attribute.Required;
+  };
+}
+
 export interface OrderArticle39A extends Schema.Component {
   collectionName: 'components_order_article_39as';
   info: {
@@ -398,6 +517,7 @@ export interface ProductsPlatform extends Schema.Component {
 export interface ProductsPriceProgress extends Schema.Component {
   collectionName: 'components_products_price_progresses';
   info: {
+    description: '';
     displayName: 'Price Progress';
   };
   attributes: {
@@ -405,7 +525,20 @@ export interface ProductsPriceProgress extends Schema.Component {
     discount: Attribute.Decimal;
     in_offer: Attribute.Boolean & Attribute.DefaultTo<false>;
     initial_wholesale: Attribute.Decimal;
+    retail_price: Attribute.Decimal;
     wholesale: Attribute.Decimal & Attribute.Required;
+  };
+}
+
+export interface ProductsPurchaceHistory extends Schema.Component {
+  collectionName: 'components_products_purchace_histories';
+  info: {
+    displayName: 'purchace_history';
+  };
+  attributes: {
+    amount: Attribute.Integer;
+    date: Attribute.Date;
+    price: Attribute.Decimal;
   };
 }
 
@@ -558,6 +691,9 @@ declare module '@strapi/types' {
       'categories.brand-percent': CategoriesBrandPercent;
       'categories.filters': CategoriesFilters;
       'categories.percentage': CategoriesPercentage;
+      'coupons.restrictions': CouponsRestrictions;
+      'coupons.trigger': CouponsTrigger;
+      'coupons.validation': CouponsValidation;
       'global.banner': GlobalBanner;
       'global.carousel': GlobalCarousel;
       'global.link': GlobalLink;
@@ -572,6 +708,7 @@ declare module '@strapi/types' {
       'homepage.single-banner': HomepageSingleBanner;
       'homepage.triple-banner': HomepageTripleBanner;
       'imports.contains-name': ImportsContainsName;
+      'imports.use-retail-price': ImportsUseRetailPrice;
       'order.article-39a': OrderArticle39A;
       'payment.installments': PaymentInstallments;
       'payment.range': PaymentRange;
@@ -581,6 +718,7 @@ declare module '@strapi/types' {
       'products.info': ProductsInfo;
       'products.platform': ProductsPlatform;
       'products.price-progress': ProductsPriceProgress;
+      'products.purchace-history': ProductsPurchaceHistory;
       'products.shop': ProductsShop;
       'shared.meta-social': SharedMetaSocial;
       'shared.seo': SharedSeo;

@@ -87,8 +87,7 @@ module.exports = ({ strapi }) => ({
         const shipping = order.shipping_address.valueOf()
         const products = order.products.valueOf()
 
-        const productsRows = products.map(product => ({ ...product, productTotal: product.quantity * product.price }
-        ))
+        const productsRows = products.map(product => ({ ...product, productTotal: product.quantity * product.price }))
 
         const productsCost = products.reduce((total, item) => {
           return total + item.price * item.quantity
@@ -134,21 +133,7 @@ module.exports = ({ strapi }) => ({
           },
         }
 
-        let templateReferenceId = 9
-        if (order.isInvoice) {
-          if (order.different_shipping) {
-            templateReferenceId = 37;
-          }
-          else { templateReferenceId = 36; }
-        }
-        else {
-          if (order.different_shipping) {
-            templateReferenceId = 35;
-          }
-          else { templateReferenceId = 9; }
-        }
-
-        await strapi.service('api::order.order').sendConfirmOrderEmail({ templateReferenceId: templateReferenceId, to: billing.email, emailVariables, subject: `Magnetmarket - Μήνυμα για την παραγγελία #${order.id}!` })
+        await strapi.service('api::order.order').sendConfirmOrderEmail({ templateReferenceId: 4, to: billing.email, emailVariables, subject: `Magnetmarket - Μήνυμα για την παραγγελία #${order.id}!` })
 
 
       }
@@ -195,8 +180,58 @@ module.exports = ({ strapi }) => ({
     await strapi.entityService.update('api::order.order', id, {
       data: {
         status,
+        populate: {
+          user: true,
+          shipping: true,
+          payment: true,
+          comments: true
+        }
       },
     });
+
+    const order = await strapi.entityService.findOne('api::order.order', id, {
+      populate: {
+        user: true,
+        shipping: true,
+        payment: true,
+        comments: true
+      }
+    });
+
+    await strapi.service('api::order.order').sendStatusEmail(order)
+  },
+
+  async sendVoucher(ctx) {
+    const { id, voucher } = ctx.request.body
+
+    const order = await strapi.entityService.findOne('api::order.order', id, {
+      // fields: ['products', 'total', 'status', 'different_shipping', 'createdAt', 'billing_address', 'shipping_address'],
+      populate: {
+        user: true,
+        shipping: true,
+        payment: true,
+        comments: true
+      },
+    });
+
+    let comments = order.comments
+
+    const addNote = {
+      date: new Date(),
+      type: 'Πελάτη',
+      comment: `Αριθμός αποστολής: ${voucher}`
+    }
+
+    comments.push(addNote)
+
+    await strapi.entityService.update('api::order.order', id, {
+      data: {
+        comments: comments,
+      },
+    });
+
+    await strapi.service('api::order.order').sendVoucherEmail({  order, voucher })
   }
+
 
 });

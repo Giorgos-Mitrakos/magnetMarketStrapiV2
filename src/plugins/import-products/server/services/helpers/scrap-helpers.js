@@ -10,8 +10,8 @@ module.exports = ({ strapi }) => ({
         try {
             puppeteer.use(StealthPlugin())
             return await puppeteer.launch({
-                headless: true,
-                // executablePath: 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+                headless: false,
+                executablePath: 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
                 args: ['--no-sandbox', '--disable-setuid-sandbox']
             });
         } catch (error) {
@@ -25,7 +25,7 @@ module.exports = ({ strapi }) => ({
 
             const page = await browser.newPage();
             await page.setViewport({ width: 1400, height: 600 })
-            await page.setUserAgent(agents) 
+            await page.setUserAgent(agents)
 
             if (!loadImages) {
                 await page.setRequestInterception(true)
@@ -87,9 +87,13 @@ module.exports = ({ strapi }) => ({
             return await page.waitForResponse((response) => {
                 return response.url().startsWith("https://eshop.globalsat.gr/b2b/catalog/list-product")
             },
-                { timeout: 10000 }); 
+                { timeout: 10000 });
         } catch (error) {
             console.log("ERROR")
+            await strapi
+                .plugin('import-products')
+                .service('globalsatService')
+                .closeAlert(page)
             if (retryCount <= 0) {
                 throw error;
             }
@@ -294,7 +298,7 @@ module.exports = ({ strapi }) => ({
                                     }
                                 }
                             },
-                            platforms: true
+                            platforms: true,
                         },
                     });
 
@@ -339,7 +343,7 @@ module.exports = ({ strapi }) => ({
             const isAvailable = this.filterScrappedProducts(importRef.categoryMap, product);
 
             if (!isAvailable)
-                return 
+                return
 
             const { entryCheck, brandId } = await strapi
                 .plugin('import-products')

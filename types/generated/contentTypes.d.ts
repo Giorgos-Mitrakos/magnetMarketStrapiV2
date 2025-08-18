@@ -427,6 +427,11 @@ export interface ApiBrandBrand extends Schema.CollectionType {
       'admin::user'
     > &
       Attribute.Private;
+    useRetailPrice: Attribute.Relation<
+      'api::brand.brand',
+      'manyToMany',
+      'plugin::import-products.importxml'
+    >;
   };
 }
 
@@ -455,6 +460,11 @@ export interface ApiCategoryCategory extends Schema.CollectionType {
       'api::category.category',
       'manyToMany',
       'api::category.category'
+    >;
+    coupons: Attribute.Relation<
+      'api::category.category',
+      'manyToMany',
+      'api::coupon.coupon'
     >;
     createdAt: Attribute.DateTime;
     createdBy: Attribute.Relation<
@@ -490,6 +500,11 @@ export interface ApiCategoryCategory extends Schema.CollectionType {
       'admin::user'
     > &
       Attribute.Private;
+    useRetailPrice: Attribute.Relation<
+      'api::category.category',
+      'manyToMany',
+      'plugin::import-products.importxml'
+    >;
   };
 }
 
@@ -525,6 +540,147 @@ export interface ApiCountryCountry extends Schema.CollectionType {
       'admin::user'
     > &
       Attribute.Private;
+  };
+}
+
+export interface ApiCouponUsageCouponUsage extends Schema.CollectionType {
+  collectionName: 'coupon_usages';
+  info: {
+    description: '';
+    displayName: 'Coupon Usage';
+    pluralName: 'coupon-usages';
+    singularName: 'coupon-usage';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    appliedAt: Attribute.DateTime;
+    coupon: Attribute.Relation<
+      'api::coupon-usage.coupon-usage',
+      'manyToOne',
+      'api::coupon.coupon'
+    >;
+    createdAt: Attribute.DateTime;
+    createdBy: Attribute.Relation<
+      'api::coupon-usage.coupon-usage',
+      'oneToOne',
+      'admin::user'
+    > &
+      Attribute.Private;
+    email: Attribute.Email;
+    order: Attribute.Relation<
+      'api::coupon-usage.coupon-usage',
+      'manyToOne',
+      'api::order.order'
+    >;
+    redeemedAt: Attribute.DateTime;
+    source: Attribute.String;
+    status: Attribute.Enumeration<
+      ['issued', 'applied', 'redeemed', 'expired']
+    > &
+      Attribute.DefaultTo<'issued'>;
+    updatedAt: Attribute.DateTime;
+    updatedBy: Attribute.Relation<
+      'api::coupon-usage.coupon-usage',
+      'oneToOne',
+      'admin::user'
+    > &
+      Attribute.Private;
+    user: Attribute.Relation<
+      'api::coupon-usage.coupon-usage',
+      'manyToOne',
+      'plugin::users-permissions.user'
+    >;
+  };
+}
+
+export interface ApiCouponCoupon extends Schema.CollectionType {
+  collectionName: 'coupons';
+  info: {
+    description: '';
+    displayName: 'Coupon';
+    pluralName: 'coupons';
+    singularName: 'coupon';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    allowedEmail: Attribute.Email;
+    applicableCategories: Attribute.Relation<
+      'api::coupon.coupon',
+      'manyToMany',
+      'api::category.category'
+    >;
+    applicableProducts: Attribute.Relation<
+      'api::coupon.coupon',
+      'manyToMany',
+      'api::product.product'
+    >;
+    code: Attribute.String &
+      Attribute.Required &
+      Attribute.Unique &
+      Attribute.SetMinMaxLength<{
+        maxLength: 50;
+        minLength: 3;
+      }>;
+    createdAt: Attribute.DateTime;
+    createdBy: Attribute.Relation<
+      'api::coupon.coupon',
+      'oneToOne',
+      'admin::user'
+    > &
+      Attribute.Private;
+    description: Attribute.String;
+    discountType: Attribute.Enumeration<
+      ['percentage', 'fixed_amount', 'free_shipping']
+    > &
+      Attribute.Required &
+      Attribute.DefaultTo<'percentage'>;
+    discountValue: Attribute.Decimal &
+      Attribute.Required &
+      Attribute.DefaultTo<0>;
+    excludedCategories: Attribute.Relation<
+      'api::coupon.coupon',
+      'manyToMany',
+      'api::category.category'
+    >;
+    excludedProducts: Attribute.Relation<
+      'api::coupon.coupon',
+      'manyToMany',
+      'api::product.product'
+    >;
+    generatedCoupons: Attribute.Relation<
+      'api::coupon.coupon',
+      'oneToMany',
+      'api::coupon.coupon'
+    >;
+    isActive: Attribute.Boolean &
+      Attribute.Required &
+      Attribute.DefaultTo<true>;
+    isPersonalized: Attribute.Boolean & Attribute.DefaultTo<true>;
+    isTemplate: Attribute.Boolean & Attribute.DefaultTo<false>;
+    parentCoupon: Attribute.Relation<
+      'api::coupon.coupon',
+      'manyToOne',
+      'api::coupon.coupon'
+    >;
+    restrictions: Attribute.Component<'coupons.restrictions'>;
+    trigger: Attribute.Component<'coupons.trigger'>;
+    updatedAt: Attribute.DateTime;
+    updatedBy: Attribute.Relation<
+      'api::coupon.coupon',
+      'oneToOne',
+      'admin::user'
+    > &
+      Attribute.Private;
+    usages: Attribute.Relation<
+      'api::coupon.coupon',
+      'oneToMany',
+      'api::coupon-usage.coupon-usage'
+    >;
+    validation: Attribute.Component<'coupons.validation'>;
   };
 }
 
@@ -617,7 +773,7 @@ export interface ApiNewsletterNewsletter extends Schema.CollectionType {
     singularName: 'newsletter';
   };
   options: {
-    draftAndPublish: true;
+    draftAndPublish: false;
   };
   attributes: {
     createdAt: Attribute.DateTime;
@@ -628,7 +784,9 @@ export interface ApiNewsletterNewsletter extends Schema.CollectionType {
     > &
       Attribute.Private;
     email: Attribute.Email & Attribute.Required & Attribute.Unique;
-    publishedAt: Attribute.DateTime;
+    isActive: Attribute.Boolean &
+      Attribute.Required &
+      Attribute.DefaultTo<false>;
     updatedAt: Attribute.DateTime;
     updatedBy: Attribute.Relation<
       'api::newsletter.newsletter',
@@ -655,6 +813,11 @@ export interface ApiOrderOrder extends Schema.CollectionType {
     Bank_info: Attribute.Component<'payment.tran-ticket'> & Attribute.Private;
     billing_address: Attribute.JSON & Attribute.Required;
     comments: Attribute.Component<'shipping.comment', true>;
+    coupon_usages: Attribute.Relation<
+      'api::order.order',
+      'oneToMany',
+      'api::coupon-usage.coupon-usage'
+    >;
     createdAt: Attribute.DateTime;
     createdBy: Attribute.Relation<
       'api::order.order',
@@ -666,6 +829,14 @@ export interface ApiOrderOrder extends Schema.CollectionType {
     different_shipping: Attribute.Boolean &
       Attribute.Required &
       Attribute.DefaultTo<false>;
+    discount: Attribute.Decimal &
+      Attribute.SetMinMax<
+        {
+          min: 0;
+        },
+        number
+      > &
+      Attribute.DefaultTo<0>;
     installments: Attribute.Integer &
       Attribute.Required &
       Attribute.SetMinMax<
@@ -686,6 +857,7 @@ export interface ApiOrderOrder extends Schema.CollectionType {
     shipping_address: Attribute.JSON & Attribute.Required;
     status: Attribute.Enumeration<
       [
+        '\u0395\u03C0\u03B9\u03B2\u03B5\u03B2\u03B1\u03B9\u03C9\u03BC\u03AD\u03BD\u03B7',
         '\u0395\u03BA\u03BA\u03C1\u03B5\u03BC\u03B5\u03AF \u03C0\u03BB\u03B7\u03C1\u03C9\u03BC\u03AE',
         '\u03A3\u03B5 \u03B5\u03C0\u03B5\u03BE\u03B5\u03C1\u03B3\u03B1\u03C3\u03AF\u03B1',
         '\u03A3\u03B5 \u03B1\u03BD\u03B1\u03BC\u03BF\u03BD\u03AE',
@@ -765,11 +937,23 @@ export interface ApiPaymentPayment extends Schema.CollectionType {
       'admin::user'
     > &
       Attribute.Private;
+    description: Attribute.String;
     icon: Attribute.Media<'images'>;
     installments: Attribute.Component<'payment.installments'>;
     isActive: Attribute.Boolean &
       Attribute.Required &
       Attribute.DefaultTo<true>;
+    method: Attribute.Enumeration<
+      [
+        'credit_card',
+        'debit_card',
+        'cash',
+        'cash_on_delivery',
+        'bank_transfer',
+        'iris_payment'
+      ]
+    > &
+      Attribute.Required;
     name: Attribute.String;
     price: Attribute.Decimal &
       Attribute.SetMinMax<
@@ -901,6 +1085,11 @@ export interface ApiProductProduct extends Schema.CollectionType {
       'manyToOne',
       'api::category.category'
     >;
+    coupons: Attribute.Relation<
+      'api::product.product',
+      'manyToMany',
+      'api::coupon.coupon'
+    >;
     createdAt: Attribute.DateTime;
     createdBy: Attribute.Relation<
       'api::product.product',
@@ -912,7 +1101,6 @@ export interface ApiProductProduct extends Schema.CollectionType {
     description: Attribute.Text;
     height: Attribute.Decimal & Attribute.DefaultTo<0>;
     image: Attribute.Media<'images'>;
-    ImageURLS: Attribute.Component<'products.images-supplier-urls', true>;
     inventory: Attribute.Integer & Attribute.DefaultTo<0>;
     is_fixed_price: Attribute.Boolean & Attribute.DefaultTo<false>;
     is_hot: Attribute.Boolean & Attribute.DefaultTo<false>;
@@ -937,6 +1125,7 @@ export interface ApiProductProduct extends Schema.CollectionType {
       >;
     prod_chars: Attribute.Component<'products.chars', true>;
     publishedAt: Attribute.DateTime;
+    purchace_history: Attribute.Component<'products.purchace-history', true>;
     related_import: Attribute.Relation<
       'api::product.product',
       'manyToMany',
@@ -1066,6 +1255,7 @@ export interface ApiShippingShipping extends Schema.CollectionType {
     >;
     publishedAt: Attribute.DateTime;
     Regions_file: Attribute.Media<'files'>;
+    tracking_url: Attribute.String;
     update_regions: Attribute.Boolean & Attribute.DefaultTo<false>;
     updatedAt: Attribute.DateTime;
     updatedBy: Attribute.Relation<
@@ -1662,6 +1852,21 @@ export interface PluginImportProductsImportxml extends Schema.CollectionType {
       'admin::user'
     > &
       Attribute.Private;
+    useRetailPrice: Attribute.Boolean & Attribute.DefaultTo<false>;
+    useRetailPriceBrands: Attribute.Relation<
+      'plugin::import-products.importxml',
+      'manyToMany',
+      'api::brand.brand'
+    >;
+    useRetailPriceCategories: Attribute.Relation<
+      'plugin::import-products.importxml',
+      'manyToMany',
+      'api::category.category'
+    >;
+    useRetailPriceContainName: Attribute.Component<
+      'imports.use-retail-price',
+      true
+    >;
     whitelist_map: Attribute.Relation<
       'plugin::import-products.importxml',
       'oneToMany',
@@ -2060,6 +2265,11 @@ export interface PluginUsersPermissionsUser extends Schema.CollectionType {
     blocked: Attribute.Boolean & Attribute.DefaultTo<false>;
     confirmationToken: Attribute.String & Attribute.Private;
     confirmed: Attribute.Boolean & Attribute.DefaultTo<false>;
+    coupon_usages: Attribute.Relation<
+      'plugin::users-permissions.user',
+      'oneToMany',
+      'api::coupon-usage.coupon-usage'
+    >;
     createdAt: Attribute.DateTime;
     createdBy: Attribute.Relation<
       'plugin::users-permissions.user',
@@ -2124,6 +2334,8 @@ declare module '@strapi/types' {
       'api::brand.brand': ApiBrandBrand;
       'api::category.category': ApiCategoryCategory;
       'api::country.country': ApiCountryCountry;
+      'api::coupon-usage.coupon-usage': ApiCouponUsageCouponUsage;
+      'api::coupon.coupon': ApiCouponCoupon;
       'api::footer.footer': ApiFooterFooter;
       'api::homepage.homepage': ApiHomepageHomepage;
       'api::newsletter.newsletter': ApiNewsletterNewsletter;

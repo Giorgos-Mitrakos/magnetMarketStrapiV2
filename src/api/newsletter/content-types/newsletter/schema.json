@@ -7,7 +7,7 @@
     "displayName": "Newsletter"
   },
   "options": {
-    "draftAndPublish": true
+    "draftAndPublish": false
   },
   "pluginOptions": {},
   "attributes": {
@@ -15,6 +15,11 @@
       "type": "email",
       "required": true,
       "unique": true
+    },
+    "isActive": {
+      "type": "boolean",
+      "default": false,
+      "required": true
     }
   }
 }

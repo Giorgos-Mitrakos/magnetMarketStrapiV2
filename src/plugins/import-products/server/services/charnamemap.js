@@ -32,12 +32,12 @@ module.exports = ({ strapi }) => ({
 
                 if (mapCharNames.get(char.name) !== undefined) {
                     let name = mapCharNames.get(char.name)
-                    char.name = name
+                    char.name = name.trim()
                 }
                 if (char.value) {
                     if (mapCharValues.get(char.value) !== undefined) {
                         let value = mapCharValues.get(char.value)
-                        char.value = value
+                        char.value = value.trim()
                     }
                 }
                 return char

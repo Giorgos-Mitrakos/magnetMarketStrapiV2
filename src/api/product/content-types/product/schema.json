@@ -167,12 +167,6 @@
       "repeatable": true,
       "component": "products.chars"
     },
-    "ImageURLS": {
-      "displayName": "imagesSupplierURLS",
-      "type": "component",
-      "repeatable": true,
-      "component": "products.images-supplier-urls"
-    },
     "platforms": {
       "displayName": "platform",
       "type": "component",
@@ -198,6 +192,18 @@
     "notice_if_available": {
       "type": "boolean",
       "default": false
+    },
+    "coupons": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::coupon.coupon",
+      "mappedBy": "excludedProducts"
+    },
+    "purchace_history": {
+      "displayName": "purchace_history",
+      "type": "component",
+      "repeatable": true,
+      "component": "products.purchace-history"
     }
   }
 }

@@ -471,7 +471,7 @@ export default factories.createCoreService('api::category.category', ({ strapi }
                             return cat1.products.map(product => {
                                 for (let char of product.prod_chars) {
                                     if (char.name === filter.name) {
-                                        return char.value
+                                        return char.value.trim()
                                     }
                                 }
                             })
@@ -484,7 +484,7 @@ export default factories.createCoreService('api::category.category', ({ strapi }
                         return cat.products.map(product => {
                             for (let char of product.prod_chars) {
                                 if (char.name === filter.name) {
-                                    return char.value
+                                    return char.value.trim()
                                 }
                             }
                         })
@@ -495,7 +495,7 @@ export default factories.createCoreService('api::category.category', ({ strapi }
                     products = category.products.map(product => {
                         for (let char of product.prod_chars) {
                             if (char.name === filter.name) {
-                                return char.value
+                                return char.value.trim()
                             }
                         }
                     })
@@ -504,7 +504,7 @@ export default factories.createCoreService('api::category.category', ({ strapi }
                     products = category.products.map(product => {
                         for (let char of product.prod_chars) {
                             if (char.name === filter.name) {
-                                return char.value
+                                return char.value.trim()
                             }
                         }
                     })

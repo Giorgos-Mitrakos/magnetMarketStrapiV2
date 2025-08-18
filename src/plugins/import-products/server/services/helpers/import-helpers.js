@@ -200,7 +200,7 @@ module.exports = ({ strapi }) => ({
             const supplierInfo = [strapi
                 .plugin('import-products')
                 .service('supplierHelpers')
-                .createSupplierInfoData(product.entry, product, price_progress_data)]
+                .createSupplierInfoData(product, price_progress_data)]
 
             const productPrices = await strapi
                 .plugin('import-products')
@@ -255,14 +255,14 @@ module.exports = ({ strapi }) => ({
 
             if (product.description) {
                 data.description = product.description
-                .replaceAll('&apos;', "'")
-                .replaceAll('&quot;', '"')
-                .replaceAll('&gt;', ">")
-                .replaceAll('&lt;', "<")
-                .replaceAll('&nbsp;', " ") 
-                // .replace(/[^\x00-\x7F]/g, "") 
-                .replace(/[\u2000-\u2BFF]/g, "")
-                .trim()
+                    .replaceAll('&apos;', "'")
+                    .replaceAll('&quot;', '"')
+                    .replaceAll('&gt;', ">")
+                    .replaceAll('&lt;', "<")
+                    .replaceAll('&nbsp;', " ")
+                    // .replace(/[^\x00-\x7F]/g, "") 
+                    .replace(/[\u2000-\u2BFF]/g, "")
+                    .trim()
             }
 
             if (product.short_description) {
@@ -307,8 +307,6 @@ module.exports = ({ strapi }) => ({
                 .service('productHelpers')
                 .saveSEO(data.image, product)
 
-            // console.log(data)
-
             const newEntry = await strapi.entityService.create('api::product.product', {
                 data: data,
             });
@@ -330,174 +328,39 @@ module.exports = ({ strapi }) => ({
             let dbChange = { typeOfChange: "Skipped" } //Εδώ αποθηκεύω το είδος της αλλαγής
             const data = {}   //Εδώ αποθηκεύω τα δεδομένα που χρειάζονται αλλαγή
 
-            // Να το δώ καλυτερα αυτό
-            // Τσεκάρω αν η προτεινόμενη τιμή είναι μικρότερη από την παλαιότερη
-            if (entryCheck.related_import.findIndex(x => x.name.toLowerCase() === "globalsat") !== -1
-                && entryCheck.supplierInfo.findIndex(x => { x.name.toLowerCase() === "globalsat" && Number(x.retail_price) < Number(product.retail_price) }) !== -1)
-                return
+            // // Να το δώ καλυτερα αυτό
+            // // Τσεκάρω αν η προτεινόμενη τιμή είναι μικρότερη από την παλαιότερη
+            // if (entryCheck.related_import.findIndex(x => x.name.toLowerCase() === "globalsat") !== -1
+            //     && entryCheck.supplierInfo.findIndex(x => x.name.toLowerCase() === "globalsat" && Number(x.retail_price) < Number(product.retail_price)) !== -1)
+            //     return
 
             //Βρίσκω τον κωδικό της κατηγορίας ώστε να συνδέσω το προϊόν με την κατηγορία
-            const categoryInfo = await await strapi
+            const categoryInfo = await strapi
                 .plugin('import-products')
                 .service('categoryHelpers')
                 .getCategory(importRef.categoryMap.categories_map,
                     product.name, product.category.title, product.subcategory?.title, product.sub2category?.title);
 
-            // Προσθέτω το id του προϊόντος στη βάση ώστε αργότερα όταν γίνει η διαγραφή
-            // των προϊόντων να μην δαγραφεί.
-            importRef.related_entries.push(entryCheck.id)
+            // Update import references
+            this.updateImportReferences(importRef, entryCheck, product, data);
 
-            // Για τις περιπτώσεις όπου ο προμηθευτής έχει σχετικά προϊόντα αποθηκεύω 
-            // τα προϊόντα ώστε να τα συσχετίσω στη βάση
-            if (product.relativeProducts && product.relativeProducts.length > 0)
-                importRef.related_products.push({ productID: entryCheck.id, relatedProducts: product.relativeProducts })
+            // Handle supplier availability notifications
+            await this.handleAvailabilityNotifications(entryCheck, product);
 
-            // Βρίσκω τους προμηθευτές που έχουν το προϊόν 
-            let supplierInfo = entryCheck.supplierInfo;
-            const relatedImport = entryCheck.related_import;
-            const relatedImportIds = relatedImport.map(x => x.id)
 
-            // Αναζητώ αν προμηθεύομαι ήδη το προϊόν απο τον συγκεκριμένο προμηθευτή
-            const findImport = relatedImport.findIndex(x =>
-                x.id === product.entry.id)
-
-            // Αν δεν υπάρχει ο προμηθευτής σε αυτο το προϊόν ενημερώνω τη συσχέτιση
-            if (findImport === -1) { data.related_import = [...relatedImportIds, product.entry.id] }
-
-            // Αναζητώ τον προμηθευτή
-            let supplierInfoIndex = supplierInfo.findIndex(o => o.name === product.entry.name)
-
-            if (supplierInfoIndex !== -1) {
-                if (supplierInfo[supplierInfoIndex].in_stock === false && entryCheck.notice_if_available) {
-                    const emailVariables = {
-                        product: {
-                            name: entryCheck.name,
-                            id: entryCheck.id,
-                            supplier: product.entry.name,
-                            supplierProductId: product.supplierCode
-                        },
-                    }
-                    await strapi.service('api::order.order').sendConfirmOrderEmail({ templateReferenceId: 10, to: ['giorgos_mitrakos@yahoo.com', "info@magnetmarket.gr", "kkoulogiannis@gmail.com"], emailVariables, subject: "Ενημέρωση διαθεσιμότητας!" })
-
-                }
-            }
-            else {
-                if (entryCheck.notice_if_available) {
-                    const emailVariables = {
-                        product: {
-                            name: entryCheck.name,
-                            id: entryCheck.id,
-                            supplier: product.entry.name,
-                            supplierProductId: product.supplierCode
-                        },
-                    }
-                    await strapi.service('api::order.order').sendConfirmOrderEmail({ templateReferenceId: 10, to: ['giorgos_mitrakos@yahoo.com'], emailVariables, subject: "Ενημέρωση διαθεσιμότητας!" })
-                }
-            }
-
-            // Αν το προϊόν δεν είναι σε κάποια κατηγορία ή αν είναι σε διαφορετική 
-            // από ότι βρήκα στο μαπάρισμα του προμηθευτή ενημερώνω την κατηγορία.
-            // εδώ κινδυνέυω αν εχει γίνει λάθος μαπάρισμα να αλλάζει το προϊόν συνεχώς κατηγορίες
-            // μελλοντικά θα συμβαίνει και όταν θα διορθώνω τις κατηγορίες μέσω το σκρουτζ
-            if (!entryCheck.category || entryCheck.category.id !== categoryInfo.id) {
-                data.category = categoryInfo.id
-                dbChange.typeOfChange = 'updated'
-            }
-
-            // Αν δεν υπάρχει slug το δημιουργώ
-            if (entryCheck.slug.includes("undefined")) {
-                data.slug = this.createSlug(product.name, product.mpn)
-                dbChange.typeOfChange = 'updated'
-            }
-
-            // Αν δεν υπάρχει barcode και έχει barcode στο import τότε το ενημερώνω
-            if (!entryCheck.barcode && product.barcode) {
-                data.barcode = product.barcode
-                dbChange.typeOfChange = 'updated'
-            }
-
-            // Αν δεν υπάρχουν διαστάσεις και έχει στο import τότε το ενημερώνω
-            if (!entryCheck.length && product.length) {
-                data.length = parseInt(product.length)
-                dbChange.typeOfChange = 'updated'
-            }
-
-            if (!entryCheck.width && product.width) {
-                data.width = parseInt(product.width)
-                dbChange.typeOfChange = 'updated'
-            }
-
-            if (!entryCheck.height && product.height) {
-                data.height = (product.height)
-                dbChange.typeOfChange = 'updated'
-            }
-
-            //Εδώ κάνω έλεγχο Κατασκευαστή
-            if (product.brand) {
-                if (entryCheck.brand) {
-                    if (entryCheck.brand.id !== product.brand.id) {
-                        data.brand = product.brand.id
-                        dbChange.typeOfChange = 'updated'
-                    }
-                }
-                else {
-                    data.brand = product.brand.id
-                    dbChange.typeOfChange = 'updated'
-                }
-            }
-
-            //Υπολογισμός βάρους
-            if (!product.weight) {
-                product.weight = strapi
-                    .plugin('import-products')
-                    .service('productHelpers')
-                    .createProductWeight(product, categoryInfo)
-            }
-
-            // Να το ελέγξω όταν θα έχω περάσει όλους τους προμηθευτές
-            if (!entryCheck.weight) {
-                if (entryCheck.weight === 0) {
-                    if (parseInt(product.weight) === 0) {
-                        if (categoryInfo.average_weight) {
-                            data.weight = parseInt(categoryInfo.average_weight)
-                            dbChange.typeOfChange = 'updated'
-                        }
-                    }
-                    else if (parseInt(product.weight) !== 0) {
-                        data.weight = parseInt(product.weight)
-                        dbChange.typeOfChange = 'updated'
-                    }
-                }
-                else {
-                    data.weight = categoryInfo.average_weight ? parseInt(categoryInfo.average_weight) : parseInt(0)
-                    dbChange.typeOfChange = 'updated'
-                }
-            }
-            else {
-                if (product.weight && product.weight > 0) {
-                    if (parseInt(entryCheck.weight) !== parseInt(product.weight)) {
-                        data.weight = parseInt(product.weight)
-                        dbChange.typeOfChange = 'updated'
-                    }
-                }
-                else {
-                    if (categoryInfo.average_weight && parseInt(categoryInfo.average_weight) !== parseInt(entryCheck.weight)) {
-                        data.weight = parseInt(categoryInfo.average_weight)
-                        dbChange.typeOfChange = 'updated'
-                    }
-                }
-            }
+            // Update product metadata
+            this.updateProductMetadata(entryCheck, product, categoryInfo, data, dbChange);
 
             // ενημερώνω τυχών αλλαγές στις τιμές του προμηθευτή
             strapi
                 .plugin('import-products')
-                .service('productHelpers')
+                .service('supplierHelpers')
                 .updateSupplierInfo(entryCheck, product, data, dbChange, importRef)
 
             const skroutz = entryCheck.platforms.find(x => x.platform === "Skroutz")
             const shopflix = entryCheck.platforms.find(x => x.platform === "Shopflix")
 
-            let info = data.supplierInfo ? data.supplierInfo : supplierInfo
+            let info = data.supplierInfo ? data.supplierInfo : entryCheck.supplierInfo
 
             // Δημιουργώ τις τιμές για το προϊόν
             const productPrices = await strapi
@@ -564,7 +427,6 @@ module.exports = ({ strapi }) => ({
                     break;
             }
         } catch (error) {
-            console.log("entryCheck:", entryCheck, "product:", product)
             console.log(error, error?.details?.errors)
         }
     },
@@ -666,6 +528,164 @@ module.exports = ({ strapi }) => ({
         } catch (error) {
             console.log(error)
         }
+    },
+
+    updateImportReferences(importRef, entryCheck, product, data) {
+        // Προσθέτω το id του προϊόντος στη βάση ώστε αργότερα όταν γίνει η διαγραφή
+        // των προϊόντων να μην δαγραφεί.
+        importRef.related_entries.push(entryCheck.id);
+
+        // Για τις περιπτώσεις όπου ο προμηθευτής έχει σχετικά προϊόντα αποθηκεύω 
+        // τα προϊόντα ώστε να τα συσχετίσω στη βάση
+        if (product.relativeProducts?.length > 0) {
+            importRef.related_products.push({
+                productID: entryCheck.id,
+                relatedProducts: product.relativeProducts
+            });
+        }
+
+        // Βρίσκω τους προμηθευτές που έχουν το προϊόν 
+        const relatedImport = entryCheck.related_import;
+        const relatedImportIds = relatedImport.map(x => x.id)
+
+        // Αναζητώ αν προμηθεύομαι ήδη το προϊόν απο τον συγκεκριμένο προμηθευτή
+        const findImport = relatedImport.findIndex(x =>
+            x.id === product.entry.id)
+
+        // Αν δεν υπάρχει ο προμηθευτής σε αυτο το προϊόν ενημερώνω τη συσχέτιση
+        if (findImport === -1) { data.related_import = [...relatedImportIds, product.entry.id] }
+    },
+
+    async handleAvailabilityNotifications(entryCheck, product) {
+        // Αναζητώ τον προμηθευτή
+        let supplierInfo = entryCheck.supplierInfo;
+        let supplierInfoIndex = supplierInfo.findIndex(o => o.name === product.entry.name)
+
+        // Αν υπάρχει ο προμηθευτής και το προϊόν ήταν μη διαθέσιμο από αυτόν και παράλληλα είναι ενεργοποιημένη 
+        // η επιλογή να ενημερώνω ότι είναι πλέον διαθέσιμο τότε στέλνω email ενημέρωσης
+        // Αν πρόκειται για νέο προθηθευτή του προϊόντος και είναι ενεργοποιήμένη η επιλογή ενημέρωσης διαθεσιμότητας
+        // πάλι στέλνω email ενημέρωσης
+        if (supplierInfoIndex !== -1) {
+            if (supplierInfo[supplierInfoIndex].in_stock === false && entryCheck.notice_if_available) {
+                const emailVariables = {
+                    product: {
+                        name: entryCheck.name,
+                        id: entryCheck.id,
+                        supplier: product.entry.name,
+                        supplierProductId: product.supplierCode
+                    },
+                }
+                await strapi.service('api::order.order').sendConfirmOrderEmail({ templateReferenceId: 10, to: ['giorgos_mitrakos@yahoo.com', "info@magnetmarket.gr", "kkoulogiannis@gmail.com"], emailVariables, subject: "Ενημέρωση διαθεσιμότητας!" })
+
+            }
+        }
+        else {
+            if (entryCheck.notice_if_available) {
+                const emailVariables = {
+                    product: {
+                        name: entryCheck.name,
+                        id: entryCheck.id,
+                        supplier: product.entry.name,
+                        supplierProductId: product.supplierCode
+                    },
+                }
+                await strapi.service('api::order.order').sendConfirmOrderEmail({ templateReferenceId: 10, to: ['giorgos_mitrakos@yahoo.com', "info@magnetmarket.gr", "kkoulogiannis@gmail.com"], emailVariables, subject: "Ενημέρωση διαθεσιμότητας!" })
+            }
+        }
+    },
+
+    updateProductMetadata(entryCheck, product, categoryInfo, data, dbChange) {
+        // Αν το προϊόν δεν είναι σε κάποια κατηγορία ή αν είναι σε διαφορετική 
+        // από ότι βρήκα στο μαπάρισμα του προμηθευτή ενημερώνω την κατηγορία.
+        // εδώ κινδυνέυω αν εχει γίνει λάθος μαπάρισμα να αλλάζει το προϊόν συνεχώς κατηγορίες
+        // μελλοντικά θα συμβαίνει και όταν θα διορθώνω τις κατηγορίες μέσω το σκρουτζ
+        if (!entryCheck.category || entryCheck.category.id !== categoryInfo.id) {
+            data.category = categoryInfo.id
+            dbChange.typeOfChange = 'updated'
+        }
+
+        // Αν δεν υπάρχει slug το δημιουργώ
+        if (entryCheck.slug.includes("undefined")) {
+            data.slug = this.createSlug(product.name, product.mpn)
+            dbChange.typeOfChange = 'updated'
+        }
+
+        // Αν δεν υπάρχει barcode και έχει barcode στο import τότε το ενημερώνω
+        if (!entryCheck.barcode && product.barcode) {
+            data.barcode = product.barcode
+            dbChange.typeOfChange = 'updated'
+        }
+
+        // Αν δεν υπάρχουν διαστάσεις και έχει στο import τότε το ενημερώνω
+        // Update dimensions if missing
+        const dimensions = {
+            length: Number(product.length),
+            width: Number(product.width),
+            height: Number(product.height)
+        };
+
+        ['length', 'width', 'height'].forEach(dim => {
+            if (isNaN(dimensions[dim])) return
+            if ((!entryCheck[dim] && Math.ceil(dimensions[dim])) || (entryCheck[dim] !== Math.ceil(dimensions[dim]))) {
+                data[dim] = Math.ceil(dimensions[dim]);
+                dbChange.typeOfChange = 'updated';
+            }
+        });
+
+        //Εδώ κάνω έλεγχο Κατασκευαστή
+        // Update brand if different
+        if (product.brand) {
+            if (!entryCheck.brand || entryCheck.brand.id !== product.brand.id) {
+                data.brand = product.brand.id;
+                dbChange.typeOfChange = 'updated';
+            }
+        }
+
+        strapi.plugin('import-products')
+            .service('productHelpers')
+            .updateProductWeight(entryCheck, product, categoryInfo, data, dbChange);
+
+        // //Υπολογισμός βάρους
+        // if (!product.weight) {
+        //     product.weight = strapi
+        //         .plugin('import-products')
+        //         .service('productHelpers')
+        //         .createProductWeight(product, categoryInfo)
+        // }
+
+        // // Να το ελέγξω όταν θα έχω περάσει όλους τους προμηθευτές
+        // if (!entryCheck.weight) {
+        //     if (entryCheck.weight === 0) {
+        //         if (parseInt(product.weight) === 0) {
+        //             if (categoryInfo.average_weight) {
+        //                 data.weight = parseInt(categoryInfo.average_weight)
+        //                 dbChange.typeOfChange = 'updated'
+        //             }
+        //         }
+        //         else if (parseInt(product.weight) !== 0) {
+        //             data.weight = parseInt(product.weight)
+        //             dbChange.typeOfChange = 'updated'
+        //         }
+        //     }
+        //     else {
+        //         data.weight = categoryInfo.average_weight ? parseInt(categoryInfo.average_weight) : parseInt(0)
+        //         dbChange.typeOfChange = 'updated'
+        //     }
+        // }
+        // else {
+        //     if (product.weight && product.weight > 0) {
+        //         if (parseInt(entryCheck.weight) !== parseInt(product.weight)) {
+        //             data.weight = parseInt(product.weight)
+        //             dbChange.typeOfChange = 'updated'
+        //         }
+        //     }
+        //     else {
+        //         if (categoryInfo.average_weight && parseInt(categoryInfo.average_weight) !== parseInt(entryCheck.weight)) {
+        //             data.weight = parseInt(categoryInfo.average_weight)
+        //             dbChange.typeOfChange = 'updated'
+        //         }
+        //     }
+        // }
     },
 
     createSlug(name, mpn) {

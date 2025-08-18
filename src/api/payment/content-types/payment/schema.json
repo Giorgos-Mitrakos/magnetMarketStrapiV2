@@ -45,6 +45,21 @@
       "type": "component",
       "repeatable": false,
       "component": "payment.installments"
+    },
+    "method": {
+      "type": "enumeration",
+      "enum": [
+        "credit_card",
+        "debit_card",
+        "cash",
+        "cash_on_delivery",
+        "bank_transfer",
+        "iris_payment"
+      ],
+      "required": true
+    },
+    "description": {
+      "type": "string"
     }
   }
 }

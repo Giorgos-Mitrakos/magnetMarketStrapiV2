@@ -1,0 +1,117 @@
+{
+  "kind": "collectionType",
+  "collectionName": "coupons",
+  "info": {
+    "singularName": "coupon",
+    "pluralName": "coupons",
+    "displayName": "Coupon",
+    "description": ""
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "code": {
+      "type": "string",
+      "required": true,
+      "unique": true,
+      "maxLength": 50,
+      "minLength": 3
+    },
+    "description": {
+      "type": "string"
+    },
+    "discountType": {
+      "type": "enumeration",
+      "enum": [
+        "percentage",
+        "fixed_amount",
+        "free_shipping"
+      ],
+      "required": true,
+      "default": "percentage"
+    },
+    "discountValue": {
+      "type": "decimal",
+      "required": true,
+      "default": 0
+    },
+    "isActive": {
+      "type": "boolean",
+      "default": true,
+      "required": true
+    },
+    "restrictions": {
+      "displayName": "restrictions",
+      "type": "component",
+      "repeatable": false,
+      "component": "coupons.restrictions"
+    },
+    "validation": {
+      "displayName": "validation",
+      "type": "component",
+      "repeatable": false,
+      "component": "coupons.validation"
+    },
+    "trigger": {
+      "displayName": "trigger",
+      "type": "component",
+      "repeatable": false,
+      "component": "coupons.trigger"
+    },
+    "applicableProducts": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::product.product",
+      "inversedBy": "coupons"
+    },
+    "excludedProducts": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::product.product",
+      "inversedBy": "coupons"
+    },
+    "applicableCategories": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::category.category",
+      "inversedBy": "coupons"
+    },
+    "excludedCategories": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::category.category",
+      "inversedBy": "coupons"
+    },
+    "usages": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::coupon-usage.coupon-usage",
+      "mappedBy": "coupon"
+    },
+    "isTemplate": {
+      "type": "boolean",
+      "default": false
+    },
+    "parentCoupon": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::coupon.coupon",
+      "inversedBy": "generatedCoupons"
+    },
+    "generatedCoupons": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::coupon.coupon",
+      "mappedBy": "parentCoupon"
+    },
+    "allowedEmail": {
+      "type": "email"
+    },
+    "isPersonalized": {
+      "type": "boolean",
+      "default": true
+    }
+  }
+}

@@ -8,7 +8,7 @@ export type IShipping = Attribute.GetValues<"api::shipping.shipping">;
 export type IProduct = Attribute.GetValues<"api::product.product">;
 
 export default factories.createCoreService('api::shipping.shipping', ({ strapi }) => ({
-    async findShippingCost(ctx) {
+    async findShippingCost(checkout) {
 
         const calcShipping = ({ basic_fee, basic_weight, fee_above_weight, totalWeight }) => {
 
@@ -77,7 +77,7 @@ export default factories.createCoreService('api::shipping.shipping', ({ strapi }
         }
 
         try {
-            const { addresses, cartItems, shippingMethod } = ctx.request.body
+            const { addresses, cart, shippingMethod } = checkout
 
             const shipper: IShipping = await strapi.db.query('api::shipping.shipping').findOne({
                 select: ['id', 'isFreeShipping'],
@@ -87,7 +87,7 @@ export default factories.createCoreService('api::shipping.shipping', ({ strapi }
             if (!shipper || shipper.isFreeShipping)
                 return { cost: 0 }
 
-            const totalWeight = cartItems.reduce((accumulator, item) => {
+            const totalWeight = cart.reduce((accumulator, item) => {
                 return accumulator += item.quantity * item.weight;
             }, 0)
 
@@ -106,7 +106,7 @@ export default factories.createCoreService('api::shipping.shipping', ({ strapi }
             }
             return { cost: null }
         } catch (error) {
-            console.log(error)
+            throw new Error(error.message);
         }
     },
 

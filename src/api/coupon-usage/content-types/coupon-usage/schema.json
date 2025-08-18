@@ -1,0 +1,56 @@
+{
+  "kind": "collectionType",
+  "collectionName": "coupon_usages",
+  "info": {
+    "singularName": "coupon-usage",
+    "pluralName": "coupon-usages",
+    "displayName": "Coupon Usage",
+    "description": ""
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "coupon": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::coupon.coupon",
+      "inversedBy": "usages"
+    },
+    "status": {
+      "type": "enumeration",
+      "enum": [
+        "issued",
+        "applied",
+        "redeemed",
+        "expired"
+      ],
+      "default": "issued"
+    },
+    "email": {
+      "type": "email"
+    },
+    "appliedAt": {
+      "type": "datetime"
+    },
+    "redeemedAt": {
+      "type": "datetime"
+    },
+    "source": {
+      "type": "string"
+    },
+    "user": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user",
+      "inversedBy": "coupon_usages"
+    },
+    "order": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::order.order",
+      "inversedBy": "coupon_usages"
+    }
+  }
+}

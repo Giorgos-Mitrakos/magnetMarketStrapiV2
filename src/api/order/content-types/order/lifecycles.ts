@@ -1,523 +1,103 @@
-
-interface IBilling {
-    companyName: string
-    businessActivity: string
-    afm: string
-    doy: string
-    lastname: string
-    firstname: string
-    country: string
-    city: string
-    state: string
-    street: string
-    zipCode: string
-    mobilePhone: string
-    telephone: string
-}
-
-interface IShipping {
-    lastname: string
-    firstname: string
-    country: string
-    state: string
-    city: string
-    street: string
-    zipCode: string
-    mobilePhone: string
-    telephone: string
-}
-
-interface IOrderProduct {
-    id: string,
-    name: string
-    slug: string
-    image: string
-    price: number,
-    weight: number,
-    is_sale: boolean,
-    quantity: number,
-    sale_price: number,
-    isAvailable: boolean
-}
-
 export default {
     async afterCreate(event) {
-        const { result } = event
-
-        const order = await strapi.entityService.findOne('api::order.order', result.id, {
-            populate: {
-                user: true,
-                shipping: true,
-                payment: true,
-                comments: true
-            },
-        })
-
-        const billing = order.billing_address.valueOf() as IBilling
-        const shipping = order.shipping_address.valueOf() as IShipping
-        const products = order.products.valueOf() as IOrderProduct[]
-
-        const productsRows = products.map(product => ({ ...product, productTotal: product.is_sale && product.sale_price > 0 ? product.quantity * product.sale_price : product.quantity * product.price }
-        ))
-
-        const productsCost = products.reduce((total, item) => {
-            if (item.is_sale && item.sale_price > 0) {
-                return total + item.sale_price * item.quantity
-            }
-
-            return total + item.price * item.quantity
-        }, 0)
-
-        let templateReferenceId = 0
-
-        switch (order.status) {
-            case 'Σε αναμονή':
-                if (order.isInvoice) {
-                    if (order.different_shipping) {
-                        templateReferenceId = 33;
-                    }
-                    else { templateReferenceId = 34; }
-                }
-                else {
-                    if (order.different_shipping) {
-                        templateReferenceId = 32;
-                    }
-                    else { templateReferenceId = 1; }
-                }
-                break;
-            case 'Σε επεξεργασία':
-                if (order.isInvoice) {
-                    if (order.different_shipping) {
-                        templateReferenceId = 15;
-                    }
-                    else { templateReferenceId = 16; }
-                }
-                else {
-                    if (order.different_shipping) {
-                        templateReferenceId = 2;
-                    }
-                    else { templateReferenceId = 14; }
-                }
-                break;
-            case 'Εκκρεμεί πληρωμή':
-                if (order.isInvoice) {
-                    if (order.different_shipping) {
-                        templateReferenceId = 19;
-                    }
-                    else { templateReferenceId = 18; }
-                }
-                else {
-                    if (order.different_shipping) {
-                        templateReferenceId = 17;
-                    }
-                    else { templateReferenceId = 3; }
-                }
-                break;
-            case 'Ολοκληρωμένη':
-                if (order.isInvoice) {
-                    if (order.different_shipping) {
-                        templateReferenceId = 21;
-                    }
-                    else { templateReferenceId = 22; }
-                }
-                else {
-                    if (order.different_shipping) {
-                        templateReferenceId = 20;
-                    }
-                    else { templateReferenceId = 4; }
-                }
-                break;
-            case 'Ακυρωμένη':
-                if (order.isInvoice) {
-                    if (order.different_shipping) {
-                        templateReferenceId = 25;
-                    }
-                    else { templateReferenceId = 24; }
-                }
-                else {
-                    if (order.different_shipping) {
-                        templateReferenceId = 23;
-                    }
-                    else { templateReferenceId = 5; }
-                }
-                break;
-            case 'Επιστροφή χρημάτων':
-                if (order.isInvoice) {
-                    if (order.different_shipping) {
-                        templateReferenceId = 28;
-                    }
-                    else { templateReferenceId = 27; }
-                }
-                else {
-                    if (order.different_shipping) {
-                        templateReferenceId = 26;
-                    }
-                    else { templateReferenceId = 6; }
-                }
-                break;
-            case 'Αποτυχημένη':
-                if (order.isInvoice) {
-                    if (order.different_shipping) {
-                        templateReferenceId = 30;
-                    }
-                    else { templateReferenceId = 31; }
-                }
-                else {
-                    if (order.different_shipping) {
-                        templateReferenceId = 29;
-                    }
-                    else { templateReferenceId = 7; }
-                }
-                break;
-            default:
-                if (order.isInvoice) {
-                    if (order.different_shipping) {
-                        templateReferenceId = 30;
-                    }
-                    else { templateReferenceId = 31; }
-                }
-                else {
-                    if (order.different_shipping) {
-                        templateReferenceId = 29;
-                    }
-                    else { templateReferenceId = 7; }
-                }
-                break;
-        }
-
-        const installmentsCost = order.total - (productsCost + order.shipping.cost + order.shipping.cost)
-
-        const emailVariables = installmentsCost > 0 ?
-            {
-                billing: {
-                    firstname: `${billing.firstname}`,
-                    lastname: `${billing.lastname}`,
-                    companyName: billing.companyName,
-                    businessActivity: billing.businessActivity,
-                    afm: billing.afm,
-                    doy: billing.doy,
-                    country: `${billing.country}`,
-                    state: `${billing.state}`,
-                    city: `${billing.city}`,
-                    street: `${billing.street}`,
-                    zipCode: `${billing.zipCode}`,
-                    mobilePhone: `${billing.mobilePhone}`,
-                    telephone: `${billing.telephone}`,
-                },
-                shipping: {
-                    firstname: `${shipping.firstname}`,
-                    lastname: `${shipping.lastname}`,
-                    country: `${shipping.country}`,
-                    state: `${shipping.state}`,
-                    city: `${shipping.city}`,
-                    street: `${shipping.street}`,
-                    zipCode: `${shipping.zipCode}`,
-                    mobilePhone: `${shipping.mobilePhone}`,
-                    telephone: `${shipping.telephone}`,
-                },
-                order: {
-                    id: order.id,
-                    products: productsRows,
-                    productsCost: productsCost.toFixed(2),
-                    shippingName: order.shipping.name,
-                    shippingCost: order.shipping.cost.toFixed(2),
-                    paymentName: order.payment.name,
-                    paymentCost: order.payment.cost.toFixed(2),
-                    installmentsCost: installmentsCost.toFixed(2),
-                    total: order.total.toFixed(2)
-                },
-            }
-            :
-            {
-                billing: {
-                    firstname: `${billing.firstname}`,
-                    lastname: `${billing.lastname}`,
-                    companyName: billing.companyName,
-                    businessActivity: billing.businessActivity,
-                    afm: billing.afm,
-                    doy: billing.doy,
-                    country: `${billing.country}`,
-                    state: `${billing.state}`,
-                    city: `${billing.city}`,
-                    street: `${billing.street}`,
-                    zipCode: `${billing.zipCode}`,
-                    mobilePhone: `${billing.mobilePhone}`,
-                    telephone: `${billing.telephone}`,
-                },
-                shipping: {
-                    firstname: `${shipping.firstname}`,
-                    lastname: `${shipping.lastname}`,
-                    country: `${shipping.country}`,
-                    state: `${shipping.state}`,
-                    city: `${shipping.city}`,
-                    street: `${shipping.street}`,
-                    zipCode: `${shipping.zipCode}`,
-                    mobilePhone: `${shipping.mobilePhone}`,
-                    telephone: `${shipping.telephone}`,
-                },
-                order: {
-                    id: order.id,
-                    products: productsRows,
-                    productsCost: productsCost.toFixed(2),
-                    shippingName: order.shipping.name,
-                    shippingCost: order.shipping.cost.toFixed(2),
-                    paymentName: order.payment.name,
-                    paymentCost: order.payment.cost.toFixed(2),
-                    total: order.total.toFixed(2)
-                },
-            }
-
         try {
-            let newOrderTemplate = 8
-            if (order.isInvoice) {
-                if (order.different_shipping) {
-                    templateReferenceId = 13;
+            const { result } = event
+
+            const order = await strapi.entityService.findOne('api::order.order', result.id, {
+                populate: {
+                    user: true,
+                    shipping: true,
+                    payment: true,
+                    comments: true
                 }
-                else { templateReferenceId = 12; }
-            }
-            else {
-                if (order.different_shipping) {
-                    templateReferenceId = 8;
-                }
-                else { templateReferenceId = 11; }
-            }
-            await strapi.service('api::order.order').sendConfirmOrderEmail({ templateReferenceId, to: order.user.email, emailVariables, subject: `Magnetmarket - Η παραγγελία σας με κωδικό #${order.id} είναι σε κατάσταση: ${order.status}!` })
-            await strapi.service('api::order.order').sendConfirmOrderEmail({ templateReferenceId: newOrderTemplate, to: ['giorgos_mitrakos@yahoo.com', "info@magnetmarket.gr", "kkoulogiannis@gmail.com"], emailVariables, subject: `Νέα παραγγελία στο site, Αρ.παρ #${order.id}` })
+            });
+
+            const emailVariables = await strapi.service('api::order.order').sendStatusEmail(order)
+
+            await strapi.service('api::order.order').sendConfirmOrderEmail({ templateReferenceId: 5, to: ['giorgos_mitrakos@yahoo.com'], emailVariables, subject: `Νέα παραγγελία στο site, Αρ.παρ #${emailVariables.order.id}` })
+
+            // const templates = await strapi.db.query('api::coupon.coupon').findMany({
+            //     where: {
+            //         isTemplate: true,
+            //         trigger: {
+            //             $and: [
+            //                 { triggerType: 'order_completion' },
+            //                 { autoGenerate: true }
+            //             ]
+            //         }
+            //     }, populate: {
+            //         trigger: true,
+            //         restrictions: true,
+            //         validation: true
+            //     }
+            // });
+           
+            // // Generate a coupon for each matching template
+            // for (const template of templates) {
+            //     const existingCoupon = await strapi.entityService.findMany('api::coupon.coupon', {
+            //         filters: {
+            //             parentCoupon: template.id,
+            //             allowedEmail: order.user.email
+            //         }
+            //     });
+            //     // if (existingCoupon.length > 0) continue; // Skip if already exists
+
+            //     const uniqueCode = await strapi.service('api::coupon.coupon').generateUniqueCouponCode(template.code);
+
+            //     const expiryDate = strapi.service('api::coupon.coupon').createExpireDate(template.restrictions.orderTimeframe)
+
+            //     const newCoupon = await strapi.entityService.create('api::coupon.coupon', {
+            //         data: {
+            //             code: uniqueCode,
+            //             isTemplate: false,
+            //             allowedEmail: order.user.email, // Restrict to user's email
+            //             isPersonalized: template.isPersonalized,
+            //             parentCoupon: template.id,
+            //             discountType: template.discountType,
+            //             discountValue: template.discountValue,
+            //             isActive: true,
+            //             restrictions: template.restrictions,
+            //             validation: {
+            //                 startDate: template.validation?.startDate,
+            //                 endDate: expiryDate || template.validation?.endDate || undefined,
+            //                 usesPerUser: 1,
+            //                 singleUse: true
+            //             }
+            //         }
+            //     });
+
+            //     console.log(newCoupon)
+
+            //     const newFullCoupon = await strapi.entityService.findOne('api::coupon.coupon', newCoupon.id, {
+            //         populate: { validation: true },
+            //     });
+
+            //     await strapi.service('api::coupon.coupon').recordCouponUsage(newCoupon.id, order.user.id, order.user.email, 'generated_from_template')
+
+            //     await strapi.service('api::order.order').sendConfirmOrderEmail({
+            //         templateReferenceId: 11,
+            //         to: order.user.email,
+            //         emailVariables: {
+            //             discount: `${newFullCoupon.discountType === 'free_shipping' ? (
+            //                 "Δωρεάν μεταφορικά"
+            //             ) :
+            //                 (
+            //                     `${newFullCoupon.discountValue}${newFullCoupon.discountType === 'percentage' ? '% ΕΚΠΤΩΣΗ' : '€ ΕΚΠΤΩΣΗ'
+            //                     }`
+            //                 )}`,
+            //             couponCode: newFullCoupon.code,
+            //             expiryDate: newFullCoupon.validation?.endDate ? newFullCoupon.validation?.endDate : "Χωρίς περιορισμό χρόνου",
+            //             shopUrl: "https://www.magnetmarket.gr",
+            //             shopName: "Magnet Market",
+            //             currentYear: new Date().getFullYear(),
+            //         },
+            //         subject: 'Αποκλειστικό Κουπόνι | MagnetMarket'
+            //     })
+            // }
+
+
         } catch (error) {
             console.log(error)
         }
-
     },
-
-    async beforeUpdate(event) {
-        const order = await strapi.entityService.findOne('api::order.order', event.params.where.id, {
-            populate: {
-                user: true,
-                shipping: true,
-                payment: true,
-                comments: true
-            },
-        })
-
-        if (event.params.data.status && order.status !== event.params.data.status) {
-
-            const billing = order.billing_address.valueOf() as IBilling
-            const shipping = order.shipping_address.valueOf() as IShipping
-            const products = order.products.valueOf() as IOrderProduct[]
-
-            const productsRows = products.map(product => ({ ...product, productTotal: product.quantity * product.price }
-            ))
-
-            const productsCost = products.reduce((total, item) => {
-                return total + item.price * item.quantity
-            }, 0)
-
-            let templateReferenceId = 0
-
-            switch (event.params.data.status) {
-                case 'Σε αναμονή':
-                    if (order.isInvoice) {
-                        if (order.different_shipping) {
-                            templateReferenceId = 33;
-                        }
-                        else { templateReferenceId = 34; }
-                    }
-                    else {
-                        if (order.different_shipping) {
-                            templateReferenceId = 32;
-                        }
-                        else { templateReferenceId = 1; }
-                    }
-                    break;
-                case 'Σε επεξεργασία':
-                    if (order.isInvoice) {
-                        if (order.different_shipping) {
-                            templateReferenceId = 15;
-                        }
-                        else { templateReferenceId = 16; }
-                    }
-                    else {
-                        if (order.different_shipping) {
-                            templateReferenceId = 2;
-                        }
-                        else { templateReferenceId = 14; }
-                    }
-                    break;
-                case 'Εκκρεμεί πληρωμή':
-                    if (order.isInvoice) {
-                        if (order.different_shipping) {
-                            templateReferenceId = 19;
-                        }
-                        else { templateReferenceId = 18; }
-                    }
-                    else {
-                        if (order.different_shipping) {
-                            templateReferenceId = 17;
-                        }
-                        else { templateReferenceId = 3; }
-                    }
-                    break;
-                case 'Ολοκληρωμένη':
-                    if (order.isInvoice) {
-                        if (order.different_shipping) {
-                            templateReferenceId = 21;
-                        }
-                        else { templateReferenceId = 22; }
-                    }
-                    else {
-                        if (order.different_shipping) {
-                            templateReferenceId = 20;
-                        }
-                        else { templateReferenceId = 4; }
-                    }
-                    break;
-                case 'Ακυρωμένη':
-                    if (order.isInvoice) {
-                        if (order.different_shipping) {
-                            templateReferenceId = 25;
-                        }
-                        else { templateReferenceId = 24; }
-                    }
-                    else {
-                        if (order.different_shipping) {
-                            templateReferenceId = 23;
-                        }
-                        else { templateReferenceId = 5; }
-                    }
-                    break;
-                case 'Επιστροφή χρημάτων':
-                    if (order.isInvoice) {
-                        if (order.different_shipping) {
-                            templateReferenceId = 28;
-                        }
-                        else { templateReferenceId = 27; }
-                    }
-                    else {
-                        if (order.different_shipping) {
-                            templateReferenceId = 26;
-                        }
-                        else { templateReferenceId = 6; }
-                    }
-                    break;
-                case 'Αποτυχημένη':
-                    if (order.isInvoice) {
-                        if (order.different_shipping) {
-                            templateReferenceId = 30;
-                        }
-                        else { templateReferenceId = 31; }
-                    }
-                    else {
-                        if (order.different_shipping) {
-                            templateReferenceId = 29;
-                        }
-                        else { templateReferenceId = 7; }
-                    }
-                    break;
-                default:
-                    if (order.isInvoice) {
-                        if (order.different_shipping) {
-                            templateReferenceId = 30;
-                        }
-                        else { templateReferenceId = 31; }
-                    }
-                    else {
-                        if (order.different_shipping) {
-                            templateReferenceId = 29;
-                        }
-                        else { templateReferenceId = 7; }
-                    }
-                    break;
-            }
-
-            const installmentsCost = order.total - (productsCost + order.shipping.cost + order.shipping.cost)
-
-            const emailVariables = installmentsCost > 0 ?
-                {
-                    billing: {
-                        firstname: `${billing.firstname}`,
-                        lastname: `${billing.lastname}`,
-                        companyName: billing.companyName,
-                        businessActivity: billing.businessActivity,
-                        afm: billing.afm,
-                        doy: billing.doy,
-                        country: `${billing.country}`,
-                        state: `${billing.state}`,
-                        city: `${billing.city}`,
-                        street: `${billing.street}`,
-                        zipCode: `${billing.zipCode}`,
-                        mobilePhone: `${billing.mobilePhone}`,
-                        telephone: `${billing.telephone}`,
-                    },
-                    shipping: {
-                        firstname: `${shipping.firstname}`,
-                        lastname: `${shipping.lastname}`,
-                        country: `${shipping.country}`,
-                        state: `${shipping.state}`,
-                        city: `${shipping.city}`,
-                        street: `${shipping.street}`,
-                        zipCode: `${shipping.zipCode}`,
-                        mobilePhone: `${shipping.mobilePhone}`,
-                        telephone: `${shipping.telephone}`,
-                    },
-                    order: {
-                        id: order.id,
-                        products: productsRows,
-                        productsCost: productsCost.toFixed(2),
-                        shippingName: order.shipping.name,
-                        shippingCost: order.shipping.cost.toFixed(2),
-                        paymentName: order.payment.name,
-                        paymentCost: order.payment.cost.toFixed(2),
-                        installmentsCost: installmentsCost.toFixed(2),
-                        total: order.total.toFixed(2)
-                    },
-                }
-                :
-                {
-                    billing: {
-                        firstname: `${billing.firstname}`,
-                        lastname: `${billing.lastname}`,
-                        companyName: billing.companyName,
-                        businessActivity: billing.businessActivity,
-                        afm: billing.afm,
-                        doy: billing.doy,
-                        country: `${billing.country}`,
-                        state: `${billing.state}`,
-                        city: `${billing.city}`,
-                        street: `${billing.street}`,
-                        zipCode: `${billing.zipCode}`,
-                        mobilePhone: `${billing.mobilePhone}`,
-                        telephone: `${billing.telephone}`,
-                    },
-                    shipping: {
-                        firstname: `${shipping.firstname}`,
-                        lastname: `${shipping.lastname}`,
-                        country: `${shipping.country}`,
-                        state: `${shipping.state}`,
-                        city: `${shipping.city}`,
-                        street: `${shipping.street}`,
-                        zipCode: `${shipping.zipCode}`,
-                        mobilePhone: `${shipping.mobilePhone}`,
-                        telephone: `${shipping.telephone}`,
-                    },
-                    order: {
-                        id: order.id,
-                        products: productsRows,
-                        productsCost: productsCost.toFixed(2),
-                        shippingName: order.shipping.name,
-                        shippingCost: order.shipping.cost.toFixed(2),
-                        paymentName: order.payment.name,
-                        paymentCost: order.payment.cost.toFixed(2),
-                        total: order.total.toFixed(2)
-                    },
-                }
-
-            try {
-                await strapi.service('api::order.order').sendConfirmOrderEmail({ templateReferenceId, to: order.user.email, emailVariables, subject: `Magnetmarket - Η παραγγελία σας με κωδικό #${order.id} είναι σε κατάσταση: ${event.params.data.status}!` })
-
-            } catch (error) {
-                console.log(error)
-            }
-        }
-    },
-
 }

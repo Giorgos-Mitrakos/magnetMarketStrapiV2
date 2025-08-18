@@ -7,7 +7,7 @@ import { factories } from '@strapi/strapi'
 export default factories.createCoreController('api::shipping.shipping',
     ({ strapi }) => ({
         async findShippingCost(ctx) {
-            ctx.body = await strapi.service('api::shipping.shipping').findShippingCost(ctx);
+            ctx.body = await strapi.service('api::shipping.shipping').findShippingCost(ctx.request.body);
             return {
                 okay: true,
                 type: "POST",

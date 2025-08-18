@@ -1,3 +1,5 @@
+import { update } from "lodash";
+
 export default {
     async beforeDelete(event) {
         const { where } = event.params;
@@ -60,7 +62,7 @@ export default {
                         // This will delete corresponding image files under the *upload* folder.
                         strapi.plugins.upload.services.upload.remove(imageEntry);
                     }
-                } 
+                }
 
                 if (entry.additionalFiles) {
                     const fileEntry = await strapi.db.query('plugin::upload.file').delete({
@@ -82,12 +84,12 @@ export default {
         const entry = await strapi.entityService.findOne('api::product.product', where.id, {
             // populate: { supplierInfo: true }
         });
-        
+
         if (data.publishedAt) {
-            data.need_verify=false            
+            data.need_verify = false
         }
-        else if(entry.publishedAt){
-            data.need_verify=false 
+        else if (entry.publishedAt) {
+            data.need_verify = false
         }
     },
 };

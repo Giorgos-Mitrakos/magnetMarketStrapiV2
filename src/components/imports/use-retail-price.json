@@ -1,0 +1,13 @@
+{
+  "collectionName": "components_imports_use_retail_prices",
+  "info": {
+    "displayName": "useRetailPrice"
+  },
+  "options": {},
+  "attributes": {
+    "text": {
+      "type": "string",
+      "required": true
+    }
+  }
+}

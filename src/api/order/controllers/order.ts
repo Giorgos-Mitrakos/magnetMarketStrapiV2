@@ -8,7 +8,7 @@ export default factories.createCoreController('api::order.order',
     ({ strapi }) => ({
         async createOrder(ctx) {
             const apiToken = ctx.request.headers.authorization?.replace('Bearer', '').trim()
-            
+
             if (apiToken !== process.env.ADMIN_JWT_SECRET) {
                 return ctx.unauthorized('Invalid api token')
             }
@@ -49,7 +49,7 @@ export default factories.createCoreController('api::order.order',
         async getTicket(ctx) {
 
             const apiToken = ctx.request.headers.authorization?.replace('Bearer', '').trim()
-            
+
             if (apiToken !== process.env.ADMIN_JWT_SECRET) {
                 return ctx.unauthorized('Invalid api token')
             }
@@ -75,6 +75,22 @@ export default factories.createCoreController('api::order.order',
                 type: "POST",
             };
         },
+
+        async getDiscount(ctx) {
+            try {
+
+                ctx.body = await strapi.service('api::order.order').getDiscount(ctx.request.body);
+                return {
+                    okay: true,
+                    type: "POST",
+                };
+            } catch (error) {
+                return {
+                    valid: false,
+                    message: error.message // This will contain the specific validation error
+                };
+            }
+        }
 
     })
 );
