@@ -74,7 +74,7 @@ export default {
                 await strapi.service('api::coupon.coupon').recordCouponUsage(newCoupon.id, currentUser.id, currentUser.email, 'generated_from_template')
 
                 await strapi.service('api::order.order').sendConfirmOrderEmail({
-                    templateReferenceId: 11,
+                    templateReferenceId: 3,
                     to: result.email,
                     emailVariables: {
                         discount: `${newCoupon.discountType === 'free_shipping' ? (

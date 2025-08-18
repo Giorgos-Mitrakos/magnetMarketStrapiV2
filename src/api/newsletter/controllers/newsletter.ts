@@ -21,8 +21,6 @@ export default factories.createCoreController('api::newsletter.newsletter', ({ s
     async subscribe(ctx) {
         const { email } = ctx.request.body as { email: string };
 
-        console.log(ctx.request.body)
-
         const subscriber = await strapi.db.query('api::newsletter.newsletter').findOne({
             where: { email: email },
         })
