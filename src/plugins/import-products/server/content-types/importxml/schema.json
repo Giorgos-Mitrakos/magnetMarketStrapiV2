@@ -41,6 +41,18 @@
       "type": "boolean",
       "default": false
     },
+    "useRetailPriceBrands": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::brand.brand",
+      "inversedBy": "useRetailPrice"
+    },
+    "useRetailPriceCategories": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::category.category",
+      "inversedBy": "useRetailPrice"
+    },
     "useRetailPriceContainName": {
       "displayName": "useRetailPriceContainName",
       "type": "component",
