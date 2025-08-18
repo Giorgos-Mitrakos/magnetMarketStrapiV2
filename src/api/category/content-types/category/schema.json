@@ -80,7 +80,7 @@
       "type": "relation",
       "relation": "manyToMany",
       "target": "plugin::import-products.importxml",
-      "mappedBy": "useRetailPriceCategories"
+      "inversedBy": "useRetailPriceCategories"
     }
   }
 }

@@ -45,13 +45,13 @@
       "type": "relation",
       "relation": "manyToMany",
       "target": "api::brand.brand",
-      "inversedBy": "useRetailPrice"
+      "mappedBy": "useRetailPrice"
     },
     "useRetailPriceCategories": {
       "type": "relation",
       "relation": "manyToMany",
       "target": "api::category.category",
-      "inversedBy": "useRetailPrice"
+      "mappedBy": "useRetailPrice"
     },
     "useRetailPriceContainName": {
       "displayName": "useRetailPriceContainName",
