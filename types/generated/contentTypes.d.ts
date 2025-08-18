@@ -427,11 +427,6 @@ export interface ApiBrandBrand extends Schema.CollectionType {
       'admin::user'
     > &
       Attribute.Private;
-    useRetailPrice: Attribute.Relation<
-      'api::brand.brand',
-      'manyToMany',
-      'plugin::import-products.importxml'
-    >;
   };
 }
 
@@ -500,11 +495,6 @@ export interface ApiCategoryCategory extends Schema.CollectionType {
       'admin::user'
     > &
       Attribute.Private;
-    useRetailPrice: Attribute.Relation<
-      'api::category.category',
-      'manyToMany',
-      'plugin::import-products.importxml'
-    >;
   };
 }
 
@@ -1853,16 +1843,6 @@ export interface PluginImportProductsImportxml extends Schema.CollectionType {
     > &
       Attribute.Private;
     useRetailPrice: Attribute.Boolean & Attribute.DefaultTo<false>;
-    useRetailPriceBrands: Attribute.Relation<
-      'plugin::import-products.importxml',
-      'manyToMany',
-      'api::brand.brand'
-    >;
-    useRetailPriceCategories: Attribute.Relation<
-      'plugin::import-products.importxml',
-      'manyToMany',
-      'api::category.category'
-    >;
     useRetailPriceContainName: Attribute.Component<
       'imports.use-retail-price',
       true
