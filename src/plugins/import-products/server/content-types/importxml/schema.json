@@ -15,7 +15,7 @@
       "visible": true
     },
     "content-type-builder": {
-      "visible": false
+      "visible": true
     }
   },
   "attributes": {
@@ -40,12 +40,6 @@
     "useRetailPrice": {
       "type": "boolean",
       "default": false
-    },
-    "useRetailPriceContainName": {
-      "displayName": "useRetailPriceContainName",
-      "type": "component",
-      "repeatable": true,
-      "component": "imports.use-retail-price"
     },
     "importedFile": {
       "type": "media",

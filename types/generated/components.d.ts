@@ -355,7 +355,7 @@ export interface ImportsContainsName extends Schema.Component {
 export interface ImportsUseRetailPrice extends Schema.Component {
   collectionName: 'components_imports_use_retail_prices';
   info: {
-    displayName: 'useRetailPrice';
+    displayName: 'use-retail-price';
   };
   attributes: {
     text: Attribute.String & Attribute.Required;
