@@ -420,11 +420,6 @@ export interface ApiBrandBrand extends Schema.CollectionType {
     >;
     publishedAt: Attribute.DateTime;
     slug: Attribute.UID<'api::brand.brand', 'name'> & Attribute.Required;
-    suppliersWithRetailPrice: Attribute.Relation<
-      'api::brand.brand',
-      'manyToMany',
-      'plugin::import-products.importxml'
-    >;
     updatedAt: Attribute.DateTime;
     updatedBy: Attribute.Relation<
       'api::brand.brand',
@@ -432,6 +427,11 @@ export interface ApiBrandBrand extends Schema.CollectionType {
       'admin::user'
     > &
       Attribute.Private;
+    useRetailPrice: Attribute.Relation<
+      'api::brand.brand',
+      'manyToMany',
+      'plugin::import-products.importxml'
+    >;
   };
 }
 
@@ -493,11 +493,6 @@ export interface ApiCategoryCategory extends Schema.CollectionType {
     >;
     publishedAt: Attribute.DateTime;
     slug: Attribute.UID<'api::category.category', 'name'> & Attribute.Required;
-    suppliersWithRetailPrice: Attribute.Relation<
-      'api::category.category',
-      'manyToMany',
-      'plugin::import-products.importxml'
-    >;
     updatedAt: Attribute.DateTime;
     updatedBy: Attribute.Relation<
       'api::category.category',
@@ -505,6 +500,11 @@ export interface ApiCategoryCategory extends Schema.CollectionType {
       'admin::user'
     > &
       Attribute.Private;
+    useRetailPrice: Attribute.Relation<
+      'api::category.category',
+      'manyToMany',
+      'plugin::import-products.importxml'
+    >;
   };
 }
 
@@ -1769,7 +1769,7 @@ export interface PluginImportProductsImportxml extends Schema.CollectionType {
       visible: true;
     };
     'content-type-builder': {
-      visible: true;
+      visible: false;
     };
   };
   attributes: {

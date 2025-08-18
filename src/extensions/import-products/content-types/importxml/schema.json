@@ -15,7 +15,7 @@
       "visible": true
     },
     "content-type-builder": {
-      "visible": true
+      "visible": false
     }
   },
   "attributes": {
@@ -45,13 +45,13 @@
       "type": "relation",
       "relation": "manyToMany",
       "target": "api::brand.brand",
-      "inversedBy": "suppliersWithRetailPrice"
+      "inversedBy": "useRetailPrice"
     },
     "useRetailPriceCategories": {
       "type": "relation",
       "relation": "manyToMany",
       "target": "api::category.category",
-      "inversedBy": "suppliersWithRetailPrice"
+      "inversedBy": "useRetailPrice"
     },
     "useRetailPriceContainName": {
       "displayName": "useRetailPriceContainName",
