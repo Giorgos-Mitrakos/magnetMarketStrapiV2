@@ -75,12 +75,6 @@
       "relation": "manyToMany",
       "target": "api::coupon.coupon",
       "mappedBy": "excludedCategories"
-    },
-    "suppliersWithRetailPrice": {
-      "type": "relation",
-      "relation": "manyToMany",
-      "target": "plugin::import-products.importxml",
-      "mappedBy": "useRetailPriceCategories"
     }
   }
 }
