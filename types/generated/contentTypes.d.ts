@@ -784,9 +784,11 @@ export interface ApiNewsletterNewsletter extends Schema.CollectionType {
     > &
       Attribute.Private;
     email: Attribute.Email & Attribute.Required & Attribute.Unique;
-    isActive: Attribute.Boolean &
+    subscribed: Attribute.Boolean &
       Attribute.Required &
-      Attribute.DefaultTo<false>;
+      Attribute.DefaultTo<true>;
+    subscribedAt: Attribute.DateTime;
+    unsubscribedAt: Attribute.DateTime;
     updatedAt: Attribute.DateTime;
     updatedBy: Attribute.Relation<
       'api::newsletter.newsletter',

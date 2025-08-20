@@ -1,10 +1,11 @@
 export default {
     routes: [
         {
-            method: 'GET',
-            path: '/newsletter/unsubscribe/:email',
+            method: 'POST',
+            path: '/newsletter/unsubscribe',
             handler: 'newsletter.unsubscribe',
             config: {
+                auth: false,
                 policies: [],
                 middlewares: [],
             },

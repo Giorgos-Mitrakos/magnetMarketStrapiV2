@@ -71,6 +71,15 @@ export default {
                     }
                 });
 
+
+                // Στο controller ή service όπου στέλνεται το email
+                const tokenUtils = strapi.service('api::order.order');
+
+                // Generate token for unsubscribe link
+                const unsubscribeToken = tokenUtils.generateUnsubscribeToken(result.email);
+                const unsubscribeLink = `${process.env.CANONICAL_URL}/newsletter/unsubscribe/?email=${encodeURIComponent(result.email)}&token=${encodeURIComponent(unsubscribeToken)}`;
+
+
                 await strapi.service('api::coupon.coupon').recordCouponUsage(newCoupon.id, currentUser.id, currentUser.email, 'generated_from_template')
 
                 await strapi.service('api::order.order').sendConfirmOrderEmail({
@@ -85,11 +94,11 @@ export default {
                                 }`
                             )}`,
                         couponCode: newCoupon.code,
-                        expiryDate: template.validation?.endDate ? template.validation?.endDate : "Χωρίς περιορισμό χρόνου",
+                        expiryDate: template.validation?.endDate ? template.validation?.endDate : "Χωρίς χρονικό περιορισμό",
                         shopUrl: "https://www.magnetmarket.gr",
                         shopName: "Magnet Market",
                         currentYear: new Date().getFullYear(),
-                        unsubscribeLink:`${process.env.CANONICAL_URL}api/newsletter/unsubscribe/${result.email}`
+                        unsubscribeLink: unsubscribeLink
                     },
                     subject: 'Αποκλειστικό Κουπόνι | MagnetMarket'
                 })

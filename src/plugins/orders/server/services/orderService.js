@@ -230,8 +230,7 @@ module.exports = ({ strapi }) => ({
       },
     });
 
-    await strapi.service('api::order.order').sendVoucherEmail({  order, voucher })
-  }
-
-
+    await strapi.service('api::order.order').sendVoucherEmail({ order, voucher })
+  },
+  
 });

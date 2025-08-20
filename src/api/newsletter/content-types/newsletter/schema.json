@@ -16,10 +16,16 @@
       "required": true,
       "unique": true
     },
-    "isActive": {
+    "subscribed": {
       "type": "boolean",
-      "default": false,
+      "default": true,
       "required": true
+    },
+    "subscribedAt": {
+      "type": "datetime"
+    },
+    "unsubscribedAt": {
+      "type": "datetime"
     }
   }
 }

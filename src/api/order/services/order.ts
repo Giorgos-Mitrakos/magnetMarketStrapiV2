@@ -2,6 +2,7 @@
  * order service
  */
 
+const CryptoJS = require('crypto-js');
 import { factories } from '@strapi/strapi';
 import type { Attribute } from "@strapi/strapi";
 export type IProduct = Attribute.GetValues<"api::product.product">;
@@ -370,41 +371,46 @@ export default factories.createCoreService('api::order.order', ({ strapi }) => (
     },
 
     async sendConfirmOrderEmail({ templateReferenceId, to, emailVariables, subject }) {
+        try {
 
-        await strapi
-            .plugin('email-designer')
-            .service('email')
-            .sendTemplatedEmail(
-                {
-                    // required
-                    to: to,
+            await strapi
+                .plugin('email-designer')
+                .service('email')
+                .sendTemplatedEmail(
+                    {
+                        // required
+                        to: to,
 
-                    // optional if /config/plugins.js -> email.settings.defaultFrom is set
-                    from: 'info@magnetmarket.gr',
+                        // optional if /config/plugins.js -> email.settings.defaultFrom is set
+                        from: 'info@magnetmarket.gr',
 
-                    // optional if /config/plugins.js -> email.settings.defaultReplyTo is set
-                    replyTo: 'info@magnetmarket.gr',
+                        // optional if /config/plugins.js -> email.settings.defaultReplyTo is set
+                        replyTo: 'info@magnetmarket.gr',
 
-                    // optional array of files
-                    attachments: []
-                    //  products.map(product => {
-                    //     return ({
-                    //         filename: product.image,
-                    //         href: `http://localhost:1337${product.image}`,
-                    //         cid: product.id
-                    //     })
-                    // }),
-                },
-                {
-                    // required - Ref ID defined in the template designer (won't change on import)
-                    templateReferenceId: templateReferenceId,
+                        // optional array of files
+                        attachments: []
+                        //  products.map(product => {
+                        //     return ({
+                        //         filename: product.image,
+                        //         href: `http://localhost:1337${product.image}`,
+                        //         cid: product.id
+                        //     })
+                        // }),
+                    },
+                    {
+                        // required - Ref ID defined in the template designer (won't change on import)
+                        templateReferenceId: templateReferenceId,
 
-                    // If provided here will override the template's subject.
-                    // Can include variables like `Thank you for your order {{= USER.firstName }}!`
-                    subject: subject,
-                },
-                emailVariables
-            );
+                        // If provided here will override the template's subject.
+                        // Can include variables like `Thank you for your order {{= USER.firstName }}!`
+                        subject: subject,
+                    },
+                    emailVariables
+                );
+
+        } catch (error) {
+            console.log(error)
+        }
     },
 
     async saveTicket(ctx) {
@@ -611,5 +617,118 @@ export default factories.createCoreService('api::order.order', ({ strapi }) => (
 
         await strapi.service('api::order.order').sendConfirmOrderEmail({ templateReferenceId: 2, to: order.user.email, emailVariables, subject: `Magnetmarket - Η παραγγελία σας με κωδικό #${order.id} έχει αποσταλεί!` })
 
-    }
+    },
+
+    /**
+   * Generate unsubscribe token with expiration
+   * @param {string} email - User email
+   * @param {number} expiresInHours - Expiration time in hours
+   * @returns {string} - Token
+   */
+
+    generateUnsubscribeToken(email, expiresInHours = 720) { // 30 days default
+        try {
+            const secret = process.env.UNSUBSCRIBE_SECRET;
+
+            if (!secret) {
+                throw new Error('UNSUBSCRIBE_SECRET environment variable is not defined');
+            }
+
+            const payload = {
+                email: email,
+                action: 'unsubscribe',
+                expires: Date.now() + (expiresInHours * 60 * 60 * 1000)
+            };
+
+            const payloadString = JSON.stringify(payload);
+            const signature = CryptoJS.HmacSHA256(payloadString, secret).toString();
+
+            // Base64 encode the combined signature and payload
+            const tokenData = `${signature}:${payloadString}`;
+            const encodedToken = CryptoJS.enc.Base64.stringify(CryptoJS.enc.Utf8.parse(tokenData));
+
+            return encodedToken;
+
+
+        } catch (error) {
+            console.error('Error generating unsubscribe token:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Verify unsubscribe token
+     * @param {string} email - User email
+     * @param {string} token - Token to verify
+     * @returns {boolean} - True if valid
+     */
+    verifyUnsubscribeToken(email, token) {
+        try {
+            console.log(email, token)
+            const secret = process.env.UNSUBSCRIBE_SECRET;
+
+            if (!secret) {
+                console.error('UNSUBSCRIBE_SECRET environment variable is not defined');
+                return false;
+            }
+
+            // 1. Base64 decode the token
+            const decodedBytes = CryptoJS.enc.Base64.parse(token);
+            const decodedString = decodedBytes.toString(CryptoJS.enc.Utf8);
+
+            if (!decodedString.includes(':')) {
+                console.error('Invalid token format: missing delimiter');
+                return false;
+            }
+
+            // 2. Split signature and payload
+            const delimiterIndex = decodedString.indexOf(':');
+            const receivedSignature = decodedString.substring(0, delimiterIndex);
+            const payloadString = decodedString.substring(delimiterIndex + 1);
+
+            if (!receivedSignature || !payloadString) {
+                console.error('Invalid token format: missing signature or payload');
+                return false;
+            }
+
+            // 3. Parse JSON payload
+            let payload;
+            try {
+                payload = JSON.parse(payloadString);
+            } catch (parseError) {
+                console.error('Failed to parse token payload:', parseError, 'Payload:', payloadString);
+                return false;
+            }
+
+            // 4. Check expiration
+            if (Date.now() > payload.expires) {
+                console.log('Token expired');
+                return false;
+            }
+
+            // 5. Check email match
+            if (payload.email !== email) {
+                console.log('Email mismatch');
+                return false;
+            }
+
+            // 6. Check action
+            if (payload.action !== 'unsubscribe') {
+                console.log('Invalid action');
+                return false;
+            }
+
+            // 7. Verify signature
+            const expectedSignature = CryptoJS.HmacSHA256(payloadString, secret).toString();
+
+            // Constant-time comparison
+            const receivedHash = CryptoJS.SHA256(receivedSignature).toString();
+            const expectedHash = CryptoJS.SHA256(expectedSignature).toString();
+
+            return receivedHash === expectedHash;
+
+        } catch (error) {
+            console.log(error)
+        }
+    },
 }));
