@@ -14,6 +14,19 @@
   "attributes": {
     "text": {
       "type": "text"
+    },
+    "type": {
+      "type": "enumeration",
+      "enum": [
+        "info",
+        "warning",
+        "important",
+        "event"
+      ]
+    },
+    "isClosable": {
+      "type": "boolean",
+      "default": true
     }
   }
 }

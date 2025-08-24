@@ -70,7 +70,8 @@ export default {
                         }
                     }
                 });
-
+                
+                await strapi.service('api::coupon.coupon').recordCouponUsage(newCoupon.id, currentUser.id, currentUser.email, 'generated_from_template')
 
                 // Στο controller ή service όπου στέλνεται το email
                 const tokenUtils = strapi.service('api::order.order');
@@ -78,9 +79,6 @@ export default {
                 // Generate token for unsubscribe link
                 const unsubscribeToken = tokenUtils.generateUnsubscribeToken(result.email);
                 const unsubscribeLink = `${process.env.CANONICAL_URL}/newsletter/unsubscribe/?email=${encodeURIComponent(result.email)}&token=${encodeURIComponent(unsubscribeToken)}`;
-
-
-                await strapi.service('api::coupon.coupon').recordCouponUsage(newCoupon.id, currentUser.id, currentUser.email, 'generated_from_template')
 
                 await strapi.service('api::order.order').sendConfirmOrderEmail({
                     templateReferenceId: 3,

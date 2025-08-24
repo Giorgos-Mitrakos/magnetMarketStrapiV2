@@ -239,77 +239,77 @@ export default {
         },
     },
 
-    updateACICataloge: {
-        task: async ({ strapi }) => {
-            // Add your own logic here (e.g. send a queue of email, create a database backup, etc.).
-            const entry = await strapi.db.query('plugin::import-products.importxml').findOne({
-                where: { name: "Acihellas" },
-                populate: {
-                    importedFile: true,
-                    stock_map: {
-                        fields: ['name'],
-                        sort: 'name:asc',
-                    },
-                },
-            })
+    // updateACICataloge: {
+    //     task: async ({ strapi }) => {
+    //         // Add your own logic here (e.g. send a queue of email, create a database backup, etc.).
+    //         const entry = await strapi.db.query('plugin::import-products.importxml').findOne({
+    //             where: { name: "Acihellas" },
+    //             populate: {
+    //                 importedFile: true,
+    //                 stock_map: {
+    //                     fields: ['name'],
+    //                     sort: 'name:asc',
+    //                 },
+    //             },
+    //         })
 
-            await strapi
-                .plugin('import-products')
-                .service('aciService')
-                .parseAciJson({ entry });
-        },
-        options: {
-            rule: "50 6, * * *",
-        },
-    },
+    //         await strapi
+    //             .plugin('import-products')
+    //             .service('aciService')
+    //             .parseAciJson({ entry });
+    //     },
+    //     options: {
+    //         rule: "50 6, * * *",
+    //     },
+    // },
 
-    updateACIAvailability: {
-        task: async ({ strapi }) => {
-            // Add your own logic here (e.g. send a queue of email, create a database backup, etc.).
-            const entry = await strapi.db.query('plugin::import-products.importxml').findOne({
-                where: { name: "Acihellas" },
-                populate: {
-                    importedFile: true,
-                    stock_map: {
-                        fields: ['name'],
-                        sort: 'name:asc',
-                    },
-                },
-            })
+    // updateACIAvailability: {
+    //     task: async ({ strapi }) => {
+    //         // Add your own logic here (e.g. send a queue of email, create a database backup, etc.).
+    //         const entry = await strapi.db.query('plugin::import-products.importxml').findOne({
+    //             where: { name: "Acihellas" },
+    //             populate: {
+    //                 importedFile: true,
+    //                 stock_map: {
+    //                     fields: ['name'],
+    //                     sort: 'name:asc',
+    //                 },
+    //             },
+    //         })
 
-            await strapi
-                .plugin('import-products')
-                .service('aciService')
-                .getAciAvailability({ entry });
-        },
-        options: {
-            rule: "51 7,9,11,15,17,21 * * *",
-        },
-    },
+    //         await strapi
+    //             .plugin('import-products')
+    //             .service('aciService')
+    //             .getAciAvailability({ entry });
+    //     },
+    //     options: {
+    //         rule: "51 7,9,11,15,17,21 * * *",
+    //     },
+    // },
 
-    updateACIAttributes: {
-        task: async ({ strapi }) => {
-            // Add your own logic here (e.g. send a queue of email, create a database backup, etc.).
-            const entry = await strapi.db.query('plugin::import-products.importxml').findOne({
-                where: { name: "Acihellas" },
-                populate: {
-                    importedFile: true,
-                    stock_map: {
-                        fields: ['name'],
-                        sort: 'name:asc',
-                    },
-                },
-            })
+    // updateACIAttributes: {
+    //     task: async ({ strapi }) => {
+    //         // Add your own logic here (e.g. send a queue of email, create a database backup, etc.).
+    //         const entry = await strapi.db.query('plugin::import-products.importxml').findOne({
+    //             where: { name: "Acihellas" },
+    //             populate: {
+    //                 importedFile: true,
+    //                 stock_map: {
+    //                     fields: ['name'],
+    //                     sort: 'name:asc',
+    //                 },
+    //             },
+    //         })
 
-            await strapi
-                .plugin('import-products')
-                .service('aciService')
-                .getAciAttributes({ entry });
-        },
-        options: {
-            rule: "5 2 * * 2,6",
-        },
-    },
+    //         await strapi
+    //             .plugin('import-products')
+    //             .service('aciService')
+    //             .getAciAttributes({ entry });
+    //     },
+    //     options: {
+    //         rule: "5 2 * * 2,6",
+    //     },
+    // },
 
     updateStefinet: {
         task: async ({ strapi }) => {

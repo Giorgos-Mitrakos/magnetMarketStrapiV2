@@ -381,8 +381,10 @@ export interface ApiAnnouncementAnnouncement extends Schema.SingleType {
       'admin::user'
     > &
       Attribute.Private;
+    isClosable: Attribute.Boolean & Attribute.DefaultTo<true>;
     publishedAt: Attribute.DateTime;
     text: Attribute.Text;
+    type: Attribute.Enumeration<['info', 'warning', 'important', 'event']>;
     updatedAt: Attribute.DateTime;
     updatedBy: Attribute.Relation<
       'api::announcement.announcement',
