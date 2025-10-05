@@ -475,6 +475,11 @@ export interface ApiCategoryCategory extends Schema.CollectionType {
       'admin::user'
     > &
       Attribute.Private;
+    cross_categories: Attribute.Relation<
+      'api::category.category',
+      'oneToMany',
+      'api::category.category'
+    >;
     export_to_platforms: Attribute.Relation<
       'api::category.category',
       'manyToMany',
@@ -882,6 +887,7 @@ export interface ApiOrderOrder extends Schema.CollectionType {
         },
         number
       >;
+    trackingNumber: Attribute.String;
     updatedAt: Attribute.DateTime;
     updatedBy: Attribute.Relation<
       'api::order.order',

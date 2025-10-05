@@ -88,7 +88,7 @@ module.exports = ({ strapi }) => ({
       return handleSpecialPricing();
 
     } catch (error) {
-      console.error("Error in setPrice:", error);
+      console.error("Error in setPrice:", product.name);
       throw error; // Consider proper error handling strategy
     }
   },

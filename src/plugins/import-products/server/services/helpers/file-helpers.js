@@ -28,7 +28,7 @@ module.exports = ({ strapi }) => ({
                 let response;
                 try {
                     response = await fetch(imgUrl.url);
-                    if (!response.ok) throw new Error("Invalid response");
+                    if (!response.ok) continue;
                 } catch (err) {
                     console.error("Fetch failed:", imgUrl.url, err);
                     continue;
@@ -80,6 +80,7 @@ module.exports = ({ strapi }) => ({
 
         } catch (error) {
             console.log("Error in converting Image:", error)
+            return null
         }
     },
 

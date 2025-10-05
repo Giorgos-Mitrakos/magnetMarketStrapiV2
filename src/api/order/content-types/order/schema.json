@@ -113,6 +113,9 @@
       "type": "decimal",
       "default": 0,
       "min": 0
+    },
+    "trackingNumber": {
+      "type": "string"
     }
   }
 }

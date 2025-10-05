@@ -1,29 +1,40 @@
 export default {
     routes: [
         {
-            method: "POST",
-            path: "/category/brandFilter",
-            handler: "category.brandFilter",
+            method: "GET",
+            path: "/category/menu",
+            handler: "category.getMenu",
             config: {
-                auth: false,
+                // auth: false,
                 // See the usage section below for middleware naming conventions
             },
-            // config:{
-            //   auth:true
-            // }
         },
-
+        {
+            method: "GET",
+            path: "/category/categoriesMapping",
+            handler: "category.getCategoriesMapping",
+            config: {
+                // auth: false,
+                // See the usage section below for middleware naming conventions
+            },
+        },
         {
             method: "POST",
-            path: "/category/categoryFilter",
-            handler: "category.categoryFilter",
+            path: "/category/categoryMetadata",
+            handler: "category.categoryMetadata",
             config: {
-                auth: false,
+                // auth: false,
                 // See the usage section below for middleware naming conventions
             },
-            // config:{
-            //   auth:true
-            // }
+        },
+        {
+            method: "POST",
+            path: "/category/getCategoryProducts",
+            handler: "category.getCategoryProducts",
+            config: {
+                // auth: false,
+                // See the usage section below for middleware naming conventions
+            },
         },
     ]
 };

@@ -227,10 +227,11 @@ module.exports = ({ strapi }) => ({
     await strapi.entityService.update('api::order.order', id, {
       data: {
         comments: comments,
+        trackingNumber: voucher
       },
     });
 
     await strapi.service('api::order.order').sendVoucherEmail({ order, voucher })
   },
-  
+
 });

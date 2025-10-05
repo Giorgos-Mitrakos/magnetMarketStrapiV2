@@ -45,18 +45,27 @@ module.exports = ({ strapi }) => ({
     async loadCookies(supplier, page) {
         try {
             if (fs.existsSync(`./public/cookies/${supplier}Cookies.json`)) {
-                fs.readFile(`./public/cookies/${supplier}Cookies.json`, async (err, data) => {
-                    if (err)
-                        console.log(err);
-                    else {
-                        const cookies = JSON.parse(data);
-                        await page.setCookie(...cookies);
-                        console.log("File readen successfully\n");
-                    }
-                })
+                const data = await fs.promises.readFile(`./public/cookies/${supplier}Cookies.json`, 'utf8');
+
+                // Check if file is empty or contains only whitespace
+                if (!data || data.trim().length === 0) {
+                    console.log("Cookie file is empty, skipping...\n");
+                    return;
+                }
+
+                const cookies = JSON.parse(data);
+
+                // Check if cookies array is empty
+                if (!Array.isArray(cookies) || cookies.length === 0) {
+                    console.log("No cookies to load\n");
+                    return;
+                }
+
+                await page.setCookie(...cookies);
+                console.log("Cookies loaded successfully\n");
             }
         } catch (error) {
-            console.log(error)
+            console.log("Error loading cookies:", error.message);
         }
     },
 

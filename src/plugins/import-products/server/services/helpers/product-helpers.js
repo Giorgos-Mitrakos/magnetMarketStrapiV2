@@ -424,8 +424,8 @@ module.exports = ({ strapi }) => ({
                             continue
                         {
                             const char = {}
-                            char.name = this.createFields('$.key', productChar.trim())
-                            char.value = this.createFields('$.value', productChar.trim())
+                            char.name = this.createFields('$.key', productChar)
+                            char.value = this.createFields('$.value', productChar)
                             chars.push(char)
                         }
                     }
@@ -437,9 +437,10 @@ module.exports = ({ strapi }) => ({
                         return
 
                     const char = {}
-                    char.name = this.createFields('$.key', attributes.trim())
-                    char.value = this.createFields('$.value', attributes.trim())
+                    char.name = this.createFields('$.key', attributes)
+                    char.value = this.createFields('$.value', attributes)
                     chars.push(char)
+                    console.log(char)
 
                 }
             }
@@ -732,6 +733,7 @@ module.exports = ({ strapi }) => ({
                         }
                     },
                     platforms: true,
+                    prod_chars: true
                 },
             });
 

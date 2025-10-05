@@ -90,6 +90,22 @@ export default factories.createCoreController('api::order.order',
                     message: error.message // This will contain the specific validation error
                 };
             }
+        },
+
+        async getOrder(ctx) {
+            try {
+
+                ctx.body = await strapi.service('api::order.order').getOrder(ctx.request.body);
+                return {
+                    okay: true,
+                    type: "POST",
+                };
+            } catch (error) {
+                return {
+                    valid: false,
+                    message: error.message // This will contain the specific validation error
+                };
+            }
         }
 
     })

@@ -291,6 +291,9 @@ module.exports = ({ strapi }) => ({
                 .service('fileHelpers')
                 .getAndConvertImgToWep(product);
 
+            if (!responseImage)
+                return
+            
             data.image = await responseImage?.mainImage[0]
             data.additionalImages = await responseImage?.additionalImages
             data.ImageURLS = await responseImage?.imgUrls
@@ -344,9 +347,11 @@ module.exports = ({ strapi }) => ({
             // Update import references
             this.updateImportReferences(importRef, entryCheck, product, data);
 
+            // Update product chars
+            this.updateProductChars(importRef, entryCheck, product, data, dbChange);
+
             // Handle supplier availability notifications
             await this.handleAvailabilityNotifications(entryCheck, product);
-
 
             // Update product metadata
             this.updateProductMetadata(entryCheck, product, categoryInfo, data, dbChange);
@@ -554,6 +559,38 @@ module.exports = ({ strapi }) => ({
 
         // Αν δεν υπάρχει ο προμηθευτής σε αυτο το προϊόν ενημερώνω τη συσχέτιση
         if (findImport === -1) { data.related_import = [...relatedImportIds, product.entry.id] }
+    },
+
+    updateProductChars(importRef, entryCheck, product, data, dbChange) {
+
+        if (entryCheck.prod_chars?.length === 0 && product.prod_chars?.length > 0) {
+            data.prod_chars = product.prod_chars
+            dbChange.typeOfChange = 'updated'
+        }
+
+        // Προσθέτω το id του προϊόντος στη βάση ώστε αργότερα όταν γίνει η διαγραφή
+        // των προϊόντων να μην δαγραφεί.
+        importRef.related_entries.push(entryCheck.id);
+
+        // // Για τις περιπτώσεις όπου ο προμηθευτής έχει σχετικά προϊόντα αποθηκεύω 
+        // // τα προϊόντα ώστε να τα συσχετίσω στη βάση
+        // if (product.relativeProducts?.length > 0) {
+        //     importRef.related_products.push({
+        //         productID: entryCheck.id,
+        //         relatedProducts: product.relativeProducts
+        //     });
+        // }
+
+        // // Βρίσκω τους προμηθευτές που έχουν το προϊόν 
+        // const relatedImport = entryCheck.related_import;
+        // const relatedImportIds = relatedImport.map(x => x.id)
+
+        // // Αναζητώ αν προμηθεύομαι ήδη το προϊόν απο τον συγκεκριμένο προμηθευτή
+        // const findImport = relatedImport.findIndex(x =>
+        //     x.id === product.entry.id)
+
+        // // Αν δεν υπάρχει ο προμηθευτής σε αυτο το προϊόν ενημερώνω τη συσχέτιση
+        // if (findImport === -1) { data.related_import = [...relatedImportIds, product.entry.id] }
     },
 
     async handleAvailabilityNotifications(entryCheck, product) {

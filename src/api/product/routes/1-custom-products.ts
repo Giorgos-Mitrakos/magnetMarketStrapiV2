@@ -5,20 +5,7 @@ export default {
             path: "/product/searchProducts",
             handler: "product.searchProducts",
             config: {
-                auth: false,
-                // middlewares: ["api::order.add-user"],
-                // See the usage section below for middleware naming conventions
-            },
-            // config:{
-            //   auth:true
-            // }
-        },
-        {
-            method: "POST",
-            path: "/product/searchFilters",
-            handler: "product.searchFilters",
-            config: {
-                auth: false,
+                // auth: false,
                 // middlewares: ["api::order.add-user"],
                 // See the usage section below for middleware naming conventions
             },
@@ -32,6 +19,32 @@ export default {
             handler: "product.brandFilters",
             config: {
                 auth: false,
+                // middlewares: ["api::order.add-user"],
+                // See the usage section below for middleware naming conventions
+            },
+            // config:{
+            //   auth:true
+            // }
+        },
+        {
+            method: "POST",
+            path: "/product/getProductBySlug",
+            handler: "product.getProductBySlug",
+            config: {
+                auth: false,
+                // middlewares: ["api::order.add-user"],
+                // See the usage section below for middleware naming conventions
+            },
+            // config:{
+            //   auth:true
+            // }
+        },
+        {
+            method: "POST",
+            path: "/product/getHotOrSale",
+            handler: "product.getHotOrSale",
+            config: {
+                // auth: false,
                 // middlewares: ["api::order.add-user"],
                 // See the usage section below for middleware naming conventions
             },

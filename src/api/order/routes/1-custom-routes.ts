@@ -55,5 +55,14 @@ export default {
                 // See the usage section below for middleware naming conventions
             },
         },
+        {
+            method: "POST",
+            path: "/order/getOrder",
+            handler: "order.getOrder",
+            config: {
+                // auth: false
+                // See the usage section below for middleware naming conventions
+            },
+        },
     ]
 };

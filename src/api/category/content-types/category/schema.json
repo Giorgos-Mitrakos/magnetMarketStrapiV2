@@ -81,6 +81,11 @@
       "relation": "manyToMany",
       "target": "plugin::import-products.importxml",
       "mappedBy": "useRetailPriceCategories"
+    },
+    "cross_categories": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::category.category"
     }
   }
 }

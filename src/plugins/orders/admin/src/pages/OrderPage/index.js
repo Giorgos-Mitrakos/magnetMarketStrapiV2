@@ -327,7 +327,10 @@ const OrderPage = () => {
                                     {order.products.map(product => (
                                         <Tr key={product.id}>
                                             <Td>
-                                                <img src={product.image.data.attributes.url} height={64} width={64} />
+                                                {product.image.data ?
+                                                    <img src={product.image.data.attributes.url} height={64} width={64} /> :
+                                                    <img src={product.image.url} height={64} width={64} />
+                                                }
                                             </Td>
                                             <Td>
                                                 <Grid>

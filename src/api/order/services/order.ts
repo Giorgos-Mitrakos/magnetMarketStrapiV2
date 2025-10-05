@@ -63,6 +63,111 @@ type OrderStatusEnum =
 
 export default factories.createCoreService('api::order.order', ({ strapi }) => ({
 
+    async getOrder(ctx) {
+        try {
+            const { id } = ctx
+
+            const order = await strapi.entityService.findOne('api::order.order', id, {
+                fields: ['products',
+                    'total',
+                    'status',
+                    'billing_address',
+                    'different_shipping',
+                    'shipping_address',
+                    'installments'],
+                populate: {
+                    payment: true,
+                    shipping: true
+                }
+            })
+
+            const { availability } = await this.findAvailabilityDays(order)
+
+            if (!availability) {
+                return {
+                    order, deliverydays: null
+                }
+            }
+
+            const deliveryDate = new Date()
+            let earlyDeviveryDate = deliveryDate
+            let lateDeviveryDate = deliveryDate
+            if (order.shipping.name === 'Παραλαβή από το κατάστημα') {
+                earlyDeviveryDate = this.addDays(deliveryDate, availability)
+                lateDeviveryDate = this.addDays(deliveryDate, availability + 1)
+            }
+            else {
+                earlyDeviveryDate = this.addDays(deliveryDate, availability + 1)
+                lateDeviveryDate = this.addDays(deliveryDate, availability + 3)
+            }
+
+            return {
+                order, deliverydays: {
+                    early: earlyDeviveryDate,
+                    late: lateDeviveryDate
+                }
+            }
+
+
+        } catch (error) {
+            throw new Error(error.message);
+        }
+    },
+
+    async findAvailabilityDays(order) {
+        try {
+            const products = typeof order.products === 'string'
+                ? JSON.parse(order.products)
+                : order.products
+
+            const productIds = products.map(product => product.id)
+
+            const orderProducts = await strapi.entityService.findMany('api::product.product', {
+                fields: ['inventory'],
+                populate: { supplierInfo: { fields: ['name', 'wholesale', 'recycle_tax', 'in_stock'] } },
+                filters: {
+                    id: { $in: productIds }
+                }
+            })
+
+            if (orderProducts.every(x => x.inventory > 0)) {
+                return { availability: 0 }
+            }
+            else {
+                const suppliers = await strapi.db.query('plugin::import-products.importxml').findMany({
+                    select: ['name', 'availability', 'order_time', 'shipping'],
+                });
+
+                const availabilities: any[] = orderProducts.map(product => {
+                    const { cheaperAvailableSupplier } = strapi
+                        .plugin('export-platforms-xml')
+                        .service('xmlService')
+                        .findCheaperSupplier(product, suppliers)
+
+                    return cheaperAvailableSupplier?.availability
+                })
+
+                if (availabilities.find(x => x === undefined)) {
+                    return { availability: null }
+                }
+                const maxVal = availabilities.reduce((max, current) => (current > max ? current : max), 0);
+
+                return { availability: maxVal }
+            }
+
+
+        } catch (error) {
+            console.log("error in findAvailability", error)
+        }
+    },
+
+    // Function to Add days to current date
+    addDays(date: Date, days: number) {
+        const newDate = new Date(date);
+        newDate.setDate(date.getDate() + days);
+        return newDate;
+    },
+
     async createNewOrder(ctx) {
         try {
             const { checkout } = ctx.request.body
@@ -116,7 +221,7 @@ export default factories.createCoreService('api::order.order', ({ strapi }) => (
 
             if (missingProducts.length > 0) {
                 return {
-                    message: `Τα ακόλουθα προϊόντα δεν είναι δημοσιευμένα: ${missingProducts.join(', ')}`,
+                    message: `Τα προϊόντα με τους ακόλουθους κωδικούς δεν είναι διαθέσιμα: ${missingProducts.join(', ')}`,
                     status: "fail"
                 };
             }
@@ -620,11 +725,11 @@ export default factories.createCoreService('api::order.order', ({ strapi }) => (
     },
 
     /**
-   * Generate unsubscribe token with expiration
-   * @param {string} email - User email
-   * @param {number} expiresInHours - Expiration time in hours
-   * @returns {string} - Token
-   */
+    * Generate unsubscribe token with expiration
+    * @param {string} email - User email
+    * @param {number} expiresInHours - Expiration time in hours
+    * @returns {string} - Token
+    */
 
     generateUnsubscribeToken(email, expiresInHours = 720) { // 30 days default
         try {

@@ -95,7 +95,7 @@ module.exports = ({ strapi }) => ({
                         category_path: categoryPath,
                         price: price,
                         weight: product.weight,
-                        availability,
+                        availability: availability,
                         brand: product.brand ? product.brand?.name : "",
                         mpn: product.mpn,
                         sku: product.sku,
@@ -131,6 +131,7 @@ module.exports = ({ strapi }) => ({
                         continue
 
                     let { cheaperAvailableSupplier, availability, price } = this.createAvailabilityAndPrice(product, suppliers, platform, category)
+
                     // Process your description
                     const cleanDescription = product.description ?
                         this.cleanHtmlForXml(this.removeControlChars(product.description)) :
@@ -146,7 +147,7 @@ module.exports = ({ strapi }) => ({
                         category: categoryPath,
                         price: parseFloat(price).toFixed(2),
                         weight: product.weight,
-                        availability,
+                        availability: availability,
                         manufacturer: product.brand ? product.brand?.name : "",
                         mpn: product.mpn,
                         sku: product.sku,
@@ -199,9 +200,8 @@ module.exports = ({ strapi }) => ({
             const xmlObject = {
                 webstore: {
                     created_at: createdAt,
-                    products: {
-                        product: cleanEntries // xml2js prefers array as named elements
-                    }
+                    products: cleanEntries // xml2js prefers array as named elements
+
                 }
             };
 
@@ -392,9 +392,11 @@ module.exports = ({ strapi }) => ({
         const platformName = platform.name.toLowerCase();
 
         if (platformName === "skroutz") {
+
             const availability = product.is_in_house
                 ? "Άμεσα διαθέσιμο"
                 : "Διαθέσιμο από 4-10 ημέρες";
+
             return { availability, price: platformPrice };
         }
 
@@ -424,7 +426,7 @@ module.exports = ({ strapi }) => ({
         const availability = this.createAvailability(cheaperAvailableSupplier, platform);
         const price = this.createPrice(platform, product);
 
-        return { cheaperAvailableSupplier, availability, price };
+        return { cheaperAvailableSupplier, availability: availability.availability, price };
     },
 
     /**
@@ -454,26 +456,30 @@ module.exports = ({ strapi }) => ({
  * Finds the cheapest available supplier for a product
  */
     findCheaperSupplier(product, suppliers) {
-        const availableSuppliers = product.supplierInfo
-            .filter(x => x.in_stock === true)
-            .map(supplier => this.enrichSupplierData(supplier, suppliers));
+        try {
+            const availableSuppliers = product.supplierInfo
+                .filter(x => x.in_stock === true)
+                .map(supplier => this.enrichSupplierData(supplier, suppliers));
 
-        if (availableSuppliers.length === 0) return { cheaperAvailableSupplier: null };
-        if (availableSuppliers.length === 1) return { cheaperAvailableSupplier: availableSuppliers[0] };
+            if (availableSuppliers.length === 0) return { cheaperAvailableSupplier: null };
+            if (availableSuppliers.length === 1) return { cheaperAvailableSupplier: availableSuppliers[0] };
 
-        const cheaperAvailableSupplier = availableSuppliers.reduce((best, current) => {
-            const bestCost = this.calculateSupplierTotalCost(best);
-            const currentCost = this.calculateSupplierTotalCost(current);
+            const cheaperAvailableSupplier = availableSuppliers.reduce((best, current) => {
+                const bestCost = this.calculateSupplierTotalCost(best);
+                const currentCost = this.calculateSupplierTotalCost(current);
 
-            // First compare by total cost
-            if (currentCost < bestCost) return current;
-            if (current > bestCost) return best;
+                // First compare by total cost
+                if (currentCost < bestCost) return current;
+                if (current > bestCost) return best;
 
-            // If costs are equal, compare by availability
-            return (current.availability < best.availability) ? current : best;
-        }, availableSuppliers[0]); // Start with first supplier as initial best
+                // If costs are equal, compare by availability
+                return (current.availability < best.availability) ? current : best;
+            }, availableSuppliers[0]); // Start with first supplier as initial best
 
-        return { cheaperAvailableSupplier }
+            return { cheaperAvailableSupplier }
+        } catch (error) {
+            console.log("error in findcheaperSupplier:", error)
+        }
     },
 
     /**
@@ -603,8 +609,8 @@ module.exports = ({ strapi }) => ({
         const platformTexts = {
             skroutz: {
                 short: "Διαθέσιμο από 1-3 ημέρες",
-                medium: "Διαθέσιμο από 4-10 ημέρες",
-                long: "Διαθέσιμο από 10 έως 30 ημέρες"
+                medium: "Διαθέσιμο από 4-6 ημέρες",
+                long: "Διαθέσιμο από 7-12 ημέρες"
             },
             bestprice: {
                 short: "Παράδοση σε 1–3 ημέρες",
