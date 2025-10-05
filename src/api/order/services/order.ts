@@ -83,7 +83,7 @@ export default factories.createCoreService('api::order.order', ({ strapi }) => (
 
             const { availability } = await this.findAvailabilityDays(order)
 
-            if (!availability) {
+            if (availability === null || availability === undefined) {
                 return {
                     order, deliverydays: null
                 }

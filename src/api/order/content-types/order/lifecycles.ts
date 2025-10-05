@@ -31,7 +31,7 @@ export default {
             //         validation: true
             //     }
             // });
-
+           
             // // Generate a coupon for each matching template
             // for (const template of templates) {
             //     const existingCoupon = await strapi.entityService.findMany('api::coupon.coupon', {
