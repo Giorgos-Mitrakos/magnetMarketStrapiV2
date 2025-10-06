@@ -323,7 +323,9 @@ module.exports = ({ strapi }) => ({
                             }
                         }
 
-                        if ((checkIfEntry.brand && !checkIfEntry.brand.name.toLowerCase().includes("dahua")) ||
+                        if ((checkIfEntry.brand &&
+                            !checkIfEntry.brand.name.toLowerCase().includes("dahua") &&
+                            !product.name.toLowerCase().includes("iris")) ||
                             !checkIfEntry.brand)
                             await strapi
                                 .plugin('import-products')
@@ -331,7 +333,7 @@ module.exports = ({ strapi }) => ({
                                 .updateEntry(checkIfEntry, product, importRef)
                     }
                     else {
-                        if (!product.name.toLowerCase().includes("dahua"))
+                        if (!product.name.toLowerCase().includes("dahua") || !product.name.toLowerCase().includes("iris"))
                             newProducts.push(product)
                     }
                 }

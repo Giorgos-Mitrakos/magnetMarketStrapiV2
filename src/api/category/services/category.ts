@@ -743,7 +743,7 @@ export default factories.createCoreService('api::category.category', ({ strapi }
                 if (characteristicValues.size > 0) {
                     const filterValues = Array.from(characteristicValues).map((value: string) => ({
                         name: value,
-                        slug: value.toLowerCase().replace(/\s+/g, '-'),
+                        slug: value.toLowerCase(),
                         numberOfItems: products.filter(p =>
                             p.prod_chars?.some(pc =>
                                 pc.name === filterName && pc.value === value
