@@ -97,7 +97,7 @@ module.exports = ({ strapi }) => ({
       priority: analysis.priority,
       status: 'active',
       expires_at: expiresAt,
-      
+
       analysis_data: {
         current_state: analysis.current_state,
         opportunity_breakdown: analysis.opportunity_breakdown,
@@ -108,7 +108,7 @@ module.exports = ({ strapi }) => ({
         action_items: analysis.action_items,
         signals_detected: analysis.signals,
         patterns_matched: analysis.patterns_matched,
-        
+
         // ✅ Recommendation details (includes suggested_stock_days)
         recommendation_details: {
           rationale: analysis.recommendation_rationale,
@@ -116,7 +116,7 @@ module.exports = ({ strapi }) => ({
           suggested_stock_days: analysis.suggested_stock_days || null,
           note: analysis.recommendation_note || null
         },
-        
+
         metadata: analysis.metadata
       }
     };
@@ -135,7 +135,7 @@ module.exports = ({ strapi }) => ({
           { data }
         );
       }
-      
+
       // No significant change - return existing
       return existingOpp;
     } else {
@@ -358,12 +358,12 @@ module.exports = ({ strapi }) => ({
       await strapi.entityService.update(
         'plugin::bargain-detector.bargainopportunity',
         opportunity.id,
-        { 
-          data: { 
+        {
+          data: {
             notified: true,
             notified_at: new Date(),
             notification_channels: uniqueChannels
-          } 
+          }
         }
       );
 
@@ -407,15 +407,15 @@ module.exports = ({ strapi }) => ({
         <h3>Recommended Actions</h3>
         <ul>${actions.map(a => `<li>${a.description || a.action}</li>`).join('')}</ul>
         
-        <p><a href="${process.env.STRAPI_ADMIN_URL || 'http://localhost:1337'}/admin">View in Dashboard</a></p>
+        <p><a href="${process.env.STRAPI_ADMIN_URL || 'https://magnetmarket.gr'}/admin">View in Dashboard</a></p>
       `;
 
       await strapi.plugin('email').service('email').send({
-        to: process.env.BARGAIN_ALERT_EMAIL || 'info@magnetmarket.gr',
+        to: ['giorgos_mitrakos@yahoo.com', 'info@magnetmarket.gr', 'kkoulogiannis@gmail.com'],
         subject: `${opportunity.priority === 'critical' ? '🚨 URGENT' : '💰'} Bargain Alert - ${product.name}`,
         html
       });
-      
+
       strapi.log.info(`[Analyzer] Email sent for opportunity ${opportunity.id}`);
     } catch (error) {
       strapi.log.error(`[Analyzer] Email failed: ${error.message}`);
