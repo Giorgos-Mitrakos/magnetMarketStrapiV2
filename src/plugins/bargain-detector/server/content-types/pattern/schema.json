@@ -1,0 +1,99 @@
+{
+  "kind": "collectionType",
+  "collectionName": "bargain_patterns",
+  "info": {
+    "singularName": "pattern",
+    "pluralName": "patterns",
+    "displayName": "Detected Pattern",
+    "description": "Historical patterns for prediction"
+  },
+  "options": {
+    "draftAndPublish": false,
+    "indexes": [
+      {
+        "name": "idx_pattern_type_scope",
+        "columns": ["pattern_type", "scope"]
+      },
+      {
+        "name": "idx_scope_target",
+        "columns": ["scope_target"]
+      },
+      {
+        "name": "idx_is_active",
+        "columns": ["is_active"]
+      },
+      {
+        "name": "idx_confidence",
+        "columns": ["confidence"]
+      },
+      {
+        "name": "idx_detected_at",
+        "columns": ["detected_at"]
+      }
+    ]
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "name": {
+      "type": "string",
+      "required": true
+    },
+    "pattern_type": {
+      "type": "enumeration",
+      "enum": [
+        "seasonal",
+        "supplier_behavior",
+        "category_trend",
+        "day_of_week",
+        "monthly_cycle",
+        "price_movement"
+      ],
+      "required": true
+    },
+    "scope": {
+      "type": "enumeration",
+      "enum": ["product", "category", "brand", "supplier", "global"],
+      "required": true
+    },
+    "scope_target": {
+      "type": "string"
+    },
+    "pattern_data": {
+      "type": "json",
+      "required": true
+    },
+    "confidence": {
+      "type": "decimal",
+      "min": 0,
+      "max": 1,
+      "required": true
+    },
+    "times_observed": {
+      "type": "integer",
+      "default": 0,
+      "min": 0
+    },
+    "times_successful": {
+      "type": "integer",
+      "default": 0,
+      "min": 0
+    },
+    "next_occurrence": {
+      "type": "json"
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    },
+    "last_validated": {
+      "type": "datetime"
+    },
+    "detected_at": {
+      "type": "datetime",
+      "required": true
+    },
+    "notes": {
+      "type": "text"
+    }
+  }
+}

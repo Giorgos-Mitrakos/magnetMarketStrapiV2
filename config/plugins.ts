@@ -19,6 +19,10 @@ export default ({ env }) => ({
     enabled: true,
     resolve: './src/plugins/coupons-newsletter'
   },
+  'bargain-detector': {
+    enabled: true,
+    resolve: './src/plugins/bargain-detector'
+  },
   upload: {
     config: {
       providerOptions: {

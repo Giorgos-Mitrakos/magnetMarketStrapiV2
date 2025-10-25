@@ -803,14 +803,15 @@ module.exports = ({ strapi }) => ({
             product.weight = this.createProductWeight(product, categoryInfo);
         }
 
-        const newWeight = product.weight > 0
-            ? parseInt(product.weight)
-            : (categoryInfo.average_weight ? parseInt(categoryInfo.average_weight) : 0);
+        const productWeight = product.weight > 0 ? parseInt(product.weight) : 0;
+        const avgWeight = categoryInfo.average_weight ? parseInt(categoryInfo.average_weight) : 0;
+        const currentWeight = entryCheck.weight ? parseInt(entryCheck.weight) : 0;
 
-        if (((!entryCheck.weight || entryCheck.weight === 0) && newWeight !== 0) ||
-            (product.weight > 0 && parseInt(entryCheck.weight) !== parseInt(product.weight)) ||
-            (categoryInfo.average_weight && parseInt(entryCheck.weight) !== parseInt(categoryInfo.average_weight))
-        ) {
+        // Προτεραιότητα: product weight > average weight
+        const newWeight = productWeight || avgWeight;
+
+        // Update μόνο αν υπάρχει νέο βάρος ΚΑΙ είναι διαφορετικό από το τρέχον
+        if (newWeight > 0 && currentWeight !== newWeight) {
             data.weight = newWeight;
             dbChange.typeOfChange = 'updated';
         }

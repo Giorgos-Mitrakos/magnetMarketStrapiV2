@@ -1112,10 +1112,12 @@ export interface ApiProductProduct extends Schema.CollectionType {
     height: Attribute.Decimal & Attribute.DefaultTo<0>;
     image: Attribute.Media<'images'>;
     inventory: Attribute.Integer & Attribute.DefaultTo<0>;
+    is_bargain: Attribute.Boolean & Attribute.DefaultTo<false>;
     is_fixed_price: Attribute.Boolean & Attribute.DefaultTo<false>;
     is_hot: Attribute.Boolean & Attribute.DefaultTo<false>;
     is_in_house: Attribute.Boolean & Attribute.DefaultTo<false>;
     is_sale: Attribute.Boolean & Attribute.DefaultTo<false>;
+    last_analysis_at: Attribute.DateTime;
     length: Attribute.Decimal & Attribute.DefaultTo<0>;
     model: Attribute.String;
     mpn: Attribute.String & Attribute.Unique;
@@ -1124,6 +1126,19 @@ export interface ApiProductProduct extends Schema.CollectionType {
       Attribute.Private &
       Attribute.DefaultTo<false>;
     notice_if_available: Attribute.Boolean & Attribute.DefaultTo<false>;
+    opportunities: Attribute.Relation<
+      'api::product.product',
+      'oneToMany',
+      'plugin::bargain-detector.bargainopportunity'
+    >;
+    opportunity_score: Attribute.Integer &
+      Attribute.SetMinMax<
+        {
+          max: 100;
+          min: 0;
+        },
+        number
+      >;
     platforms: Attribute.Component<'products.platform', true>;
     price: Attribute.Decimal &
       Attribute.Required &
@@ -1151,6 +1166,14 @@ export interface ApiProductProduct extends Schema.CollectionType {
       'manyToMany',
       'api::product.product'
     >;
+    risk_score: Attribute.Integer &
+      Attribute.SetMinMax<
+        {
+          max: 100;
+          min: 0;
+        },
+        number
+      >;
     sale_price: Attribute.Decimal &
       Attribute.SetMinMax<
         {
@@ -1367,6 +1390,648 @@ export interface ApiUserAddressUserAddress extends Schema.CollectionType {
       'plugin::users-permissions.user'
     >;
     zipCode: Attribute.String;
+  };
+}
+
+export interface PluginBargainDetectorAnalysisrun
+  extends Schema.CollectionType {
+  collectionName: 'bargain_analysis_runs';
+  info: {
+    description: 'Execution logs of analysis processes';
+    displayName: 'Analysis Run';
+    pluralName: 'analysisruns';
+    singularName: 'analysisrun';
+  };
+  options: {
+    draftAndPublish: false;
+    indexes: [
+      {
+        columns: ['status', 'started_at'];
+        name: 'idx_status_started';
+      },
+      {
+        columns: ['trigger'];
+        name: 'idx_trigger';
+      },
+      {
+        columns: ['triggered_by_id'];
+        name: 'idx_triggered_by';
+      },
+      {
+        columns: ['completed_at'];
+        name: 'idx_completed_at';
+      }
+    ];
+  };
+  attributes: {
+    completed_at: Attribute.DateTime;
+    createdAt: Attribute.DateTime;
+    createdBy: Attribute.Relation<
+      'plugin::bargain-detector.analysisrun',
+      'oneToOne',
+      'admin::user'
+    > &
+      Attribute.Private;
+    errors: Attribute.JSON;
+    execution_time_ms: Attribute.Integer &
+      Attribute.SetMinMax<
+        {
+          min: 0;
+        },
+        number
+      >;
+    opportunities_found: Attribute.Integer &
+      Attribute.SetMinMax<
+        {
+          min: 0;
+        },
+        number
+      > &
+      Attribute.DefaultTo<0>;
+    patterns_detected: Attribute.Integer &
+      Attribute.SetMinMax<
+        {
+          min: 0;
+        },
+        number
+      > &
+      Attribute.DefaultTo<0>;
+    performance_metrics: Attribute.JSON;
+    products_analyzed: Attribute.Integer &
+      Attribute.SetMinMax<
+        {
+          min: 0;
+        },
+        number
+      > &
+      Attribute.DefaultTo<0>;
+    products_skipped: Attribute.Integer &
+      Attribute.SetMinMax<
+        {
+          min: 0;
+        },
+        number
+      > &
+      Attribute.DefaultTo<0>;
+    products_total: Attribute.Integer &
+      Attribute.SetMinMax<
+        {
+          min: 0;
+        },
+        number
+      > &
+      Attribute.DefaultTo<0>;
+    risks_detected: Attribute.Integer &
+      Attribute.SetMinMax<
+        {
+          min: 0;
+        },
+        number
+      > &
+      Attribute.DefaultTo<0>;
+    started_at: Attribute.DateTime & Attribute.Required;
+    status: Attribute.Enumeration<
+      ['running', 'completed', 'failed', 'partial']
+    > &
+      Attribute.DefaultTo<'running'>;
+    summary: Attribute.JSON;
+    trigger: Attribute.Enumeration<['manual', 'cron', 'webhook', 'api']> &
+      Attribute.Required;
+    triggered_by: Attribute.Relation<
+      'plugin::bargain-detector.analysisrun',
+      'oneToOne',
+      'admin::user'
+    >;
+    updatedAt: Attribute.DateTime;
+    updatedBy: Attribute.Relation<
+      'plugin::bargain-detector.analysisrun',
+      'oneToOne',
+      'admin::user'
+    > &
+      Attribute.Private;
+  };
+}
+
+export interface PluginBargainDetectorBargainopportunity
+  extends Schema.CollectionType {
+  collectionName: 'bargainopportunity';
+  info: {
+    displayName: 'Bargain Opportunities';
+    pluralName: 'bargainopportunities';
+    singularName: 'bargainopportunity';
+  };
+  options: {
+    draftAndPublish: false;
+    indexes: [
+      {
+        columns: ['product_id', 'status'];
+        name: 'idx_product_status';
+      },
+      {
+        columns: ['status', 'priority'];
+        name: 'idx_status_priority';
+      },
+      {
+        columns: ['analyzed_at'];
+        name: 'idx_analyzed_at';
+      },
+      {
+        columns: ['expires_at'];
+        name: 'idx_expires_at';
+      },
+      {
+        columns: ['status', 'expires_at'];
+        name: 'idx_status_expires';
+      },
+      {
+        columns: ['priority', 'analyzed_at'];
+        name: 'idx_priority_analyzed';
+      }
+    ];
+  };
+  pluginOptions: {
+    'content-manager': {
+      visible: true;
+    };
+    'content-type-builder': {
+      visible: true;
+    };
+  };
+  attributes: {
+    action_taken: Attribute.Enumeration<['purchased', 'dismissed', 'waiting']> &
+      Attribute.DefaultTo<'waiting'>;
+    actioned_at: Attribute.DateTime;
+    actual_price: Attribute.Decimal;
+    actual_quantity: Attribute.Integer;
+    analysis_data: Attribute.JSON;
+    analyzed_at: Attribute.DateTime & Attribute.Required;
+    confidence: Attribute.Enumeration<['low', 'medium', 'high', 'very_high']> &
+      Attribute.DefaultTo<'medium'>;
+    createdAt: Attribute.DateTime;
+    createdBy: Attribute.Relation<
+      'plugin::bargain-detector.bargainopportunity',
+      'oneToOne',
+      'admin::user'
+    > &
+      Attribute.Private;
+    expires_at: Attribute.DateTime;
+    notes: Attribute.Text;
+    notification_channels: Attribute.JSON & Attribute.DefaultTo<[]>;
+    notified: Attribute.Boolean & Attribute.DefaultTo<false>;
+    notified_at: Attribute.DateTime;
+    opportunity_score: Attribute.Integer &
+      Attribute.SetMinMax<
+        {
+          max: 100;
+          min: 0;
+        },
+        number
+      > &
+      Attribute.DefaultTo<0>;
+    opportunity_types: Attribute.JSON & Attribute.DefaultTo<[]>;
+    outcome: Attribute.Enumeration<
+      ['pending', 'true_positive', 'false_positive', 'expired']
+    > &
+      Attribute.DefaultTo<'pending'>;
+    outcome_notes: Attribute.Text;
+    priority: Attribute.Enumeration<['critical', 'high', 'medium', 'low']> &
+      Attribute.DefaultTo<'medium'>;
+    product: Attribute.Relation<
+      'plugin::bargain-detector.bargainopportunity',
+      'manyToOne',
+      'api::product.product'
+    >;
+    profit_loss: Attribute.Decimal;
+    recommendation: Attribute.Enumeration<
+      [
+        'strong_buy_and_stock',
+        'buy_on_demand',
+        'opportunistic_stock',
+        'watch',
+        'wait_for_order',
+        'avoid',
+        'clearance_urgent',
+        'clearance_soon'
+      ]
+    > &
+      Attribute.Required;
+    risk_score: Attribute.Integer &
+      Attribute.SetMinMax<
+        {
+          max: 100;
+          min: 0;
+        },
+        number
+      > &
+      Attribute.DefaultTo<50>;
+    status: Attribute.Enumeration<
+      ['active', 'purchased', 'dismissed', 'expired']
+    > &
+      Attribute.DefaultTo<'active'>;
+    updatedAt: Attribute.DateTime;
+    updatedBy: Attribute.Relation<
+      'plugin::bargain-detector.bargainopportunity',
+      'oneToOne',
+      'admin::user'
+    > &
+      Attribute.Private;
+    viewed: Attribute.Boolean & Attribute.DefaultTo<false>;
+    viewed_at: Attribute.DateTime;
+  };
+}
+
+export interface PluginBargainDetectorCategoryconfig
+  extends Schema.CollectionType {
+  collectionName: 'bargain_category_configs';
+  info: {
+    description: 'Category-specific rule overrides';
+    displayName: 'Category Configuration';
+    pluralName: 'categoryconfigs';
+    singularName: 'categoryconfig';
+  };
+  options: {
+    draftAndPublish: false;
+    indexes: [
+      {
+        columns: ['category_id'];
+        name: 'idx_category';
+        unique: true;
+      },
+      {
+        columns: ['is_active'];
+        name: 'idx_is_active';
+      }
+    ];
+  };
+  pluginOptions: {
+    'content-manager': {
+      visible: false;
+    };
+    'content-type-builder': {
+      visible: true;
+    };
+  };
+  attributes: {
+    category: Attribute.Relation<
+      'plugin::bargain-detector.categoryconfig',
+      'oneToOne',
+      'api::category.category'
+    > &
+      Attribute.Required &
+      Attribute.Unique;
+    createdAt: Attribute.DateTime;
+    createdBy: Attribute.Relation<
+      'plugin::bargain-detector.categoryconfig',
+      'oneToOne',
+      'admin::user'
+    > &
+      Attribute.Private;
+    is_active: Attribute.Boolean & Attribute.DefaultTo<true>;
+    notes: Attribute.Text;
+    rule_overrides: Attribute.JSON;
+    updatedAt: Attribute.DateTime;
+    updatedBy: Attribute.Relation<
+      'plugin::bargain-detector.categoryconfig',
+      'oneToOne',
+      'admin::user'
+    > &
+      Attribute.Private;
+  };
+}
+
+export interface PluginBargainDetectorConfiguration extends Schema.SingleType {
+  collectionName: 'bargain_configuration';
+  info: {
+    description: 'Global configuration for opportunity detection';
+    displayName: 'Plugin Configuration';
+    pluralName: 'configurations';
+    singularName: 'configuration';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    alert_settings: Attribute.JSON &
+      Attribute.DefaultTo<{
+        critical_opportunities: {
+          channels: ['email', 'dashboard'];
+          enabled: true;
+          max_stock: 2;
+          min_score: 80;
+        };
+        daily_digest: {
+          enabled: true;
+          min_opportunities: 3;
+          time: '08:00';
+        };
+        flash_deals: {
+          channels: ['email', 'dashboard'];
+          enabled: true;
+          min_score: 85;
+        };
+        inventory_risks: {
+          channels: ['dashboard'];
+          enabled: true;
+          underwater_threshold: -15;
+        };
+      }>;
+    automation: Attribute.JSON &
+      Attribute.DefaultTo<{
+        analysis_frequency: '0 */3 * * *';
+        auto_expire_days: 7;
+        batch_size: 100;
+        cleanup_days: 30;
+      }>;
+    createdAt: Attribute.DateTime;
+    createdBy: Attribute.Relation<
+      'plugin::bargain-detector.configuration',
+      'oneToOne',
+      'admin::user'
+    > &
+      Attribute.Private;
+    last_modified_at: Attribute.DateTime;
+    last_modified_by: Attribute.Relation<
+      'plugin::bargain-detector.configuration',
+      'oneToOne',
+      'admin::user'
+    >;
+    opportunity_rules: Attribute.JSON &
+      Attribute.Required &
+      Attribute.DefaultTo<{
+        flash_deal: {
+          enabled: true;
+          max_time_window_hours: 6;
+          min_drop_percent: 10;
+          urgency_threshold: 15;
+        };
+        historic_low: {
+          confidence_required: 0.7;
+          exact_match: true;
+          near_threshold: 5;
+        };
+        inventory_factor: {
+          enabled: true;
+          low_stock_boost: 20;
+          out_of_stock_boost: 30;
+          reorder_point_boost: 10;
+        };
+        multi_supplier: {
+          agreement_threshold: 0.8;
+          min_suppliers: 2;
+          time_window_hours: 24;
+        };
+        price_drop: {
+          low: 10;
+          medium: 15;
+          minimum: 5;
+          strong: 20;
+        };
+      }>;
+    pattern_settings: Attribute.JSON &
+      Attribute.DefaultTo<{
+        day_of_week: {
+          enabled: true;
+          min_samples_per_day: 10;
+        };
+        seasonal: {
+          enabled: true;
+          look_back_years: 3;
+          min_confidence: 0.7;
+          min_occurrences: 2;
+        };
+        supplier_behavior: {
+          enabled: true;
+          min_correlation: 0.75;
+          min_samples: 20;
+        };
+      }>;
+    recommendation_thresholds: Attribute.JSON &
+      Attribute.Required &
+      Attribute.DefaultTo<{
+        avoid: {
+          max_risk: 70;
+        };
+        buy: {
+          max_risk: 40;
+          min_confidence: 0.65;
+          min_opportunity: 65;
+        };
+        cautious_buy: {
+          max_risk: 60;
+          min_confidence: 0.5;
+          min_opportunity: 50;
+        };
+        strong_buy: {
+          max_risk: 30;
+          min_confidence: 0.75;
+          min_opportunity: 80;
+        };
+        watch: {
+          max_risk: 50;
+          min_opportunity: 40;
+        };
+      }>;
+    risk_rules: Attribute.JSON &
+      Attribute.Required &
+      Attribute.DefaultTo<{
+        inventory_underwater: {
+          critical_threshold: -25;
+          urgent_threshold: -15;
+          warning_threshold: -5;
+        };
+        supplier_trust: {
+          error_tolerance: 0.05;
+          min_data_points: 30;
+          min_reliability_score: 60;
+        };
+        volatility: {
+          high: 15;
+          low: 5;
+          medium: 8;
+        };
+      }>;
+    scoring_weights: Attribute.JSON &
+      Attribute.Required &
+      Attribute.DefaultTo<{
+        opportunity: {
+          confidence: 10;
+          inventory_need: 20;
+          price_advantage: 40;
+          timing: 30;
+        };
+        risk: {
+          market_position: 35;
+          supplier_reliability: 30;
+          volatility: 35;
+        };
+      }>;
+    updatedAt: Attribute.DateTime;
+    updatedBy: Attribute.Relation<
+      'plugin::bargain-detector.configuration',
+      'oneToOne',
+      'admin::user'
+    > &
+      Attribute.Private;
+    version: Attribute.String & Attribute.DefaultTo<'1.0.0'>;
+  };
+}
+
+export interface PluginBargainDetectorPattern extends Schema.CollectionType {
+  collectionName: 'bargain_patterns';
+  info: {
+    description: 'Historical patterns for prediction';
+    displayName: 'Detected Pattern';
+    pluralName: 'patterns';
+    singularName: 'pattern';
+  };
+  options: {
+    draftAndPublish: false;
+    indexes: [
+      {
+        columns: ['pattern_type', 'scope'];
+        name: 'idx_pattern_type_scope';
+      },
+      {
+        columns: ['scope_target'];
+        name: 'idx_scope_target';
+      },
+      {
+        columns: ['is_active'];
+        name: 'idx_is_active';
+      },
+      {
+        columns: ['confidence'];
+        name: 'idx_confidence';
+      },
+      {
+        columns: ['detected_at'];
+        name: 'idx_detected_at';
+      }
+    ];
+  };
+  attributes: {
+    confidence: Attribute.Decimal &
+      Attribute.Required &
+      Attribute.SetMinMax<
+        {
+          max: 1;
+          min: 0;
+        },
+        number
+      >;
+    createdAt: Attribute.DateTime;
+    createdBy: Attribute.Relation<
+      'plugin::bargain-detector.pattern',
+      'oneToOne',
+      'admin::user'
+    > &
+      Attribute.Private;
+    detected_at: Attribute.DateTime & Attribute.Required;
+    is_active: Attribute.Boolean & Attribute.DefaultTo<true>;
+    last_validated: Attribute.DateTime;
+    name: Attribute.String & Attribute.Required;
+    next_occurrence: Attribute.JSON;
+    notes: Attribute.Text;
+    pattern_data: Attribute.JSON & Attribute.Required;
+    pattern_type: Attribute.Enumeration<
+      [
+        'seasonal',
+        'supplier_behavior',
+        'category_trend',
+        'day_of_week',
+        'monthly_cycle',
+        'price_movement'
+      ]
+    > &
+      Attribute.Required;
+    scope: Attribute.Enumeration<
+      ['product', 'category', 'brand', 'supplier', 'global']
+    > &
+      Attribute.Required;
+    scope_target: Attribute.String;
+    times_observed: Attribute.Integer &
+      Attribute.SetMinMax<
+        {
+          min: 0;
+        },
+        number
+      > &
+      Attribute.DefaultTo<0>;
+    times_successful: Attribute.Integer &
+      Attribute.SetMinMax<
+        {
+          min: 0;
+        },
+        number
+      > &
+      Attribute.DefaultTo<0>;
+    updatedAt: Attribute.DateTime;
+    updatedBy: Attribute.Relation<
+      'plugin::bargain-detector.pattern',
+      'oneToOne',
+      'admin::user'
+    > &
+      Attribute.Private;
+  };
+}
+
+export interface PluginBargainDetectorRuleexecution
+  extends Schema.CollectionType {
+  collectionName: 'bargain_rule_executions';
+  info: {
+    description: 'Audit trail of rule executions';
+    displayName: 'Rule Execution History';
+    pluralName: 'ruleexecutions';
+    singularName: 'ruleexecution';
+  };
+  options: {
+    draftAndPublish: false;
+    indexes: [
+      {
+        columns: ['opportunity_id'];
+        name: 'idx_opportunity';
+      },
+      {
+        columns: ['executed_at'];
+        name: 'idx_executed_at';
+      },
+      {
+        columns: ['outcome'];
+        name: 'idx_outcome';
+      }
+    ];
+  };
+  attributes: {
+    actual_result: Attribute.JSON;
+    calculation_details: Attribute.JSON;
+    createdAt: Attribute.DateTime;
+    createdBy: Attribute.Relation<
+      'plugin::bargain-detector.ruleexecution',
+      'oneToOne',
+      'admin::user'
+    > &
+      Attribute.Private;
+    executed_at: Attribute.DateTime & Attribute.Required;
+    opportunity: Attribute.Relation<
+      'plugin::bargain-detector.ruleexecution',
+      'manyToOne',
+      'plugin::bargain-detector.bargainopportunity'
+    > &
+      Attribute.Required;
+    outcome: Attribute.Enumeration<
+      ['pending', 'true_positive', 'false_positive', 'missed', 'expired']
+    > &
+      Attribute.DefaultTo<'pending'>;
+    outcome_notes: Attribute.Text;
+    rules_snapshot: Attribute.JSON & Attribute.Required;
+    signals_detected: Attribute.JSON & Attribute.Required;
+    updatedAt: Attribute.DateTime;
+    updatedBy: Attribute.Relation<
+      'plugin::bargain-detector.ruleexecution',
+      'oneToOne',
+      'admin::user'
+    > &
+      Attribute.Private;
   };
 }
 
@@ -2359,6 +3024,12 @@ declare module '@strapi/types' {
       'api::shipping.shipping': ApiShippingShipping;
       'api::state.state': ApiStateState;
       'api::user-address.user-address': ApiUserAddressUserAddress;
+      'plugin::bargain-detector.analysisrun': PluginBargainDetectorAnalysisrun;
+      'plugin::bargain-detector.bargainopportunity': PluginBargainDetectorBargainopportunity;
+      'plugin::bargain-detector.categoryconfig': PluginBargainDetectorCategoryconfig;
+      'plugin::bargain-detector.configuration': PluginBargainDetectorConfiguration;
+      'plugin::bargain-detector.pattern': PluginBargainDetectorPattern;
+      'plugin::bargain-detector.ruleexecution': PluginBargainDetectorRuleexecution;
       'plugin::content-releases.release': PluginContentReleasesRelease;
       'plugin::content-releases.release-action': PluginContentReleasesReleaseAction;
       'plugin::email-designer.email-template': PluginEmailDesignerEmailTemplate;

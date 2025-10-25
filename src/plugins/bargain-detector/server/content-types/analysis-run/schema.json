@@ -1,0 +1,99 @@
+{
+  "kind": "collectionType",
+  "collectionName": "bargain_analysis_runs",
+  "info": {
+    "singularName": "analysisrun",
+    "pluralName": "analysisruns",
+    "displayName": "Analysis Run",
+    "description": "Execution logs of analysis processes"
+  },
+  "options": {
+    "draftAndPublish": false,
+    "indexes": [
+      {
+        "name": "idx_status_started",
+        "columns": ["status", "started_at"]
+      },
+      {
+        "name": "idx_trigger",
+        "columns": ["trigger"]
+      },
+      {
+        "name": "idx_triggered_by",
+        "columns": ["triggered_by_id"]
+      },
+      {
+        "name": "idx_completed_at",
+        "columns": ["completed_at"]
+      }
+    ]
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "started_at": {
+      "type": "datetime",
+      "required": true
+    },
+    "completed_at": {
+      "type": "datetime"
+    },
+    "status": {
+      "type": "enumeration",
+      "enum": ["running", "completed", "failed", "partial"],
+      "default": "running"
+    },
+    "trigger": {
+      "type": "enumeration",
+      "enum": ["manual", "cron", "webhook", "api"],
+      "required": true
+    },
+    "triggered_by": {
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "admin::user"
+    },
+    "products_total": {
+      "type": "integer",
+      "default": 0,
+      "min": 0
+    },
+    "products_analyzed": {
+      "type": "integer",
+      "default": 0,
+      "min": 0
+    },
+    "products_skipped": {
+      "type": "integer",
+      "default": 0,
+      "min": 0
+    },
+    "opportunities_found": {
+      "type": "integer",
+      "default": 0,
+      "min": 0
+    },
+    "risks_detected": {
+      "type": "integer",
+      "default": 0,
+      "min": 0
+    },
+    "patterns_detected": {
+      "type": "integer",
+      "default": 0,
+      "min": 0
+    },
+    "execution_time_ms": {
+      "type": "integer",
+      "min": 0
+    },
+    "summary": {
+      "type": "json"
+    },
+    "errors": {
+      "type": "json"
+    },
+    "performance_metrics": {
+      "type": "json"
+    }
+  }
+}

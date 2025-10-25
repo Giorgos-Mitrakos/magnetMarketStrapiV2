@@ -204,6 +204,29 @@
       "type": "component",
       "repeatable": true,
       "component": "products.purchace-history"
+    },
+    "opportunities": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "plugin::bargain-detector.bargainopportunity",
+      "mappedBy": "product"
+    },
+    "is_bargain": {
+      "type": "boolean",
+      "default": false
+    },
+    "last_analysis_at": {
+      "type": "datetime"
+    },
+    "opportunity_score": {
+      "type": "integer",
+      "min": 0,
+      "max": 100
+    },
+    "risk_score": {
+      "type": "integer",
+      "min": 0,
+      "max": 100
     }
   }
 }

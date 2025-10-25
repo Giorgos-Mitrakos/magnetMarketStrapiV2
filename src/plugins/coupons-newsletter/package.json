@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "description": "This is the description of the plugin.",
   "strapi": {
-    "name": "coupons-newsletter",
+    "name": "Κουπόνια - Newsletter",
     "description": "Description of Coupons Newsletter plugin",
     "kind": "plugin",
     "displayName": "Coupons Newsletter"

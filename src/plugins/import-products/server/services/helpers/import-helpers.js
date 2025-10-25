@@ -293,7 +293,7 @@ module.exports = ({ strapi }) => ({
 
             if (!responseImage)
                 return
-            
+
             data.image = await responseImage?.mainImage[0]
             data.additionalImages = await responseImage?.additionalImages
             data.ImageURLS = await responseImage?.imgUrls

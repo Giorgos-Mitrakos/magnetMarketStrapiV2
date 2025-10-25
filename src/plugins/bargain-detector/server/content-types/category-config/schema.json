@@ -1,0 +1,51 @@
+{
+  "kind": "collectionType",
+  "collectionName": "bargain_category_configs",
+  "info": {
+    "singularName": "categoryconfig",
+    "pluralName": "categoryconfigs",
+    "displayName": "Category Configuration",
+    "description": "Category-specific rule overrides"
+  },
+  "options": {
+    "draftAndPublish": false,
+    "indexes": [
+      {
+        "name": "idx_category",
+        "columns": ["category_id"],
+        "unique": true
+      },
+      {
+        "name": "idx_is_active",
+        "columns": ["is_active"]
+      }
+    ]
+  },  
+  "pluginOptions": {
+    "content-manager": {
+      "visible": false
+    },
+    "content-type-builder": {
+      "visible": true
+    }
+  },
+  "attributes": {
+    "category": {
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "api::category.category",
+      "required": true,
+      "unique": true
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": true
+    },
+    "rule_overrides": {
+      "type": "json"
+    },
+    "notes": {
+      "type": "text"
+    }
+  }
+}

@@ -12,13 +12,14 @@ import OrderList from '../../components/orderList';
 
 const HomePage = () => {
   return (
-    <><Box background="neutral100">
-      <BaseHeaderLayout
-        title="Παραγγελίες"
-        subtitle="Διαχείριση παραγγελιών."
-        as="h2"
-      />
-    </Box>
+    <>
+      <Box background="neutral100">
+        <BaseHeaderLayout
+          title="Παραγγελίες"
+          subtitle="Διαχείριση παραγγελιών."
+          as="h2"
+        />
+      </Box>
       <OrderList />
     </>
   );

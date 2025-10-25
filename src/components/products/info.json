@@ -7,7 +7,9 @@
   "options": {},
   "attributes": {
     "name": {
-      "type": "string"
+      "type": "string",
+      "required": true,
+      "description": "Supplier name"
     },
     "supplierProductId": {
       "type": "string",
@@ -15,38 +17,47 @@
     },
     "wholesale": {
       "type": "decimal",
-      "required": true
+      "required": true,
+      "description": "Current wholesale price"
     },
     "quantity": {
-      "type": "integer"
+      "type": "integer",
+      "description": "Available quantity from supplier"
     },
     "supplierProductURL": {
-      "type": "string"
+      "type": "string",
+      "description": "Link to product on supplier's site"
     },
     "recycle_tax": {
       "type": "decimal",
       "required": true,
-      "default": 0
+      "default": 0,
+      "description": "Recycling tax amount"
     },
     "in_offer": {
       "type": "boolean",
-      "default": false
+      "default": false,
+      "description": "Is currently in offer/promotion"
     },
     "initial_retail_price": {
-      "type": "decimal"
+      "type": "decimal",
+      "description": "Initial suggested retail price"
     },
     "retail_price": {
-      "type": "decimal"
+      "type": "decimal",
+      "description": "Current retail price"
     },
     "in_stock": {
       "type": "boolean",
-      "default": true
+      "default": true,
+      "description": "Is product in stock with this supplier"
     },
     "price_progress": {
       "displayName": "Price Progress",
       "type": "component",
       "repeatable": true,
-      "component": "products.price-progress"
+      "component": "products.price-progress",
+      "description": "Historical price data"
     }
   }
 }

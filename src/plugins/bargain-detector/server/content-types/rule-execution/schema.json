@@ -1,0 +1,68 @@
+{
+  "kind": "collectionType",
+  "collectionName": "bargain_rule_executions",
+  "info": {
+    "singularName": "ruleexecution",
+    "pluralName": "ruleexecutions",
+    "displayName": "Rule Execution History",
+    "description": "Audit trail of rule executions"
+  },
+  "options": {
+    "draftAndPublish": false,
+    "indexes": [
+      {
+        "name": "idx_opportunity",
+        "columns": ["opportunity_id"]
+      },
+      {
+        "name": "idx_executed_at",
+        "columns": ["executed_at"]
+      },
+      {
+        "name": "idx_outcome",
+        "columns": ["outcome"]
+      }
+    ]
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "opportunity": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::bargain-detector.bargainopportunity",
+      "required": true
+    },
+    "executed_at": {
+      "type": "datetime",
+      "required": true
+    },
+    "rules_snapshot": {
+      "type": "json",
+      "required": true
+    },
+    "signals_detected": {
+      "type": "json",
+      "required": true
+    },
+    "calculation_details": {
+      "type": "json"
+    },
+    "outcome": {
+      "type": "enumeration",
+      "enum": [
+        "pending",
+        "true_positive",
+        "false_positive",
+        "missed",
+        "expired"
+      ],
+      "default": "pending"
+    },
+    "outcome_notes": {
+      "type": "text"
+    },
+    "actual_result": {
+      "type": "json"
+    }
+  }
+}

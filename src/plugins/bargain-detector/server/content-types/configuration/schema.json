@@ -1,0 +1,183 @@
+{
+  "kind": "singleType",
+  "collectionName": "bargain_configuration",
+  "info": {
+    "singularName": "configuration",
+    "pluralName": "configurations",
+    "displayName": "Plugin Configuration",
+    "description": "Global configuration for opportunity detection"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "opportunity_rules": {
+      "type": "json",
+      "required": true,
+      "default": {
+        "price_drop": {
+          "strong": 20,
+          "medium": 15,
+          "low": 10,
+          "minimum": 5
+        },
+        "historic_low": {
+          "exact_match": true,
+          "near_threshold": 5,
+          "confidence_required": 0.7
+        },
+        "multi_supplier": {
+          "min_suppliers": 2,
+          "agreement_threshold": 0.8,
+          "time_window_hours": 24
+        },
+        "flash_deal": {
+          "enabled": true,
+          "min_drop_percent": 10,
+          "max_time_window_hours": 6,
+          "urgency_threshold": 15
+        },
+        "inventory_factor": {
+          "enabled": true,
+          "low_stock_boost": 20,
+          "reorder_point_boost": 10,
+          "out_of_stock_boost": 30
+        }
+      }
+    },
+    "risk_rules": {
+      "type": "json",
+      "required": true,
+      "default": {
+        "volatility": {
+          "high": 15,
+          "medium": 8,
+          "low": 5
+        },
+        "inventory_underwater": {
+          "warning_threshold": -5,
+          "urgent_threshold": -15,
+          "critical_threshold": -25
+        },
+        "supplier_trust": {
+          "min_data_points": 30,
+          "min_reliability_score": 60,
+          "error_tolerance": 0.05
+        }
+      }
+    },
+    "scoring_weights": {
+      "type": "json",
+      "required": true,
+      "default": {
+        "opportunity": {
+          "price_advantage": 40,
+          "timing": 30,
+          "inventory_need": 20,
+          "confidence": 10
+        },
+        "risk": {
+          "volatility": 35,
+          "market_position": 35,
+          "supplier_reliability": 30
+        }
+      }
+    },
+    "recommendation_thresholds": {
+      "type": "json",
+      "required": true,
+      "default": {
+        "strong_buy": {
+          "min_opportunity": 80,
+          "max_risk": 30,
+          "min_confidence": 0.75
+        },
+        "buy": {
+          "min_opportunity": 65,
+          "max_risk": 40,
+          "min_confidence": 0.65
+        },
+        "cautious_buy": {
+          "min_opportunity": 50,
+          "max_risk": 60,
+          "min_confidence": 0.5
+        },
+        "watch": {
+          "min_opportunity": 40,
+          "max_risk": 50
+        },
+        "avoid": {
+          "max_risk": 70
+        }
+      }
+    },
+    "pattern_settings": {
+      "type": "json",
+      "default": {
+        "seasonal": {
+          "enabled": true,
+          "min_occurrences": 2,
+          "min_confidence": 0.7,
+          "look_back_years": 3
+        },
+        "supplier_behavior": {
+          "enabled": true,
+          "min_correlation": 0.75,
+          "min_samples": 20
+        },
+        "day_of_week": {
+          "enabled": true,
+          "min_samples_per_day": 10
+        }
+      }
+    },
+    "alert_settings": {
+      "type": "json",
+      "default": {
+        "flash_deals": {
+          "enabled": true,
+          "min_score": 85,
+          "channels": ["email", "dashboard"]
+        },
+        "critical_opportunities": {
+          "enabled": true,
+          "min_score": 80,
+          "max_stock": 2,
+          "channels": ["email", "dashboard"]
+        },
+        "inventory_risks": {
+          "enabled": true,
+          "underwater_threshold": -15,
+          "channels": ["dashboard"]
+        },
+        "daily_digest": {
+          "enabled": true,
+          "time": "08:00",
+          "min_opportunities": 3
+        }
+      }
+    },
+    "automation": {
+      "type": "json",
+      "default": {
+        "analysis_frequency": "0 */3 * * *",
+        "auto_expire_days": 7,
+        "cleanup_days": 30,
+        "batch_size": 100
+      }
+    },
+    "last_modified_at": {
+      "type": "datetime"
+    },
+    "last_modified_by": {
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "admin::user"
+    },
+    "version": {
+      "type": "string",
+      "default": "1.0.0"
+    }
+  }
+}

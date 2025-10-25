@@ -19,7 +19,7 @@ export default {
                 .parseQuest({ entry });
         },
         options: {
-            rule: "10 8,22 * * *",
+            rule: "10 8,12,22 * * *",
         },
     },
 
@@ -67,7 +67,7 @@ export default {
                 .parseNovatron({ entry });
         },
         options: {
-            rule: "4 10 * * *",
+            rule: "4 7,11 * * *",
         },
     },
 
@@ -368,7 +368,7 @@ export default {
                 .updateAll();
         },
         options: {
-            rule: "8 17 * * *",
+            rule: "10 17 * * *",
         },
     },
 
@@ -441,4 +441,47 @@ export default {
             rule: "5 3 1 */2 *",
         },
     },
+
+    // Expire old opportunities daily at 2 AM
+    expireOpportunities: {
+        task: async ({ strapi }) => {
+            try {
+                strapi.log.info('[Bargain Detector] Expiring old opportunities...');
+
+                const analyzer = strapi.plugin('bargain-detector').service('analyzer');
+                const expired = await analyzer.expireOldOpportunities();
+
+                strapi.log.info(`[Bargain Detector] Expired ${expired} opportunities`);
+            } catch (error) {
+                strapi.log.error(`[Bargain Detector] Expire task failed: ${error.message}`);
+            }
+        },
+        options: {
+            rule: '0 2 * * *',  // Daily at 2 AM
+            tz: 'Europe/Athens'
+        }
+    },
+
+    // Cleanup old records weekly
+    cleanupRecords: {
+        task: async ({ strapi }) => {
+            try {
+                strapi.log.info('[Bargain Detector] Running cleanup...');
+
+                const analyzer = strapi.plugin('bargain-detector').service('analyzer');
+                const result = await analyzer.cleanup();
+
+                strapi.log.info(
+                    `[Bargain Detector] Cleanup complete: ` +
+                    `${result.opportunities} opportunities, ${result.analysis_runs} runs deleted`
+                );
+            } catch (error) {
+                strapi.log.error(`[Bargain Detector] Cleanup failed: ${error.message}`);
+            }
+        },
+        options: {
+            rule: '0 3 * * 0',  // Weekly on Sunday at 3 AM
+            tz: 'Europe/Athens'
+        }
+    }
 };

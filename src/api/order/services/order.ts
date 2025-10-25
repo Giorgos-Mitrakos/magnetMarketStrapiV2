@@ -92,7 +92,7 @@ export default factories.createCoreService('api::order.order', ({ strapi }) => (
             const deliveryDate = new Date()
             let earlyDeviveryDate = deliveryDate
             let lateDeviveryDate = deliveryDate
-            if (order.shipping.name === 'Παραλαβή από το κατάστημα') {
+            if (order.shipping.name === 'Παραλαβή από το κατάστημα (17:30 - 18:30)') {
                 earlyDeviveryDate = this.addDays(deliveryDate, availability)
                 lateDeviveryDate = this.addDays(deliveryDate, availability + 1)
             }

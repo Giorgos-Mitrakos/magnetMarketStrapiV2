@@ -1,0 +1,185 @@
+{
+  "kind": "collectionType",
+  "collectionName": "bargainopportunity",
+  "info": {
+    "singularName": "bargainopportunity",
+    "pluralName": "bargainopportunities",
+    "displayName": "Bargain Opportunities"
+  },
+  "options": {
+    "draftAndPublish": false,
+    "indexes": [
+      {
+        "name": "idx_product_status",
+        "columns": ["product_id", "status"] 
+      },
+      {
+        "name": "idx_status_priority",
+        "columns": ["status", "priority"]
+      },
+      {
+        "name": "idx_analyzed_at",
+        "columns": ["analyzed_at"]
+      },
+      {
+        "name": "idx_expires_at",
+        "columns": ["expires_at"]
+      },
+      {
+        "name": "idx_status_expires",
+        "columns": ["status", "expires_at"]
+      },
+      {
+        "name": "idx_priority_analyzed",
+        "columns": ["priority", "analyzed_at"]
+      }
+    ]
+  },
+  "pluginOptions": {
+    "content-manager": {
+      "visible": true
+    },
+    "content-type-builder": {
+      "visible": true
+    }
+  },
+  "attributes": {
+    "product": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::product.product",
+      "inversedBy": "opportunities"
+    },
+    "analyzed_at": {
+      "type": "datetime",
+      "required": true
+    },
+    "opportunity_types": {
+      "type": "json",
+      "default": []
+    },
+    "opportunity_score": {
+      "type": "integer",
+      "min": 0,
+      "max": 100,
+      "default": 0
+    },
+    "risk_score": {
+      "type": "integer",
+      "min": 0,
+      "max": 100,
+      "default": 50
+    },
+    "confidence": {
+      "type": "enumeration",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "very_high"
+      ],
+      "default": "medium"
+    },
+    "recommendation": {
+      "type": "enumeration",
+      "enum": [
+        "strong_buy_and_stock",
+        "buy_on_demand",
+        "opportunistic_stock",
+        "watch",
+        "wait_for_order",
+        "avoid",
+        "clearance_urgent",
+        "clearance_soon"
+      ],
+      "required": true
+    },
+    "priority": {
+      "type": "enumeration",
+      "enum": [
+        "critical",
+        "high",
+        "medium",
+        "low"
+      ],
+      "default": "medium"
+    },
+    "analysis_data": {
+      "type": "json",
+      "description": "Complete analysis breakdown"
+    },
+    "status": {
+      "type": "enumeration",
+      "enum": [
+        "active",
+        "purchased",
+        "dismissed",
+        "expired"
+      ],
+      "default": "active"
+    },
+    "expires_at": {
+      "type": "datetime"
+    },
+    "actioned_at": {
+      "type": "datetime",
+      "description": "When action was taken (purchased/dismissed)"
+    },
+    "action_taken": {
+      "type": "enumeration",
+      "enum": [
+        "purchased",
+        "dismissed",
+        "waiting"
+      ],
+      "default": "waiting",
+      "description": "What action was taken on this opportunity"
+    },
+    "notes": {
+      "type": "text"
+    },
+    "outcome": {
+      "type": "enumeration",
+      "enum": [
+        "pending",
+        "true_positive",
+        "false_positive",
+        "expired"
+      ],
+      "default": "pending"
+    },
+    "outcome_notes": {
+      "type": "text"
+    },
+    "actual_price": {
+      "type": "decimal"
+    },
+    "actual_quantity": {
+      "type": "integer"
+    },
+    "profit_loss": {
+      "type": "decimal"
+    },
+    "notified": {
+      "type": "boolean",
+      "default": false
+    },
+    "notified_at": {
+      "type": "datetime"
+    },
+    "notification_channels": {
+      "type": "json",
+      "default": [],
+      "description": "Channels used: ['email', 'dashboard']"
+    },
+    "viewed": {
+      "type": "boolean",
+      "default": false,
+      "description": "Has this opportunity been viewed in dashboard?"
+    },
+    "viewed_at": {
+      "type": "datetime",
+      "description": "When was this opportunity first viewed?"
+    }
+  }
+}

@@ -476,7 +476,7 @@ export interface ProductsInfo extends Schema.Component {
     in_offer: Attribute.Boolean & Attribute.DefaultTo<false>;
     in_stock: Attribute.Boolean & Attribute.DefaultTo<true>;
     initial_retail_price: Attribute.Decimal;
-    name: Attribute.String;
+    name: Attribute.String & Attribute.Required;
     price_progress: Attribute.Component<'products.price-progress', true>;
     quantity: Attribute.Integer;
     recycle_tax: Attribute.Decimal &

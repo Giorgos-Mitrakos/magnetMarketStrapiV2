@@ -4,7 +4,7 @@
   "description": "This is the description of the plugin.",
   "strapi": {
     "name": "Παραγγελίες",
-    "description": "Description of Orders plugin",
+    "description": "Διαχείρηση παραγγελιών",
     "kind": "plugin",
     "displayName": "Παραγγελίες"
   },
