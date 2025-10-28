@@ -11,12 +11,12 @@
     "strapi": "strapi"
   },
   "dependencies": {
-    "@strapi/plugin-cloud": "^4.25.23",
-    "@strapi/plugin-graphql": "^4.25.23",
+    "@strapi/plugin-cloud": "^4.26.0",
+    "@strapi/plugin-graphql": "^4.26.0",
     "@strapi/plugin-i18n": "^4.25.23",
-    "@strapi/plugin-users-permissions": "^4.25.23",
-    "@strapi/provider-email-nodemailer": "^4.25.23",
-    "@strapi/strapi": "^4.25.23",
+    "@strapi/plugin-users-permissions": "^4.26.0",
+    "@strapi/provider-email-nodemailer": "^4.26.0",
+    "@strapi/strapi": "^4.26.0",
     "cross-env": "^7.0.3",
     "crypto-js": "^4.2.0",
     "lodash": "^4.17.21",

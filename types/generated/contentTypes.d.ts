@@ -480,6 +480,7 @@ export interface ApiCategoryCategory extends Schema.CollectionType {
       'oneToMany',
       'api::category.category'
     >;
+    description: Attribute.String;
     export_to_platforms: Attribute.Relation<
       'api::category.category',
       'manyToMany',
@@ -487,6 +488,9 @@ export interface ApiCategoryCategory extends Schema.CollectionType {
     >;
     filters: Attribute.Component<'categories.filters', true>;
     image: Attribute.Media<'images'>;
+    isSpecial: Attribute.Boolean &
+      Attribute.Required &
+      Attribute.DefaultTo<false>;
     name: Attribute.String & Attribute.Required;
     parents: Attribute.Relation<
       'api::category.category',

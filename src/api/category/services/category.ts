@@ -96,19 +96,19 @@ export default factories.createCoreService('api::category.category', ({ strapi }
                     parents: { $null: true, },
                     publishedAt: { $notNull: true }
                 },
-                select: ['name', 'slug'],
+                select: ['name', 'slug', 'isSpecial','description'],
                 populate: {
                     image: {
                         select: ['name', 'alternativeText', 'url', 'formats'],
                     },
                     categories: {
-                        select: ['name', 'slug'],
+                        select: ['name', 'slug', 'isSpecial','description'],
                         populate: {
                             image: {
                                 select: ['name', 'alternativeText', 'url', 'formats'],
                             },
                             categories: {
-                                select: ['name', 'slug'],
+                                select: ['name', 'slug', 'isSpecial','description'],
                                 populate: {
                                     image: {
                                         select: ['name', 'alternativeText', 'url', 'formats'],
