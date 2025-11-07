@@ -127,6 +127,7 @@ export default factories.createCoreService('api::homepage.homepage', ({ strapi }
                             fields: ['visible']
                         },
                         'global.carousel': {
+                            fields:['layout'],
                             populate: {
                                 Banner: {
                                     populate: {

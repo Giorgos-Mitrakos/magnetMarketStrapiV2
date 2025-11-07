@@ -1,0 +1,65 @@
+{
+  "kind": "collectionType",
+  "collectionName": "clearance_dismissals",
+  "info": {
+    "singularName": "clearancedismissal",
+    "pluralName": "clearancedismissals",
+    "displayName": "Clearance Dismissal",
+    "description": "Track clearance opportunities dismissed as false positives"
+  },
+  "options": {
+    "draftAndPublish": false,
+    "comment": "Prevents re-alerting on same clearance detection"
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "product": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::product.product",
+      "inversedBy": "clearance_dismissals"
+    },
+
+    "supplier": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::import-products.importxml"
+    },
+    
+    "opportunity": {
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "plugin::bargain-detector.bargainopportunity"
+    },
+    
+    "dismissed_by": {
+      "type": "string",
+      "required": true
+    },
+    
+    "dismissed_at": {
+      "type": "datetime",
+      "required": true
+    },
+    
+    "reason": {
+      "type": "text"
+    },
+    
+    "signals_at_dismissal": {
+      "type": "json",
+      "required": true
+    },
+    
+    "confidence_at_dismissal": {
+      "type": "integer",
+      "required": true,
+      "min": 0,
+      "max": 100
+    },
+    
+    "notes": {
+      "type": "text"
+    }
+  }
+}

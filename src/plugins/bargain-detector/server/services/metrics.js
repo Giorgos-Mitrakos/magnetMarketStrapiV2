@@ -3,54 +3,56 @@
 module.exports = ({ strapi }) => ({
   /**
    * Calculate all metrics for a product
+   * ✅ ENHANCED: Now includes per-supplier analysis + aggregated metrics
    */
   async calculateMetrics(product) {
     const helpers = strapi.plugin('bargain-detector').service('helpers');
-    
+
     const supplierInfo = product.supplierInfo || [];
-    
+
     if (supplierInfo.length === 0) {
       return null;
     }
-    
-    // Get all price history
-    const allHistory = helpers.getAllSupplierHistory(supplierInfo);
-    
-    if (allHistory.length < 3) {
-      return null;
+
+    // ✅ NEW: Analyze each supplier separately first
+    const perSupplierAnalysis = this.analyzePerSupplier(supplierInfo, helpers);
+
+    if (perSupplierAnalysis.validSuppliers === 0) {
+      return null; // No suppliers with sufficient data
     }
-    
-    // Sort by date
-    const sortedHistory = helpers.sortByDate(allHistory, 'desc');
-    
+
     // Find best current price
     const bestSupplier = helpers.findCheapestSupplier(supplierInfo);
     const currentBest = bestSupplier?.wholesale || 0;
-    
-    // Calculate time-based metrics
+
+    // ✅ BACKWARD COMPATIBLE: Keep aggregated approach for existing metrics
+    const allHistory = helpers.getAllSupplierHistory(supplierInfo);
+    const sortedHistory = helpers.sortByDate(allHistory, 'desc');
+
+    // Calculate time-based metrics (aggregated)
     const last7d = helpers.filterByDays(sortedHistory, 7);
     const last30d = helpers.filterByDays(sortedHistory, 30);
     const last60d = helpers.filterByDays(sortedHistory, 60);
     const last90d = helpers.filterByDays(sortedHistory, 90);
-    
-    // Averages
+
+    // Averages (aggregated)
     const avg7d = helpers.average(last7d.map(h => h.wholesale));
     const avg30d = helpers.average(last30d.map(h => h.wholesale));
     const avg60d = helpers.average(last60d.map(h => h.wholesale));
     const avg90d = helpers.average(last90d.map(h => h.wholesale));
-    
+
     // Historic extremes
     const allPrices = sortedHistory.map(h => h.wholesale);
     const historicMin = Math.min(...allPrices);
     const historicMax = Math.max(...allPrices);
     const historicAvg = helpers.average(allPrices);
-    
+
     // Min/Max for periods
     const prices7d = last7d.map(h => h.wholesale);
     const prices30d = last30d.map(h => h.wholesale);
     const prices60d = last60d.map(h => h.wholesale);
     const prices90d = last90d.map(h => h.wholesale);
-    
+
     const min7d = prices7d.length > 0 ? Math.min(...prices7d) : currentBest;
     const max7d = prices7d.length > 0 ? Math.max(...prices7d) : currentBest;
     const min30d = prices30d.length > 0 ? Math.min(...prices30d) : currentBest;
@@ -59,72 +61,75 @@ module.exports = ({ strapi }) => ({
     const max60d = prices60d.length > 0 ? Math.max(...prices60d) : currentBest;
     const min90d = prices90d.length > 0 ? Math.min(...prices90d) : currentBest;
     const max90d = prices90d.length > 0 ? Math.max(...prices90d) : currentBest;
-    
+
     // Price drops
     const dropFrom7d = avg7d > 0 ? ((avg7d - currentBest) / avg7d) * 100 : 0;
     const dropFrom30d = avg30d > 0 ? ((avg30d - currentBest) / avg30d) * 100 : 0;
     const dropFrom60d = avg60d > 0 ? ((avg60d - currentBest) / avg60d) * 100 : 0;
     const dropFrom90d = avg90d > 0 ? ((avg90d - currentBest) / avg90d) * 100 : 0;
     const dropFromAvg = historicAvg > 0 ? ((historicAvg - currentBest) / historicAvg) * 100 : 0;
-    
+
     // Distance from extremes
     const distanceFromMin = historicMin > 0 ? ((currentBest - historicMin) / historicMin) * 100 : 0;
     const distanceFromMax = historicMax > 0 ? ((historicMax - currentBest) / historicMax) * 100 : 0;
-    
+
     // Is historic low?
-    const isHistoricLow = distanceFromMin <= 2; // Within 2% of historic low
-    const isNearHistoricLow = distanceFromMin <= 5; // Within 5%
-    
-    // Volatility
+    const isHistoricLow = distanceFromMin <= 2;
+    const isNearHistoricLow = distanceFromMin <= 5;
+
+    // Volatility (aggregated)
     const stdDev7d = helpers.standardDeviation(prices7d);
     const stdDev30d = helpers.standardDeviation(prices30d);
     const stdDev60d = helpers.standardDeviation(prices60d);
     const stdDev90d = helpers.standardDeviation(prices90d);
-    
+
     const coefficientOfVariation = avg30d > 0 ? (stdDev30d / avg30d) * 100 : 0;
-    
+
     const variance7d = Math.pow(stdDev7d, 2);
     const variance30d = Math.pow(stdDev30d, 2);
-    
+
     // Price changes
     const priceChangesLast30d = helpers.countPriceChanges(last30d);
-    
+
     // Trend analysis
     const trend = this.analyzeTrend(sortedHistory.slice(0, 14));
-    
-    // Multi-supplier metrics
-    const suppliersDropping = this.countSuppliersDropping(supplierInfo);
-    const supplierPrices = supplierInfo.filter(s => s.in_stock).map(s => s.wholesale);
-    const avgSupplierPrice = helpers.average(supplierPrices);
-    const bestPriceSavings = avgSupplierPrice > 0 
-      ? ((avgSupplierPrice - currentBest) / avgSupplierPrice) * 100 
-      : 0;
-    
+
+    // ✅ NEW: Use per-supplier data for accurate multi-supplier metrics
+    const multiSupplierMetrics = this.calculateMultiSupplierMetrics(
+      perSupplierAnalysis.suppliers,
+      supplierInfo,
+      currentBest,
+      helpers
+    );
+
     // Flash deal detection
     const flashDeal = this.detectFlashDeal(sortedHistory);
-    
-    // ✅ NEW: Liquidity metrics from purchase history
+
+    // Liquidity metrics
     const liquidityMetrics = this.calculateLiquidityMetrics(product);
-    
-    // Last purchase price (from liquidity metrics)
-    const lastPurchasePrice = liquidityMetrics.lastPurchaseDate 
+
+    // Last purchase price
+    const lastPurchasePrice = liquidityMetrics.lastPurchaseDate
       ? (product.purchace_history?.find(p => p.date === liquidityMetrics.lastPurchaseDate)?.price || null)
       : null;
-    
+
     return {
       // Current state
       currentBest,
       currentStock: product.inventory || 0,
       bestSupplier: bestSupplier?.name || 'Unknown',
       bestSupplierCode: bestSupplier?.supplierProductId || null,
-      
-      // Averages
+
+      // ✅ NEW: Per-supplier analysis
+      supplierAnalysis: perSupplierAnalysis.suppliers,
+
+      // Aggregated averages
       avg7d,
       avg30d,
       avg60d,
       avg90d,
       historicAvg,
-      
+
       // Extremes
       historicMin,
       historicMax,
@@ -136,22 +141,22 @@ module.exports = ({ strapi }) => ({
       max60d,
       min90d,
       max90d,
-      
+
       // Drops
       dropFrom7d,
       dropFrom30d,
       dropFrom60d,
       dropFrom90d,
       dropFromAvg,
-      
+
       // Distances
       distanceFromMin,
       distanceFromMax,
-      
+
       // Historic low flags
       isHistoricLow,
       isNearHistoricLow,
-      
+
       // Volatility
       coefficientOfVariation,
       stdDev7d,
@@ -161,27 +166,24 @@ module.exports = ({ strapi }) => ({
       variance7d,
       variance30d,
       priceChangesLast30d,
-      
+
       // Trend
       trend,
-      
-      // Multi-supplier
-      suppliersDropping,
-      supplierCount: supplierInfo.length,
-      avgSupplierPrice,
-      bestPriceSavings,
-      
+
+      // ✅ ENHANCED: Multi-supplier metrics
+      ...multiSupplierMetrics,
+
       // Flash deal
       isFlashDeal: flashDeal.isFlash,
       hoursSinceLastDrop: flashDeal.hoursSince,
       flashDropPercent: flashDeal.dropPercent,
-      
-      // ✅ NEW: Liquidity metrics (replaces avgDailySales)
+
+      // Liquidity
       ...liquidityMetrics,
-      
+
       // Last purchase price
       lastPurchasePrice,
-      
+
       // Data quality
       totalDataPoints: sortedHistory.length,
       dataPoints7d: last7d.length,
@@ -194,12 +196,192 @@ module.exports = ({ strapi }) => ({
   },
 
   /**
-   * ✅ NEW: Calculate liquidity metrics from purchase history
-   * (Better than sales data for multi-channel business)
+   * ✅ NEW: Analyze each supplier separately
+   */
+  analyzePerSupplier(supplierInfo, helpers) {
+    const suppliers = [];
+    let validSuppliers = 0;
+
+    for (const supplier of supplierInfo) {
+      const history = supplier.price_progress || [];
+
+      if (history.length < 3) {
+        suppliers.push({
+          supplier: {
+            id: supplier.id,
+            name: supplier.name,
+            code: supplier.supplierProductId,
+            in_stock: supplier.in_stock
+          },
+          currentPrice: supplier.wholesale || 0,
+          hasData: false,
+          dataPoints: history.length
+        });
+        continue;
+      }
+
+      validSuppliers++;
+
+      const sortedHistory = helpers.sortByDate(history, 'desc');
+      const currentPrice = sortedHistory[0]?.wholesale || supplier.wholesale || 0;
+
+      // Time slices
+      const last30d = helpers.filterByDays(sortedHistory, 30);
+
+      // Calculate metrics for this supplier only
+      const allPrices = sortedHistory.map(h => h.wholesale);
+      const avg30d = helpers.average(last30d.map(h => h.wholesale));
+      const historicMin = Math.min(...allPrices);
+      const historicMax = Math.max(...allPrices);
+      const historicAvg = helpers.average(allPrices);
+
+      // Volatility (accurate for this supplier)
+      const prices30d = last30d.map(h => h.wholesale);
+      const stdDev30d = helpers.standardDeviation(prices30d);
+      const coefficientOfVariation = avg30d > 0 ? (stdDev30d / avg30d) * 100 : 0;
+
+      // Trend
+      const trend = this.analyzeTrend(sortedHistory.slice(0, 14));
+
+      // Drops
+      const dropFrom30d = avg30d > 0 ? ((avg30d - currentPrice) / avg30d) * 100 : 0;
+
+      // Distance from extremes
+      const distanceFromMin = historicMin > 0 ? ((currentPrice - historicMin) / historicMin) * 100 : 0;
+
+      // Consistency
+      const consistency = helpers.calculateConsistencyScore(history);
+
+      // Anomalies
+      const anomalies = helpers.detectPriceAnomalies(history);
+
+      // Data quality
+      const dataQuality = this.calculateDataQuality(
+        sortedHistory.length,
+        consistency,
+        anomalies.length
+      );
+
+      suppliers.push({
+        supplier: {
+          id: supplier.id,
+          name: supplier.name,
+          code: supplier.supplierProductId,
+          in_stock: supplier.in_stock
+        },
+        hasData: true,
+        currentPrice,
+        avg30d,
+        historicMin,
+        historicMax,
+        historicAvg,
+        dropFrom30d,
+        distanceFromMin,
+        coefficientOfVariation,
+        stdDev30d,
+        trend,
+        consistency,
+        anomalies: anomalies.length,
+        dataQuality,
+        dataPoints: sortedHistory.length,
+        isHistoricLow: distanceFromMin <= 2,
+        isNearHistoricLow: distanceFromMin <= 5,
+        priceStability: coefficientOfVariation < 5 ? 'stable' :
+                       coefficientOfVariation < 10 ? 'moderate' : 'volatile',
+        isDropping: dropFrom30d > 5,
+        trendStrength: trend.strength || 0
+      });
+    }
+
+    return {
+      suppliers,
+      validSuppliers,
+      totalSuppliers: supplierInfo.length
+    };
+  },
+
+  /**
+   * ✅ NEW: Calculate multi-supplier metrics using per-supplier data
+   */
+  calculateMultiSupplierMetrics(supplierAnalyses, supplierInfo, currentBest, helpers) {
+    const inStockSuppliers = supplierAnalyses.filter(s => s.supplier.in_stock && s.hasData);
+
+    if (inStockSuppliers.length === 0) {
+      return {
+        suppliersDropping: 0,
+        supplierCount: supplierInfo.length,
+        avgSupplierPrice: currentBest,
+        bestPriceSavings: 0,
+        supplierPriceSpread: 0,
+        supplierAgreement: 0,
+        stableSuppliers: 0,
+        volatileSuppliers: 0
+      };
+    }
+
+    // Count suppliers dropping
+    const suppliersDropping = inStockSuppliers.filter(s => s.isDropping).length;
+
+    // Price spread
+    const inStockPrices = inStockSuppliers.map(s => s.currentPrice);
+    const minPrice = Math.min(...inStockPrices);
+    const maxPrice = Math.max(...inStockPrices);
+    const supplierPriceSpread = maxPrice > 0 ? ((maxPrice - minPrice) / maxPrice) * 100 : 0;
+
+    // Average supplier price
+    const avgSupplierPrice = helpers.average(inStockPrices);
+
+    // Best price savings
+    const bestPriceSavings = avgSupplierPrice > 0
+      ? ((avgSupplierPrice - currentBest) / avgSupplierPrice) * 100
+      : 0;
+
+    // Supplier agreement
+    const deviations = inStockPrices.map(p => Math.abs(p - avgSupplierPrice) / avgSupplierPrice);
+    const avgDeviation = helpers.average(deviations);
+    const supplierAgreement = Math.max(0, (1 - avgDeviation) * 100);
+
+    // Count stable/volatile suppliers
+    const stableSuppliers = inStockSuppliers.filter(s => s.priceStability === 'stable').length;
+    const volatileSuppliers = inStockSuppliers.filter(s => s.priceStability === 'volatile').length;
+
+    return {
+      suppliersDropping,
+      supplierCount: supplierInfo.length,
+      avgSupplierPrice,
+      bestPriceSavings,
+      supplierPriceSpread: parseFloat(supplierPriceSpread.toFixed(2)),
+      supplierAgreement: parseFloat(supplierAgreement.toFixed(1)),
+      stableSuppliers,
+      volatileSuppliers
+    };
+  },
+
+  /**
+   * Calculate data quality score (0-1)
+   */
+  calculateDataQuality(dataPoints, consistency, anomalyCount) {
+    let score = 0;
+
+    if (dataPoints >= 200) score += 0.4;
+    else if (dataPoints >= 100) score += 0.3;
+    else if (dataPoints >= 50) score += 0.2;
+    else if (dataPoints >= 20) score += 0.1;
+
+    score += consistency * 0.4;
+
+    const anomalyRate = dataPoints > 0 ? anomalyCount / dataPoints : 0;
+    score += Math.max(0, 0.2 - (anomalyRate * 2));
+
+    return Math.min(score, 1.0);
+  },
+
+  /**
+   * Calculate liquidity metrics from purchase history
    */
   calculateLiquidityMetrics(product) {
     const purchaseHistory = product.purchace_history || [];
-    
+
     if (purchaseHistory.length === 0) {
       return {
         purchaseFrequency: 'unknown',
@@ -212,84 +394,68 @@ module.exports = ({ strapi }) => ({
         liquidityScore: 0
       };
     }
-    
-    // Sort by date (newest first)
-    const sortedPurchases = purchaseHistory.sort((a, b) => 
+
+    const sortedPurchases = purchaseHistory.sort((a, b) =>
       new Date(b.date) - new Date(a.date)
     );
-    
+
     const lastPurchase = sortedPurchases[0];
     const lastPurchaseDate = new Date(lastPurchase.date);
     const daysSinceLastPurchase = this.daysBetween(new Date(), lastPurchaseDate);
-    
-    // Calculate average days between purchases
+
     let totalDays = 0;
     let intervals = 0;
-    
+
     for (let i = 0; i < sortedPurchases.length - 1; i++) {
       const current = new Date(sortedPurchases[i].date);
       const next = new Date(sortedPurchases[i + 1].date);
       const days = this.daysBetween(current, next);
-      
+
       if (days > 0) {
         totalDays += days;
         intervals++;
       }
     }
-    
+
     const avgDaysBetweenPurchases = intervals > 0 ? totalDays / intervals : null;
-    
-    // Determine frequency category
+
     let purchaseFrequency = 'unknown';
     let isFastMover = false;
-    
+
     if (avgDaysBetweenPurchases !== null) {
       if (avgDaysBetweenPurchases < 15) {
-        purchaseFrequency = 'very_high'; // Reorder every 2 weeks
+        purchaseFrequency = 'very_high';
         isFastMover = true;
       } else if (avgDaysBetweenPurchases < 30) {
-        purchaseFrequency = 'high'; // Monthly reorder
+        purchaseFrequency = 'high';
         isFastMover = true;
       } else if (avgDaysBetweenPurchases < 60) {
-        purchaseFrequency = 'medium'; // Every 1-2 months
-        isFastMover = false;
+        purchaseFrequency = 'medium';
       } else if (avgDaysBetweenPurchases < 90) {
-        purchaseFrequency = 'low'; // Quarterly
-        isFastMover = false;
+        purchaseFrequency = 'low';
       } else {
-        purchaseFrequency = 'very_low'; // Rarely purchased
-        isFastMover = false;
+        purchaseFrequency = 'very_low';
       }
     }
-    
-    // Calculate total quantity
+
     const totalQuantityPurchased = sortedPurchases.reduce(
       (sum, p) => sum + (p.quantity || 0), 0
     );
-    
-    // Liquidity score (0-100)
+
     let liquidityScore = 0;
-    
+
     if (avgDaysBetweenPurchases !== null) {
-      // Fast reorder = high liquidity
-      if (avgDaysBetweenPurchases < 15) {
-        liquidityScore = 100;
-      } else if (avgDaysBetweenPurchases < 30) {
-        liquidityScore = 80;
-      } else if (avgDaysBetweenPurchases < 60) {
-        liquidityScore = 60;
-      } else if (avgDaysBetweenPurchases < 90) {
-        liquidityScore = 40;
-      } else {
-        liquidityScore = 20;
-      }
-      
-      // Penalty if not purchased recently
+      if (avgDaysBetweenPurchases < 15) liquidityScore = 100;
+      else if (avgDaysBetweenPurchases < 30) liquidityScore = 80;
+      else if (avgDaysBetweenPurchases < 60) liquidityScore = 60;
+      else if (avgDaysBetweenPurchases < 90) liquidityScore = 40;
+      else liquidityScore = 20;
+
       if (daysSinceLastPurchase > avgDaysBetweenPurchases * 2) {
-        liquidityScore *= 0.5; // 50% penalty for stale products
+        liquidityScore *= 0.5;
       }
     }
-    
+
     return {
       purchaseFrequency,
       avgDaysBetweenPurchases,
@@ -302,9 +468,6 @@ module.exports = ({ strapi }) => ({
     };
   },
 
-  /**
-   * Days between dates helper
-   */
   daysBetween(date1, date2) {
     const d1 = new Date(date1);
     const d2 = new Date(date2);
@@ -312,141 +475,78 @@ module.exports = ({ strapi }) => ({
     return Math.floor(diffTime / (1000 * 60 * 60 * 24));
   },
 
-  /**
-   * Analyze price trend
-   */
   analyzeTrend(recentHistory) {
     if (!recentHistory || recentHistory.length < 3) {
       return { direction: 'insufficient_data', strength: 0 };
     }
-    
+
     let downs = 0, ups = 0, stable = 0;
     let totalChange = 0;
-    
+
     for (let i = 1; i < Math.min(recentHistory.length, 10); i++) {
       const change = recentHistory[i - 1].wholesale - recentHistory[i].wholesale;
       totalChange += change;
-      
+
       const changePercent = Math.abs(change / recentHistory[i].wholesale);
-      
-      if (changePercent < 0.005) {
-        stable++;
-      } else if (change > 0) {
-        downs++;
-      } else {
-        ups++;
-      }
+
+      if (changePercent < 0.005) stable++;
+      else if (change > 0) downs++;
+      else ups++;
     }
-    
+
     const total = downs + ups + stable;
     const avgChange = totalChange / (recentHistory.length - 1);
-    
-    // Determine direction
+
     let direction;
-    if (downs >= total * 0.7) {
-      direction = 'strong_down';
-    } else if (downs > ups) {
-      direction = 'down';
-    } else if (ups >= total * 0.7) {
-      direction = 'strong_up';
-    } else if (ups > downs) {
-      direction = 'up';
-    } else {
-      direction = 'stable';
-    }
-    
-    // Check for reversal
+    if (downs >= total * 0.7) direction = 'strong_down';
+    else if (downs > ups) direction = 'down';
+    else if (ups >= total * 0.7) direction = 'strong_up';
+    else if (ups > downs) direction = 'up';
+    else direction = 'stable';
+
     if (recentHistory.length >= 6) {
       const recent3 = recentHistory.slice(0, 3);
       const previous3 = recentHistory.slice(3, 6);
-      
+
       const recentTrend = recent3[0].wholesale < recent3[2].wholesale ? 'down' : 'up';
       const previousTrend = previous3[0].wholesale < previous3[2].wholesale ? 'down' : 'up';
-      
-      if (recentTrend !== previousTrend) {
-        direction = 'reversing';
-      }
+
+      if (recentTrend !== previousTrend) direction = 'reversing';
     }
-    
-    // Check for acceleration
-    const accelerating = recentHistory.length >= 4 ? 
+
+    const accelerating = recentHistory.length >= 4 ?
       this.isAccelerating(recentHistory.slice(0, 4)) : false;
-    
-    return {
-      direction,
-      strength: Math.max(downs, ups),
-      avgChange,
-      downs,
-      ups,
-      stable,
-      accelerating
-    };
+
+    return { direction, strength: Math.max(downs, ups), avgChange, downs, ups, stable, accelerating };
   },
 
-  /**
-   * Check if trend is accelerating
-   */
   isAccelerating(last4) {
     if (last4.length < 4) return false;
-    
+
     const change1 = Math.abs(last4[0].wholesale - last4[1].wholesale);
     const change2 = Math.abs(last4[1].wholesale - last4[2].wholesale);
     const change3 = Math.abs(last4[2].wholesale - last4[3].wholesale);
-    
+
     return change1 > change2 && change2 > change3;
   },
 
-  /**
-   * Count suppliers dropping prices
-   */
-  countSuppliersDropping(supplierInfo) {
-    if (!supplierInfo || supplierInfo.length === 0) return 0;
-    
-    const helpers = strapi.plugin('bargain-detector').service('helpers');
-    let dropping = 0;
-    
-    supplierInfo.forEach(supplier => {
-      const history = supplier.price_progress || [];
-      if (history.length < 2) return;
-      
-      const sorted = helpers.sortByDate(history, 'desc');
-      const current = sorted[0].wholesale;
-      const last30dPrices = helpers.filterByDays(sorted, 30).map(h => h.wholesale);
-      const avg30d = helpers.average(last30dPrices);
-      
-      if (avg30d > 0 && ((avg30d - current) / avg30d) * 100 > 5) {
-        dropping++;
-      }
-    });
-    
-    return dropping;
-  },
-
-  /**
-   * Detect flash deal
-   */
   detectFlashDeal(sortedHistory) {
     if (!sortedHistory || sortedHistory.length < 2) {
       return { isFlash: false, hoursSince: null, dropPercent: 0 };
     }
-    
+
     const current = sortedHistory[0];
     const previous = sortedHistory[1];
-    
+
     const hoursSince = (new Date(current.date) - new Date(previous.date)) / (1000 * 60 * 60);
-    
+
     if (hoursSince > 12) {
       return { isFlash: false, hoursSince, dropPercent: 0 };
     }
-    
+
     const dropPercent = ((previous.wholesale - current.wholesale) / previous.wholesale) * 100;
-    
     const isFlash = dropPercent > 10 && hoursSince < 6;
-    
-    return {
-      isFlash,
-      hoursSince,
-      dropPercent
-    };
+
+    return { isFlash, hoursSince, dropPercent };
   }
 });

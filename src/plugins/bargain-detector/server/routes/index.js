@@ -35,7 +35,7 @@ module.exports = [
       middlewares: []
     }
   },
-  
+
   // ========== OPPORTUNITIES ROUTES ==========
   {
     method: 'GET',
@@ -82,7 +82,7 @@ module.exports = [
       middlewares: []
     }
   },
-  
+
   // ========== STATS & DASHBOARD ROUTES ==========
   {
     method: 'GET',
@@ -102,7 +102,176 @@ module.exports = [
       middlewares: []
     }
   },
-  
+
+  // ========== PATTERN ROUTES ==========
+  {
+    method: 'GET',
+    path: '/patterns',
+    handler: 'patterns.find',
+    config: {
+      policies: [],
+      middlewares: []
+    }
+  },
+  {
+    method: 'GET',
+    path: '/patterns/stats',
+    handler: 'patterns.getStats',
+    config: {
+      policies: [],
+      middlewares: []
+    }
+  },
+  {
+    method: 'GET',
+    path: '/patterns/:id',
+    handler: 'patterns.findOne',
+    config: {
+      policies: [],
+      middlewares: []
+    }
+  },
+  {
+    method: 'POST',
+    path: '/patterns/:id/validate',
+    handler: 'patterns.validate',
+    config: {
+      policies: [],
+      middlewares: []
+    }
+  },
+  {
+    method: 'POST',
+    path: '/patterns/:id/activate',
+    handler: 'patterns.activate',
+    config: {
+      policies: [],
+      middlewares: []
+    }
+  },
+  {
+    method: 'POST',
+    path: '/patterns/:id/deactivate',
+    handler: 'patterns.deactivate',
+    config: {
+      policies: [],
+      middlewares: []
+    }
+  },
+  {
+    method: 'DELETE',
+    path: '/patterns/:id',
+    handler: 'patterns.delete',
+    config: {
+      policies: [],
+      middlewares: []
+    }
+  },
+  {
+    method: 'GET',
+    path: '/patterns/product/:productId',
+    handler: 'patterns.findByProduct',
+    config: {
+      policies: [],
+      middlewares: []
+    }
+  },
+  {
+    method: 'POST',
+    path: '/patterns/detect/:productId',
+    handler: 'patterns.detectForProduct',
+    config: {
+      policies: [],
+      middlewares: []
+    }
+  },
+  {
+    method: 'POST',
+    path: '/patterns/detect-batch',
+    handler: 'patterns.detectBatch',
+    config: {
+      policies: [],
+      middlewares: []
+    }
+  },
+
+  // ========== CONFIG ROUTES ==========
+  {
+    method: 'PUT',
+    path: '/config/save',
+    handler: 'config.save',
+    config: {
+      policies: [],
+      middlewares: []
+    }
+  },
+  {
+    method: 'GET',
+    path: '/config',
+    handler: 'config.getConfig',
+    config: {
+      policies: [],
+      middlewares: []
+    }
+  },
+  {
+    method: 'GET',
+    path: '/config/clear-cache',
+    handler: 'config.clearCache',
+    config: {
+      policies: [],
+      middlewares: []
+    }
+  },
+  {
+    method: 'POST',
+    path: '/config/validate',
+    handler: 'config.validate',
+    config: {
+      policies: [],
+      middlewares: []
+    }
+  },
+  {
+    method: 'GET',
+    path: '/config/schema',
+    handler: 'config.getSchema',
+    config: {
+      policies: [],
+      middlewares: []
+    }
+  },
+
+  // ========== CLEARANCE ROUTES (✅ NEW) ==========
+  {
+    method: 'POST',
+    path: '/opportunities/:id/dismiss-clearance',
+    handler: 'clearance.dismissAsFalsePositive',
+    config: {
+      policies: [],
+      middlewares: []
+    }
+  },
+  {
+    method: 'GET',
+    path: '/clearance-dismissals',
+    handler: 'clearance.listDismissals',
+    config: {
+      policies: [],
+      middlewares: []
+    }
+  },
+  {
+    method: 'DELETE',
+    path: '/clearance-dismissals/:id',
+    handler: 'clearance.undoDismissal',
+    config: {
+      policies: [],
+      middlewares: []
+    }
+  },
+
+
   // ========== WEBHOOK ROUTE (OPTIONAL) ==========
   // {
   //   method: 'POST',

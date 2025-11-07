@@ -21,17 +21,21 @@ import {
   Searchbar
 } from '@strapi/design-system';
 import { useFetchClient } from '@strapi/helper-plugin';
-import { useHistory } from 'react-router-dom';
 import { Eye, Refresh } from '@strapi/icons';
 import pluginId from '../../pluginId';
 
 const OpportunitiesPage = () => {
   const { get } = useFetchClient();
-  const history = useHistory();
   const [opportunities, setOpportunities] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    pageSize: 25,
+    pageCount: 0,
+    total: 0
+  });
   const [filters, setFilters] = useState({
-    status: 'active',
+    status: 'all',
     priority: 'all',
     recommendation: 'all',
     search: ''
@@ -39,13 +43,16 @@ const OpportunitiesPage = () => {
 
   useEffect(() => {
     fetchOpportunities();
-  }, [filters]);
+  }, [filters.status, filters.priority, filters.recommendation, pagination.page, pagination.pageSize]);
 
   const fetchOpportunities = async () => {
     try {
       setLoading(true);
 
       let query = `/${pluginId}/opportunities?populate=product`;
+
+      // Add pagination
+      query += `&pagination[page]=${pagination.page}&pagination[pageSize]=${pagination.pageSize}`;
 
       // Add filters
       if (filters.status !== 'all') {
@@ -58,49 +65,90 @@ const OpportunitiesPage = () => {
         query += `&filters[recommendation][$eq]=${filters.recommendation}`;
       }
 
-      query += '&pagination[limit]=100&sort=priority:asc,opportunity_score:desc';
+      // Add sorting
+      query += '&sort[0]=priority:asc&sort[1]=opportunity_score:desc';
 
-      const { data } = await get(query);
-
-      let filtered = data || [];
+      const response = await get(query);
+      
+      const opportunitiesData = response.data?.data || [];
+      const paginationMeta = response.data?.meta?.pagination || {
+        page: 1,
+        pageSize: 25,
+        pageCount: 0,
+        total: 0
+      };
 
       // Client-side search filter
+      let filtered = opportunitiesData;
       if (filters.search) {
         const searchLower = filters.search.toLowerCase();
-        filtered = filtered.filter(opp => {
+        filtered = opportunitiesData.filter(opp => {
           const productName = opp.product?.name?.toLowerCase() || '';
           const productId = String(opp.product?.id || '');
-          return productName.includes(searchLower) || productId.includes(searchLower);
+          const recommendation = opp.recommendation?.toLowerCase() || '';
+          return productName.includes(searchLower) || 
+                 productId.includes(searchLower) ||
+                 recommendation.includes(searchLower);
         });
       }
 
       setOpportunities(filtered);
+      
+      // Update pagination meta
+      setPagination(prev => ({
+        ...prev,
+        pageCount: paginationMeta.pageCount || 1,
+        total: paginationMeta.total || filtered.length
+      }));
 
     } catch (error) {
       console.error('Failed to fetch opportunities:', error);
+      setOpportunities([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleViewDetails = (id) => {
-    history.push(`/plugins/${pluginId}/opportunities/${id}`);
+  const handlePageChange = (page) => {
+    setPagination(prev => ({ ...prev, page }));
   };
 
-  const handleMarkAs = async (id, newStatus) => {
-    try {
-      await get(`/${pluginId}/opportunities/${id}/mark-as/${newStatus}`);
-      fetchOpportunities();
-    } catch (error) {
-      console.error('Failed to update status:', error);
-    }
+  const handlePageSizeChange = (pageSize) => {
+    setPagination(prev => ({ ...prev, pageSize, page: 1 }));
+  };
+
+  const handleFilterChange = (key, value) => {
+    setFilters(prev => ({ ...prev, [key]: value }));
+    setPagination(prev => ({ ...prev, page: 1 }));
+  };
+
+  const handleSearch = (e) => {
+    handleFilterChange('search', e.target.value);
+  };
+
+  const clearSearch = () => {
+    handleFilterChange('search', '');
+  };
+
+  const handleResetFilters = () => {
+    setFilters({
+      status: 'all',
+      priority: 'all',
+      recommendation: 'all',
+      search: ''
+    });
+    setPagination(prev => ({ ...prev, page: 1 }));
+  };
+
+  const navigateToDetails = (id) => {
+    window.location.href = `/admin/plugins/${pluginId}/opportunities/${id}`;
   };
 
   return (
     <Layout>
       <HeaderLayout
         title="Bargain Opportunities"
-        subtitle={`${opportunities.length} opportunities found`}
+        subtitle={`${pagination.total} opportunities found`}
         primaryAction={
           <Button
             onClick={fetchOpportunities}
@@ -123,16 +171,16 @@ const OpportunitiesPage = () => {
             shadow="tableShadow"
             marginBottom={4}
           >
-            <Flex gap={4} wrap="wrap">
+            <Flex gap={4} wrap="wrap" alignItems="end">
               {/* Search */}
               <Box style={{ flex: '1 1 300px' }}>
                 <SearchForm>
                   <Searchbar
                     name="search"
-                    placeholder="Search by product name or ID..."
+                    placeholder="Search by product name, ID or recommendation..."
                     value={filters.search}
-                    onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-                    onClear={() => setFilters({ ...filters, search: '' })}
+                    onChange={handleSearch}
+                    onClear={clearSearch}
                   />
                 </SearchForm>
               </Box>
@@ -143,7 +191,7 @@ const OpportunitiesPage = () => {
                   label="Status"
                   placeholder="All statuses"
                   value={filters.status}
-                  onChange={(value) => setFilters({ ...filters, status: value })}
+                  onChange={(value) => handleFilterChange('status', value)}
                 >
                   <SingleSelectOption value="all">All</SingleSelectOption>
                   <SingleSelectOption value="active">Active</SingleSelectOption>
@@ -159,7 +207,7 @@ const OpportunitiesPage = () => {
                   label="Priority"
                   placeholder="All priorities"
                   value={filters.priority}
-                  onChange={(value) => setFilters({ ...filters, priority: value })}
+                  onChange={(value) => handleFilterChange('priority', value)}
                 >
                   <SingleSelectOption value="all">All</SingleSelectOption>
                   <SingleSelectOption value="critical">Critical</SingleSelectOption>
@@ -175,7 +223,7 @@ const OpportunitiesPage = () => {
                   label="Recommendation"
                   placeholder="All recommendations"
                   value={filters.recommendation}
-                  onChange={(value) => setFilters({ ...filters, recommendation: value })}
+                  onChange={(value) => handleFilterChange('recommendation', value)}
                 >
                   <SingleSelectOption value="all">All</SingleSelectOption>
                   <SingleSelectOption value="strong_buy_and_stock">Strong Buy & Stock</SingleSelectOption>
@@ -188,33 +236,56 @@ const OpportunitiesPage = () => {
                   <SingleSelectOption value="clearance_soon">Clearance Soon</SingleSelectOption>
                 </SingleSelect>
               </Box>
+
+              {/* Page Size */}
+              <Box style={{ minWidth: '120px' }}>
+                <SingleSelect
+                  label="Per page"
+                  value={String(pagination.pageSize)}
+                  onChange={(value) => handlePageSizeChange(parseInt(value))}
+                >
+                  <SingleSelectOption value="10">10</SingleSelectOption>
+                  <SingleSelectOption value="25">25</SingleSelectOption>
+                  <SingleSelectOption value="50">50</SingleSelectOption>
+                  <SingleSelectOption value="100">100</SingleSelectOption>
+                </SingleSelect>
+              </Box>
+
+              {/* Reset Filters */}
+              <Box>
+                <Button
+                  onClick={handleResetFilters}
+                  variant="tertiary"
+                  size="L"
+                >
+                  Reset Filters
+                </Button>
+              </Box>
             </Flex>
           </Box>
 
           {/* Table */}
-          <Box background="neutral0" hasRadius shadow="tableShadow">
+          <Box background="neutral0" hasRadius shadow="tableShadow" marginBottom={4}>
             {loading ? (
               <Box padding={8}>
                 <Flex justifyContent="center">
-                  <Typography>Loading...</Typography>
+                  <Typography>Loading opportunities...</Typography>
                 </Flex>
               </Box>
             ) : opportunities.length === 0 ? (
               <Box padding={8}>
-                <Flex justifyContent="center">
+                <Flex justifyContent="center" direction="column" alignItems="center" gap={2}>
                   <Typography>No opportunities found</Typography>
+                  <Button onClick={fetchOpportunities} variant="tertiary">
+                    Refresh
+                  </Button>
                 </Flex>
               </Box>
             ) : (
-              <Table colCount={8} rowCount={opportunities.length} >
+              <Table colCount={7} rowCount={opportunities.length}>
                 <Thead>
                   <Tr>
-                    <Th
-                      style={{
-                        width: '400px',
-                        maxWidth: '400px'
-                      }}
-                    >
+                    <Th style={{ width: '400px', maxWidth: '400px' }}>
                       <Typography variant="sigma">Product</Typography>
                     </Th>
                     <Th>
@@ -231,9 +302,6 @@ const OpportunitiesPage = () => {
                     </Th>
                     <Th>
                       <Typography variant="sigma">Status</Typography>
-                    </Th>
-                    <Th>
-                      <Typography variant="sigma">Analyzed</Typography>
                     </Th>
                     <Th>
                       <Typography variant="sigma">Actions</Typography>
@@ -259,24 +327,21 @@ const OpportunitiesPage = () => {
                           <Typography variant="pi" textColor="neutral600">
                             ID: {opp.product?.id || 'N/A'}
                           </Typography>
+                          <Typography variant="pi" textColor="neutral500">
+                            Analyzed: {formatDate(opp.analyzed_at)}
+                          </Typography>
                         </Flex>
                       </Td>
                       <Td>
                         <Badge {...getPriorityBadgeProps(opp.priority)}>
-                          {opp.priority}
+                          {opp.priority ? opp.priority.charAt(0).toUpperCase() + opp.priority.slice(1) : 'Unknown'}
                         </Badge>
                       </Td>
                       <Td>
-                        <ScoreBar
-                          value={opp.opportunity_score}
-                          color="success"
-                        />
+                        <ScoreBar value={opp.opportunity_score || 0} color="success" />
                       </Td>
                       <Td>
-                        <ScoreBar
-                          value={opp.risk_score}
-                          color="danger"
-                        />
+                        <ScoreBar value={opp.risk_score || 0} color="danger" />
                       </Td>
                       <Td>
                         <Typography variant="omega" fontWeight="semiBold">
@@ -285,20 +350,15 @@ const OpportunitiesPage = () => {
                       </Td>
                       <Td>
                         <Badge active={opp.status === 'active'}>
-                          {opp.status}
+                          {opp.status ? opp.status.charAt(0).toUpperCase() + opp.status.slice(1) : 'Unknown'}
                         </Badge>
-                      </Td>
-                      <Td>
-                        <Typography variant="pi" textColor="neutral600">
-                          {formatDate(opp.analyzed_at)}
-                        </Typography>
                       </Td>
                       <Td>
                         <Flex gap={1}>
                           <IconButton
-                            onClick={() => handleViewDetails(opp.id)}
                             label="View details"
                             icon={<Eye />}
+                            onClick={() => navigateToDetails(opp.id)}
                           />
                         </Flex>
                       </Td>
@@ -308,6 +368,44 @@ const OpportunitiesPage = () => {
               </Table>
             )}
           </Box>
+
+          {/* Simple Pagination */}
+          {!loading && pagination.pageCount > 1 && (
+            <Flex justifyContent="center" gap={2} alignItems="center">
+              <Button
+                onClick={() => handlePageChange(pagination.page - 1)}
+                disabled={pagination.page === 1}
+                variant="tertiary"
+              >
+                ← Previous
+              </Button>
+              
+              <Typography variant="pi" textColor="neutral600">
+                Page {pagination.page} of {pagination.pageCount}
+              </Typography>
+              
+              <Button
+                onClick={() => handlePageChange(pagination.page + 1)}
+                disabled={pagination.page === pagination.pageCount}
+                variant="tertiary"
+              >
+                Next →
+              </Button>
+            </Flex>
+          )}
+
+          {/* Pagination Info */}
+          {!loading && pagination.total > 0 && (
+            <Box paddingTop={2}>
+              <Flex justifyContent="center">
+                <Typography variant="pi" textColor="neutral600">
+                  Showing {((pagination.page - 1) * pagination.pageSize) + 1} to{' '}
+                  {Math.min(pagination.page * pagination.pageSize, pagination.total)} of{' '}
+                  {pagination.total} opportunities
+                </Typography>
+              </Flex>
+            </Box>
+          )}
         </Box>
       </ContentLayout>
     </Layout>
@@ -356,26 +454,31 @@ const getPriorityBadgeProps = (priority) => {
     medium: { backgroundColor: 'alternative100', textColor: 'alternative700' },
     low: { backgroundColor: 'success100', textColor: 'success700' }
   };
-  return props[priority] || {};
+  return props[priority] || { backgroundColor: 'neutral100', textColor: 'neutral700' };
 };
 
 const formatRecommendation = (rec) => {
+  if (!rec) return 'Unknown';
   return rec.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 };
 
 const formatDate = (dateString) => {
   if (!dateString) return 'N/A';
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffMs = now - date;
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
+  try {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
 
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays < 7) return `${diffDays}d ago`;
-  return date.toLocaleDateString();
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString();
+  } catch (error) {
+    return 'Invalid date';
+  }
 };
 
 export default OpportunitiesPage;

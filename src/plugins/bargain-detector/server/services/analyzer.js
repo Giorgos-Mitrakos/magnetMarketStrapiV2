@@ -63,7 +63,7 @@ module.exports = ({ strapi }) => ({
 
   /**
    * Store opportunity in database
-   * ✅ UPDATED: Now stores suggested_stock_days
+   * ✅ UPDATED: Auto-mark as urgent if clearance
    */
   async storeOpportunity(product, analysis, options = {}) {
     const config = await strapi
@@ -72,7 +72,14 @@ module.exports = ({ strapi }) => ({
       .loadConfig();
 
     const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + (config.automation?.auto_expire_days || 7));
+    const clearanceDetection = analysis.clearance_detection;
+
+    // ✅ Clearance opportunities expire faster
+    const expireDays = clearanceDetection
+      ? 7  // Clearance expires in 7 days (typical clearance window is 5-10 days)
+      : (config.automation?.auto_expire_days || 7);
+
+    expiresAt.setDate(expiresAt.getDate() + expireDays);
 
     // Check if recent opportunity exists
     const existing = await strapi.entityService.findMany(
@@ -98,6 +105,9 @@ module.exports = ({ strapi }) => ({
       status: 'active',
       expires_at: expiresAt,
 
+      // ✅ Auto-mark as urgent if flash_clearance
+      is_urgent: analysis.priority === 'flash_clearance' || analysis.priority === 'critical',
+
       analysis_data: {
         current_state: analysis.current_state,
         opportunity_breakdown: analysis.opportunity_breakdown,
@@ -109,13 +119,15 @@ module.exports = ({ strapi }) => ({
         signals_detected: analysis.signals,
         patterns_matched: analysis.patterns_matched,
 
-        // ✅ Recommendation details (includes suggested_stock_days)
         recommendation_details: {
           rationale: analysis.recommendation_rationale,
           action: analysis.recommendation_action,
           suggested_stock_days: analysis.suggested_stock_days || null,
           note: analysis.recommendation_note || null
         },
+
+        // ✅ NEW: Clearance detection data
+        clearance_detection: clearanceDetection,
 
         metadata: analysis.metadata
       }
@@ -126,9 +138,10 @@ module.exports = ({ strapi }) => ({
       const existingOpp = existing[0];
       const scoreChange = Math.abs(existingOpp.opportunity_score - data.opportunity_score);
       const recChanged = existingOpp.recommendation !== data.recommendation;
+      const priorityChanged = existingOpp.priority !== data.priority;
 
-      // Update if significant change
-      if (scoreChange > 5 || recChanged) {
+      // ✅ Always update if clearance detected (even if scores similar)
+      if (clearanceDetection || scoreChange > 5 || recChanged || priorityChanged) {
         return await strapi.entityService.update(
           'plugin::bargain-detector.bargainopportunity',
           existingOpp.id,
@@ -136,10 +149,8 @@ module.exports = ({ strapi }) => ({
         );
       }
 
-      // No significant change - return existing
       return existingOpp;
     } else {
-      // Create new opportunity
       return await strapi.entityService.create(
         'plugin::bargain-detector.bargainopportunity',
         { data }
@@ -305,11 +316,23 @@ module.exports = ({ strapi }) => ({
 
   /**
    * Check if notification should be sent
+   * ✅ UPDATED: Clearance alerts
    */
   shouldNotify(opportunity, config) {
     if (opportunity.notified) return false;
 
     const alerts = config.alert_settings || {};
+    const clearanceData = opportunity.analysis_data?.clearance_detection;
+
+    // ✅ NEW: Clearance sale alerts (HIGHEST PRIORITY)
+    if (clearanceData && alerts.clearance_sales?.enabled) {
+      const minConfidence = alerts.clearance_sales.min_confidence || 50;
+      const sendAll = alerts.clearance_sales.send_all !== false; // Default true
+
+      if (sendAll || clearanceData.confidence >= minConfidence) {
+        return true;
+      }
+    }
 
     // Flash deals
     if (alerts.flash_deals?.enabled) {
@@ -335,23 +358,34 @@ module.exports = ({ strapi }) => ({
 
   /**
    * Send notification
+   * ✅ UPDATED: Clearance notifications
    */
   async sendNotification(opportunity, product, config) {
     try {
       const alerts = config.alert_settings || {};
+      const clearanceData = opportunity.analysis_data?.clearance_detection;
       const channels = [];
 
-      if (opportunity.priority === 'critical') {
-        channels.push(...(alerts.critical_opportunities?.channels || []));
+      // ✅ Clearance alerts
+      if (clearanceData && alerts.clearance_sales?.enabled) {
+        channels.push(...(alerts.clearance_sales.channels || ['email']));
+      }
+      // Critical/Flash
+      else if (opportunity.priority === 'critical' || opportunity.priority === 'flash_clearance') {
+        channels.push(...(alerts.critical_opportunities?.channels || ['email']));
       }
 
       const uniqueChannels = [...new Set(channels)];
 
       for (const channel of uniqueChannels) {
         if (channel === 'email') {
-          await this.sendEmail(opportunity, product);
+          // ✅ Use clearance-specific email if detected
+          if (clearanceData) {
+            await this.sendClearanceEmail(opportunity, product, clearanceData);
+          } else {
+            await this.sendEmail(opportunity, product);
+          }
         }
-        // Slack support removed - not configured
       }
 
       // Mark as notified
@@ -371,6 +405,124 @@ module.exports = ({ strapi }) => ({
 
     } catch (error) {
       strapi.log.error(`[Analyzer] Notification failed: ${error.message}`);
+    }
+  },
+
+  /**
+   * ✅ NEW: Send clearance-specific email
+   */
+  async sendClearanceEmail(opportunity, product, clearanceData) {
+    if (!strapi.plugin('email')) return;
+
+    try {
+      const recDetails = opportunity.analysis_data?.recommendation_details || {};
+      const actions = opportunity.analysis_data?.action_items || [];
+
+      // Build signals list
+      const signalsList = clearanceData.signals.map(s =>
+        `<li><strong>${s.type.replace(/_/g, ' ').toUpperCase()}:</strong> ${s.message}</li>`
+      ).join('');
+
+      const html = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #ff6b6b 0%, #ff8e53 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 32px;">🔥 CLEARANCE ALERT 🔥</h1>
+            <p style="color: white; font-size: 18px; margin: 10px 0 0 0;">${product.name}</p>
+          </div>
+          
+          <div style="background: #fff; padding: 30px; border: 2px solid #ff6b6b;">
+            <div style="background: #fff3cd; padding: 15px; border-left: 4px solid #ff6b6b; margin-bottom: 20px;">
+              <p style="margin: 0; font-size: 18px; font-weight: bold; color: #d32f2f;">
+                Supplier ${clearanceData.supplier.name} is clearing stock!
+              </p>
+              <p style="margin: 5px 0 0 0; color: #666;">
+                Confidence: ${clearanceData.confidence}% | Urgency: ${clearanceData.urgency.toUpperCase()}
+              </p>
+            </div>
+
+            <h2 style="color: #333; border-bottom: 2px solid #ff6b6b; padding-bottom: 10px;">⚡ Detection Signals</h2>
+            <ul style="line-height: 1.8; color: #555;">
+              ${signalsList}
+            </ul>
+
+            <h2 style="color: #333; border-bottom: 2px solid #ff6b6b; padding-bottom: 10px; margin-top: 30px;">📊 Scores</h2>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 10px; border-bottom: 1px solid #ddd;"><strong>Opportunity Score:</strong></td>
+                <td style="padding: 10px; border-bottom: 1px solid #ddd; text-align: right; color: #28a745; font-weight: bold;">${opportunity.opportunity_score}/100</td>
+              </tr>
+              <tr>
+                <td style="padding: 10px; border-bottom: 1px solid #ddd;"><strong>Risk Score:</strong></td>
+                <td style="padding: 10px; border-bottom: 1px solid #ddd; text-align: right; color: #dc3545; font-weight: bold;">${opportunity.risk_score}/100</td>
+              </tr>
+              <tr>
+                <td style="padding: 10px; border-bottom: 1px solid #ddd;"><strong>Confidence:</strong></td>
+                <td style="padding: 10px; border-bottom: 1px solid #ddd; text-align: right; font-weight: bold;">${opportunity.confidence.toUpperCase()}</td>
+              </tr>
+            </table>
+
+            <h2 style="color: #333; border-bottom: 2px solid #ff6b6b; padding-bottom: 10px; margin-top: 30px;">💡 Recommendation</h2>
+            <div style="background: #e3f2fd; padding: 20px; border-radius: 8px; border-left: 4px solid #2196f3;">
+              <p style="margin: 0 0 10px 0; font-size: 18px; font-weight: bold; color: #1565c0;">
+                ${opportunity.recommendation.replace(/_/g, ' ').toUpperCase()}
+              </p>
+              ${recDetails.suggested_stock_days ? `
+                <p style="margin: 0 0 10px 0; font-size: 16px; color: #1565c0;">
+                  📦 Suggested Stock: <strong>${recDetails.suggested_stock_days} days</strong>
+                </p>
+              ` : ''}
+              <p style="margin: 0; color: #555; line-height: 1.6;">
+                ${recDetails.rationale || ''}
+              </p>
+              ${recDetails.action ? `
+                <p style="margin: 10px 0 0 0; padding: 10px; background: white; border-radius: 4px; color: #333;">
+                  <strong>Action:</strong> ${recDetails.action}
+                </p>
+              ` : ''}
+            </div>
+
+            ${actions.length > 0 ? `
+              <h2 style="color: #333; border-bottom: 2px solid #ff6b6b; padding-bottom: 10px; margin-top: 30px;">✅ Action Items</h2>
+              <ol style="line-height: 1.8; color: #555;">
+                ${actions.map(a => `<li><strong>${a.description || a.action}</strong>${a.note ? `<br><small style="color: #888;">${a.note}</small>` : ''}</li>`).join('')}
+              </ol>
+            ` : ''}
+
+            <div style="background: #ffebee; padding: 15px; border-radius: 8px; margin-top: 30px; border-left: 4px solid #d32f2f;">
+              <p style="margin: 0; font-weight: bold; color: #c62828;">⏰ TIME SENSITIVE</p>
+              <p style="margin: 5px 0 0 0; color: #666;">
+                Typical clearance window: ${clearanceData.recommendation?.estimated_window || '5-10 days'}. Act fast before stock runs out!
+              </p>
+            </div>
+
+            <div style="text-align: center; margin-top: 30px;">
+              <a href="${process.env.STRAPI_ADMIN_URL || 'https://magnetmarket.gr'}/admin/plugins/bargain-detector/opportunities/${opportunity.id}" 
+                 style="display: inline-block; background: #ff6b6b; color: white; padding: 15px 40px; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 16px;">
+                VIEW FULL ANALYSIS
+              </a>
+            </div>
+          </div>
+
+          <div style="background: #f5f5f5; padding: 20px; text-align: center; border-radius: 0 0 10px 10px; margin-top: 2px;">
+            <p style="margin: 0; color: #888; font-size: 12px;">
+              This is an automated alert from Bargain Detector. 
+              <a href="${process.env.STRAPI_ADMIN_URL || 'https://magnetmarket.gr'}/admin/plugins/bargain-detector/opportunities/${opportunity.id}" style="color: #ff6b6b;">
+                Dismiss as false positive
+              </a>
+            </p>
+          </div>
+        </div>
+      `;
+
+      await strapi.plugin('email').service('email').send({
+        to: ['giorgos_mitrakos@yahoo.com', 'info@magnetmarket.gr', 'kkoulogiannis@gmail.com'],
+        subject: `🔥 CLEARANCE ALERT - ${product.name} από ${clearanceData.supplier.name}`,
+        html
+      });
+
+      strapi.log.info(`[Analyzer] Clearance email sent for opportunity ${opportunity.id}`);
+    } catch (error) {
+      strapi.log.error(`[Analyzer] Clearance email failed: ${error.message}`);
     }
   },
 

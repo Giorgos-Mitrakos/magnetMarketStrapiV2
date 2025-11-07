@@ -11,27 +11,43 @@
     "indexes": [
       {
         "name": "idx_product_status",
-        "columns": ["product_id", "status"] 
+        "columns": [
+          "product_id",
+          "status"
+        ]
       },
       {
         "name": "idx_status_priority",
-        "columns": ["status", "priority"]
+        "columns": [
+          "status",
+          "priority"
+        ]
       },
       {
         "name": "idx_analyzed_at",
-        "columns": ["analyzed_at"]
+        "columns": [
+          "analyzed_at"
+        ]
       },
       {
         "name": "idx_expires_at",
-        "columns": ["expires_at"]
+        "columns": [
+          "expires_at"
+        ]
       },
       {
         "name": "idx_status_expires",
-        "columns": ["status", "expires_at"]
+        "columns": [
+          "status",
+          "expires_at"
+        ]
       },
       {
         "name": "idx_priority_analyzed",
-        "columns": ["priority", "analyzed_at"]
+        "columns": [
+          "priority",
+          "analyzed_at"
+        ]
       }
     ]
   },
@@ -97,11 +113,13 @@
     "priority": {
       "type": "enumeration",
       "enum": [
-        "critical",
-        "high",
+        "low",
         "medium",
-        "low"
+        "high",
+        "critical",
+        "flash_clearance"
       ],
+      "required": true,
       "default": "medium"
     },
     "analysis_data": {
@@ -117,6 +135,13 @@
         "expired"
       ],
       "default": "active"
+    },
+    "dismissed_as_false_positive": {
+      "type": "boolean",
+      "default": false
+    },
+    "dismissed_at": {
+      "type": "datetime"
     },
     "expires_at": {
       "type": "datetime"

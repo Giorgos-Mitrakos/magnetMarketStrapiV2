@@ -96,39 +96,55 @@ export default {
     async afterUpdate(event) {
         const { result, params } = event;
 
-        // Check if price-related fields were updated
-        const priceFieldsUpdated = params.data.supplierInfo ||
-            params.data.price ||
-            params.data.sale_price;
-
-        if (params.data.publishedAt === null)
-            return
-
-        if (!priceFieldsUpdated) {
-            return; // No price changes, skip analysis
+        // Skip if product is unpublished
+        if (params.data.publishedAt === null) {
+            return;
         }
 
+        // Check if price-related fields were updated
+        const priceFieldsUpdated =
+            params.data.supplierInfo ||
+            params.data.price ||
+            params.data.sale_price ||
+            params.data.inventory; // Also trigger on inventory changes
+
+        if (!priceFieldsUpdated) {
+            return; // No relevant changes
+        }
 
         try {
-            // Queue analysis (don't block the update)
+            // Queue analysis (non-blocking)
             setImmediate(async () => {
                 try {
-                    const analyzer = strapi.plugin('bargain-detector').service('analyzer');
+                    // Get the analyzer service
+                    const analyzer = strapi.plugin('bargain-detector')?.service('analyzer');
 
+                    if (!analyzer) {
+                        strapi.log.error('[Lifecycle] Bargain detector analyzer service not found');
+                        return;
+                    }
+
+                    strapi.log.debug(`[Lifecycle] Queuing auto-analysis for product ${result.id}`);
+
+                    // Run analysis
                     await analyzer.analyzeAndStore(result.id, {
-                        trigger: 'webhook',
-                        reason: 'price_update'
+                        trigger: 'lifecycle',
+                        reason: 'price_or_inventory_update',
+                        source: 'product_update_hook'
                     });
 
-                    strapi.log.debug(`[Bargain Detector] Auto-analyzed product ${result.id} after price update`);
+                    strapi.log.info(`[Lifecycle] ✓ Auto-analyzed product ${result.id} after update`);
+
                 } catch (error) {
-                    strapi.log.error(`[Bargain Detector] Auto-analysis failed for product ${result.id}: ${error.message}`);
+                    // Log but don't throw - analysis failure shouldn't break product updates
+                    strapi.log.error(
+                        `[Lifecycle] Auto-analysis failed for product ${result.id}: ${error.message}`
+                    );
                 }
             });
 
         } catch (error) {
-            // Don't block the update if analysis fails
-            strapi.log.error(`[Bargain Detector] Failed to queue analysis: ${error.message}`);
+            strapi.log.error(`[Lifecycle] Failed to queue analysis: ${error.message}`);
         }
-    }
+    },
 };

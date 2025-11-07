@@ -181,6 +181,7 @@ export interface GlobalCarousel extends Schema.Component {
   };
   attributes: {
     Banner: Attribute.Component<'global.banner', true>;
+    layout: Attribute.Enumeration<['full', 'split']>;
   };
 }
 

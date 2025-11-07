@@ -1,3 +1,6 @@
+// admin/src/index.js
+// Enhanced plugin registration with Settings link
+
 import { prefixPluginTranslations } from '@strapi/helper-plugin';
 import pluginPkg from '../../package.json';
 import pluginId from './pluginId';
@@ -8,26 +11,22 @@ const name = pluginPkg.strapi.name;
 
 export default {
   register(app) {
+    // Main plugin menu link
     app.addMenuLink({
       to: `/plugins/${pluginId}`,
       icon: PluginIcon,
       intlLabel: {
         id: `${pluginId}.plugin.name`,
-        defaultMessage: name,
+        defaultMessage: 'Bargain Detector',
       },
       Component: async () => {
         const component = await import('./pages/App');
-
         return component;
       },
-      permissions: [
-        // Uncomment to set the permissions of the plugin here
-        // {
-        //   action: '', // the action name should be plugin::plugin-name.actionType
-        //   subject: null,
-        // },
-      ],
+      permissions: [],
     });
+    
+    // Register the plugin
     app.registerPlugin({
       id: pluginId,
       initializer: Initializer,
@@ -36,7 +35,10 @@ export default {
     });
   },
 
-  bootstrap(app) {},
+  bootstrap(app) {
+    // Nothing needed here for now
+  },
+
   async registerTrads({ locales }) {
     const importedTrads = await Promise.all(
       locales.map((locale) => {
@@ -55,7 +57,6 @@ export default {
           });
       })
     );
-
     return Promise.resolve(importedTrads);
   },
 };

@@ -211,6 +211,12 @@
       "target": "plugin::bargain-detector.bargainopportunity",
       "mappedBy": "product"
     },
+    "clearance_dismissals": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "plugin::bargain-detector.clearancedismissal",
+      "mappedBy": "product"
+    },
     "is_bargain": {
       "type": "boolean",
       "default": false

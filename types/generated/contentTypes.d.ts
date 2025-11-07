@@ -1099,6 +1099,11 @@ export interface ApiProductProduct extends Schema.CollectionType {
       'manyToOne',
       'api::category.category'
     >;
+    clearance_dismissals: Attribute.Relation<
+      'api::product.product',
+      'oneToMany',
+      'plugin::bargain-detector.clearancedismissal'
+    >;
     coupons: Attribute.Relation<
       'api::product.product',
       'manyToMany',
@@ -1578,6 +1583,8 @@ export interface PluginBargainDetectorBargainopportunity
       'admin::user'
     > &
       Attribute.Private;
+    dismissed_as_false_positive: Attribute.Boolean & Attribute.DefaultTo<false>;
+    dismissed_at: Attribute.DateTime;
     expires_at: Attribute.DateTime;
     notes: Attribute.Text;
     notification_channels: Attribute.JSON & Attribute.DefaultTo<[]>;
@@ -1598,7 +1605,10 @@ export interface PluginBargainDetectorBargainopportunity
     > &
       Attribute.DefaultTo<'pending'>;
     outcome_notes: Attribute.Text;
-    priority: Attribute.Enumeration<['critical', 'high', 'medium', 'low']> &
+    priority: Attribute.Enumeration<
+      ['low', 'medium', 'high', 'critical', 'flash_clearance']
+    > &
+      Attribute.Required &
       Attribute.DefaultTo<'medium'>;
     product: Attribute.Relation<
       'plugin::bargain-detector.bargainopportunity',
@@ -1703,6 +1713,66 @@ export interface PluginBargainDetectorCategoryconfig
   };
 }
 
+export interface PluginBargainDetectorClearancedismissal
+  extends Schema.CollectionType {
+  collectionName: 'clearance_dismissals';
+  info: {
+    description: 'Track clearance opportunities dismissed as false positives';
+    displayName: 'Clearance Dismissal';
+    pluralName: 'clearancedismissals';
+    singularName: 'clearancedismissal';
+  };
+  options: {
+    comment: 'Prevents re-alerting on same clearance detection';
+    draftAndPublish: false;
+  };
+  attributes: {
+    confidence_at_dismissal: Attribute.Integer &
+      Attribute.Required &
+      Attribute.SetMinMax<
+        {
+          max: 100;
+          min: 0;
+        },
+        number
+      >;
+    createdAt: Attribute.DateTime;
+    createdBy: Attribute.Relation<
+      'plugin::bargain-detector.clearancedismissal',
+      'oneToOne',
+      'admin::user'
+    > &
+      Attribute.Private;
+    dismissed_at: Attribute.DateTime & Attribute.Required;
+    dismissed_by: Attribute.String & Attribute.Required;
+    notes: Attribute.Text;
+    opportunity: Attribute.Relation<
+      'plugin::bargain-detector.clearancedismissal',
+      'oneToOne',
+      'plugin::bargain-detector.bargainopportunity'
+    >;
+    product: Attribute.Relation<
+      'plugin::bargain-detector.clearancedismissal',
+      'manyToOne',
+      'api::product.product'
+    >;
+    reason: Attribute.Text;
+    signals_at_dismissal: Attribute.JSON & Attribute.Required;
+    supplier: Attribute.Relation<
+      'plugin::bargain-detector.clearancedismissal',
+      'manyToOne',
+      'plugin::import-products.importxml'
+    >;
+    updatedAt: Attribute.DateTime;
+    updatedBy: Attribute.Relation<
+      'plugin::bargain-detector.clearancedismissal',
+      'oneToOne',
+      'admin::user'
+    > &
+      Attribute.Private;
+  };
+}
+
 export interface PluginBargainDetectorConfiguration extends Schema.SingleType {
   collectionName: 'bargain_configuration';
   info: {
@@ -1717,6 +1787,12 @@ export interface PluginBargainDetectorConfiguration extends Schema.SingleType {
   attributes: {
     alert_settings: Attribute.JSON &
       Attribute.DefaultTo<{
+        clearance_sales: {
+          channels: ['email'];
+          enabled: true;
+          min_confidence: 50;
+          send_all: true;
+        };
         critical_opportunities: {
           channels: ['email', 'dashboard'];
           enabled: true;
@@ -3031,6 +3107,7 @@ declare module '@strapi/types' {
       'plugin::bargain-detector.analysisrun': PluginBargainDetectorAnalysisrun;
       'plugin::bargain-detector.bargainopportunity': PluginBargainDetectorBargainopportunity;
       'plugin::bargain-detector.categoryconfig': PluginBargainDetectorCategoryconfig;
+      'plugin::bargain-detector.clearancedismissal': PluginBargainDetectorClearancedismissal;
       'plugin::bargain-detector.configuration': PluginBargainDetectorConfiguration;
       'plugin::bargain-detector.pattern': PluginBargainDetectorPattern;
       'plugin::bargain-detector.ruleexecution': PluginBargainDetectorRuleexecution;

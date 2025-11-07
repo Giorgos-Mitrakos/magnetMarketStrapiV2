@@ -4,17 +4,34 @@
 
 module.exports = {
   /**
-   * Find all opportunities with filters
+   * Find all opportunities with filters and pagination
    * GET /bargain-detector/opportunities
    */
   async find(ctx) {
     try {
       const { query } = ctx;
       
+      // Extract pagination params
+      const page = parseInt(query.pagination?.page) || 1;
+      const pageSize = parseInt(query.pagination?.pageSize) || 25;
+      const start = (page - 1) * pageSize;
+      
+      // Build filters
+      const filters = query.filters || {};
+      
+      // Get total count
+      const total = await strapi.db.query('plugin::bargain-detector.bargainopportunity').count({
+        where: filters
+      });
+      
+      // Get paginated data
       const opportunities = await strapi.entityService.findMany(
         'plugin::bargain-detector.bargainopportunity',
         {
-          ...query,
+          filters,
+          sort: query.sort || { priority: 'asc', opportunity_score: 'desc' },
+          start,
+          limit: pageSize,
           populate: {
             product: {
               fields: ['id', 'name', 'slug']
@@ -23,7 +40,18 @@ module.exports = {
         }
       );
       
-      ctx.send(opportunities);
+      // Return with pagination meta
+      ctx.send({
+        data: opportunities,
+        meta: {
+          pagination: {
+            page,
+            pageSize,
+            pageCount: Math.ceil(total / pageSize),
+            total
+          }
+        }
+      });
       
     } catch (error) {
       ctx.badRequest('Failed to fetch opportunities', { error: error.message });
@@ -126,12 +154,12 @@ module.exports = {
    */
   async getStats(ctx) {
     try {
-      // Get all active opportunities
+      // Get all active opportunities (no limit for stats)
       const opportunities = await strapi.entityService.findMany(
         'plugin::bargain-detector.bargainopportunity',
         {
           filters: { status: 'active' },
-          limit: 1000
+          limit: -1 // Get all for accurate stats
         }
       );
       

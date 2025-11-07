@@ -5,6 +5,7 @@ const ruleexecution = require('./rule-execution');
 const analysisrun = require('./analysis-run');
 const configuration = require('./configuration');
 const categoryconfig = require('./category-config');
+const clearancedismissal=require('./clearance_dismissals')
 
 module.exports = {
     bargainopportunity,
@@ -12,5 +13,6 @@ module.exports = {
     analysisrun,
     ruleexecution,
     configuration,
-    categoryconfig
+    categoryconfig,
+    clearancedismissal
 };

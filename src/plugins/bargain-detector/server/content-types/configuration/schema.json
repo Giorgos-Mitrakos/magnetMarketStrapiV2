@@ -146,6 +146,12 @@
           "max_stock": 2,
           "channels": ["email", "dashboard"]
         },
+        "clearance_sales": {
+          "enabled": true,
+          "min_confidence": 50,
+          "send_all": true,
+          "channels": ["email"]
+        },
         "inventory_risks": {
           "enabled": true,
           "underwater_threshold": -15,

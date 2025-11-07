@@ -514,10 +514,11 @@ module.exports = ({ strapi }) => ({
             }
             else if (entry.name.toLowerCase() === 'globalsat') {
                 const charStings = attributes.split("|")
-                for (let charSting of charStings) {
-                    if (charSting[0].trim() !== "") {
-                        const charSplit = charSting.split(":")
 
+                for (let charSting of charStings) {
+
+                    const charSplit = charSting.split(":")
+                    if (charSplit[0].trim() !== "") {
                         const char = {}
                         char.name = charSplit[0]?.trim()
                         char.value = charSplit[1]?.trim()
