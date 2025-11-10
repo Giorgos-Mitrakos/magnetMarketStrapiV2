@@ -40,6 +40,14 @@ export default factories.createCoreController('api::product.product',
                 okay: true,
                 type: "POST",
             };
+        },
+
+        async getOffers(ctx) {
+            ctx.body = await strapi.service('api::product.product').getOffers(ctx);
+            return {
+                okay: true,
+                type: "POST",
+            };
         }
 
     }));

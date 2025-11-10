@@ -493,7 +493,7 @@ export default factories.createCoreService('api::product.product', ({ strapi }) 
 
         const products: IProduct[] = await strapi.db.query('api::product.product').findMany({
             where: filters,
-            limit: 10,
+            limit: 20,
             orderBy: sortedBy,
             select: [
                 'name',
@@ -529,5 +529,153 @@ export default factories.createCoreService('api::product.product', ({ strapi }) 
         })
 
         return products
-    }
+    },
+
+    async getOffers(ctx) {
+        const searchParams = ctx.request.body
+
+        const { sort, page, pageSize, Κατηγορίες, Κατασκευαστές } = searchParams;
+
+        let sortedBy: any = [{ is_sale: "desc" }]; // default
+        if (sort) {
+            const sortStr = sort.toString();
+            // Convert from GraphQL format (field:direction) to Strapi object format
+            const [field, direction] = sortStr.split(':');
+            sortedBy = [{ [field]: direction }];
+        }
+
+        // Prepare pagination
+        const currentPage = page ? Number(page) : 1;
+        const currentPageSize = pageSize ? Number(pageSize) : 12;
+
+        // Build filters object
+        const filterAnd = []
+        filterAnd.push({ publishedAt: { $notNull: true } }, { is_sale: { $eq: true } }, { sale_price: { $gt: 0 } })
+
+        if (Κατηγορίες) {
+            if (typeof Κατηγορίες !== "string") {
+                filterAnd.push({ category: { slug: { $in: Κατηγορίες } } });
+            } else {
+                filterAnd.push({ category: { slug: { $eq: Κατηγορίες } } });
+            }
+        }
+
+        if (Κατασκευαστές) {
+            if (typeof Κατασκευαστές !== "string") {
+                filterAnd.push({ brand: { name: { $in: Κατασκευαστές } } });
+            } else {
+                filterAnd.push({ brand: { name: { $eq: Κατασκευαστές } } });
+            }
+        }
+
+        console.log(filterAnd)
+
+        try {
+            // Parallel execution for better performance
+            const [products, total, offerFilters] = await Promise.all([
+                strapi.entityService.findMany('api::product.product', {
+                    filters: { $and: filterAnd },
+                    start: (currentPage - 1) * currentPageSize,
+                    limit: currentPageSize,
+                    orderBy: sortedBy,
+                    fields: [
+                        'name',
+                        'slug',
+                        'mpn',
+                        'barcode',
+                        'price',
+                        'sale_price',
+                        'is_sale',
+                        'is_hot',
+                        'inventory',
+                        'is_in_house',
+                        'status',
+                        'weight'],
+                    populate: {
+                        category: {
+                            fields: ['name', 'slug'],
+                            populate: {
+                                parents: {
+                                    fields: ['name', 'slug'],
+                                    populate: {
+                                        parents: { fields: ['name', 'slug'] }
+                                    }
+                                }
+                            }
+                        },
+                        image: { fields: ['name', 'url', 'alternativeText', 'formats'] },
+                        brand: {
+                            fields: ['name', 'slug'],
+                            populate: { logo: { fields: ['name', 'url', 'alternativeText', 'formats'] } }
+                        },
+                    },
+                }),
+
+                // Get total count
+                strapi.entityService.count('api::product.product', {
+                    filters: { $and: filterAnd },
+                }),
+
+                this.getOfferFilters(filterAnd)
+
+            ])
+
+            const pageCount = Math.ceil(total / currentPageSize);
+
+            console.log("synolo:", products.length)
+
+            // Transform the response to match the expected structure
+            const res = {
+                products: products,
+                meta: {
+                    pagination: {
+                        total: total,
+                        page: currentPage,
+                        pageSize: currentPageSize,
+                        pageCount: pageCount
+                    }
+                },
+                filters: offerFilters
+            };
+
+            return res;
+
+
+        } catch (error) {
+            console.error('Error fetching brand products:', error);
+            throw error;
+        }
+    },
+
+    // Helper function for brand filters
+    async getOfferFilters(filterAnd) {
+        // Χρησιμοποίησε τα ίδια φίλτρα που χρησιμοποιείς στην κύρια αναζήτηση
+        const filters = { $and: filterAnd };
+
+        const products: IProduct[] = await strapi.entityService.findMany('api::product.product', {
+            fields: ['id', 'name', 'slug'],
+            populate: {
+                brand: { fields: ['name', 'slug'] },
+                category: { fields: ['name', 'slug'] },
+            },
+            filters: filters
+        });
+
+        // Extract and deduplicate brands and categories
+        const brands = products
+            .map(product => product.brand)
+            .filter(brand => brand != null);
+
+        const categories = products
+            .map(product => product.category)
+            .filter(category => category != null);
+
+        const uniqueBrands = this.getDistinctValuesAndCounts(brands);
+        const uniqueCategories = this.getDistinctValuesAndCounts(categories);
+
+        return [
+            { title: 'Κατασκευαστές', filterBy: 'brands', filterValues: uniqueBrands },
+            { title: 'Κατηγορίες', filterBy: 'Κατηγορίες', filterValues: uniqueCategories }
+        ];
+    },
 }));

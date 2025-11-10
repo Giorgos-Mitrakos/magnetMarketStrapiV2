@@ -52,5 +52,18 @@ export default {
             //   auth:true
             // }
         },
+        {
+            method: "POST",
+            path: "/product/getOffers",
+            handler: "product.getOffers",
+            config: {
+                // auth: false,
+                // middlewares: ["api::order.add-user"],
+                // See the usage section below for middleware naming conventions
+            },
+            // config:{
+            //   auth:true
+            // }
+        },
     ]
 };
