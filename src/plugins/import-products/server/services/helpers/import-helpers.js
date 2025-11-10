@@ -9,29 +9,10 @@ module.exports = ({ strapi }) => ({
 
     async updateAll() {
 
-        await scrapNOVATRON()
-            .then(async () => { return await updateZEGETRON() })
+        await updateZEGETRON()
             .then(async () => { return await updateOKTABIT() })
             .then(async () => { return await updateWESTNET() })
             .then(async () => { return await scrapQUEST() })
-
-        async function scrapNOVATRON() {
-            const entry = await strapi.db.query('plugin::import-products.importxml').findOne({
-                where: { name: "Novatron" },
-                populate: {
-                    importedFile: true,
-                    stock_map: {
-                        fields: ['name'],
-                        sort: 'name:asc',
-                    },
-                },
-            })
-
-            await strapi
-                .plugin('import-products')
-                .service('novatronService')
-                .parseNovatron({ entry });
-        }
 
         async function updateZEGETRON() {
             const entry = await strapi.db.query('plugin::import-products.importxml').findOne({

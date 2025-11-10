@@ -67,7 +67,7 @@ export default {
                 .parseNovatron({ entry });
         },
         options: {
-            rule: "4 7,11 * * *",
+            rule: "4 7,11,16,21 * * *",
         },
     },
 
