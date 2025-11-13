@@ -78,12 +78,14 @@ module.exports = ({ strapi }) => ({
           // αν δεν υπάρχει το προϊόν το δημιουργώ αλλιώς ενημερώνω 
           if (!entryCheck) {
             try {
-              const response = await strapi
+              const result = await strapi
                 .plugin('import-products')
                 .service('importHelpers')
                 .createEntry(product, importRef);
 
-              await response
+              if (!result?.success) {
+                console.log(`Failed to create product: ${dt.title}, reason: ${result?.reason}`)
+              }
             } catch (error) {
               console.error("errors in create:", error, error.details?.errors, "Προϊόν:", dt.title)
             }
@@ -109,7 +111,7 @@ module.exports = ({ strapi }) => ({
       return { "message": "ok" }
     }
     catch (err) {
-      console.log(err); 
+      console.log(err);
     }
   },
 

@@ -186,8 +186,8 @@ module.exports = ({ strapi }) => ({
                             if (categoryMap.blacklist_map[catIndex].subcategory.length > 0) {
                                 let subIndex = categoryMap.blacklist_map[catIndex].subcategory.findIndex(x => x.name.trim() === subcategory)
                                 if (subIndex !== -1) {
-                                    if (categoryMap.whitelist_map[catIndex].subcategory[subIndex].subcategory.length > 0) {
-                                        let sub2Index = categoryMap.whitelist_map[catIndex].subcategory[subIndex].subcategory.findIndex(x => x.name.trim() === sub2category)
+                                    if (categoryMap.blacklist_map[catIndex].subcategory[subIndex].subcategory.length > 0) {
+                                        let sub2Index = categoryMap.blacklist_map[catIndex].subcategory[subIndex].subcategory.findIndex(x => x.name.trim() === sub2category)
                                         if (sub2Index !== -1) {
                                             return false
                                         }

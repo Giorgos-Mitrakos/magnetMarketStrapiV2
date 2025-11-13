@@ -562,7 +562,7 @@ module.exports = ({ strapi }) => ({
         <p><a href="${process.env.STRAPI_ADMIN_URL || 'https://magnetmarket.gr'}/admin">View in Dashboard</a></p>
       `;
 
-      await strapi.plugin('email').service('email').send({
+      await strapi.plugins['email'].services.email.send({
         to: ['giorgos_mitrakos@yahoo.com', 'info@magnetmarket.gr', 'kkoulogiannis@gmail.com'],
         subject: `${opportunity.priority === 'critical' ? '🚨 URGENT' : '💰'} Bargain Alert - ${product.name}`,
         html

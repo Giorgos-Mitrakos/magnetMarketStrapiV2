@@ -272,19 +272,21 @@ module.exports = ({ strapi }) => ({
                 .service('fileHelpers')
                 .getAndConvertImgToWep(product);
 
-            if (!responseImage)
-                return
+            if (!responseImage) {
+                console.log('No images for product:', product.name);
+                return { success: false, reason: 'no_images' }
+            }
 
-            data.image = await responseImage?.mainImage[0]
-            data.additionalImages = await responseImage?.additionalImages
-            data.ImageURLS = await responseImage?.imgUrls
+            data.image = responseImage?.mainImage[0]
+            data.additionalImages = responseImage?.additionalImages
+            data.ImageURLS = responseImage?.imgUrls
 
             let responseFile = await strapi
                 .plugin('import-products')
                 .service('fileHelpers')
                 .getAdditionalFile(product);
 
-            data.additionalFiles = await responseFile ? responseFile : null
+            data.additionalFiles = responseFile ? responseFile : null
 
             data.seo = await strapi
                 .plugin('import-products')
@@ -300,8 +302,10 @@ module.exports = ({ strapi }) => ({
                 importRef.related_products.push({ productID: newEntry.id, relatedProducts: product.relativeProducts })
 
             importRef.created += 1;
+            return { success: true, id: newEntry.id }
         } catch (error) {
             console.log("Error in Entry Function:", error, error.details?.errors, product.name)
+            return { success: false, reason: 'exception', error: error.message }
         }
 
     },
@@ -393,9 +397,14 @@ module.exports = ({ strapi }) => ({
             }
 
             if (Object.keys(data).length !== 0) {
-                await strapi.entityService.update('api::product.product', entryCheck.id, {
+                const updated = await strapi.entityService.update('api::product.product', entryCheck.id, {
                     data
                 });
+
+                if (!updated) {
+                    console.error('Failed to update product:', entryCheck.id);
+                    return { success: false, reason: 'update_failed' }
+                }
             }
 
             switch (dbChange.typeOfChange) {
@@ -412,8 +421,11 @@ module.exports = ({ strapi }) => ({
                     importRef.skipped += 1
                     break;
             }
+
+            return { success: true, changeType: dbChange.typeOfChange }
         } catch (error) {
             console.log(error, error?.details?.errors)
+            return { success: false, reason: 'exception', error: error.message }
         }
     },
 
@@ -551,7 +563,7 @@ module.exports = ({ strapi }) => ({
 
         // Προσθέτω το id του προϊόντος στη βάση ώστε αργότερα όταν γίνει η διαγραφή
         // των προϊόντων να μην δαγραφεί.
-        importRef.related_entries.push(entryCheck.id);
+        // //////////////////////////////importRef.related_entries.push(entryCheck.id);
 
         // // Για τις περιπτώσεις όπου ο προμηθευτής έχει σχετικά προϊόντα αποθηκεύω 
         // // τα προϊόντα ώστε να τα συσχετίσω στη βάση
@@ -623,7 +635,7 @@ module.exports = ({ strapi }) => ({
         }
 
         // Αν δεν υπάρχει slug το δημιουργώ
-        if (entryCheck.slug.includes("undefined")) {
+        if (entryCheck.slug?.includes("undefined")) {
             data.slug = this.createSlug(product.name, product.mpn)
             dbChange.typeOfChange = 'updated'
         }
@@ -644,8 +656,14 @@ module.exports = ({ strapi }) => ({
 
         ['length', 'width', 'height'].forEach(dim => {
             if (isNaN(dimensions[dim])) return
-            if ((!entryCheck[dim] && Math.ceil(dimensions[dim])) || (entryCheck[dim] !== Math.ceil(dimensions[dim]))) {
-                data[dim] = Math.ceil(dimensions[dim]);
+            const ceiledValue = Math.ceil(dimensions[dim]);
+
+            // Update only if:
+            // 1. Database has no value and new value is valid (> 0)
+            // 2. Database has value but it's different from new value
+            if ((!entryCheck[dim] && ceiledValue > 0) ||
+                (entryCheck[dim] && entryCheck[dim] !== ceiledValue && ceiledValue > 0)) {
+                data[dim] = ceiledValue;
                 dbChange.typeOfChange = 'updated';
             }
         });
@@ -659,9 +677,14 @@ module.exports = ({ strapi }) => ({
             }
         }
 
-        strapi.plugin('import-products')
-            .service('productHelpers')
-            .updateProductWeight(entryCheck, product, categoryInfo, data, dbChange);
+        try {
+            strapi.plugin('import-products')
+                .service('productHelpers')
+                .updateProductWeight(entryCheck, product, categoryInfo, data, dbChange);
+        } catch (error) {
+            console.error('Error updating product weight:', error, 'Product:', entryCheck.id);
+            // Continue - don't let weight calculation break the entire update
+        }
 
         // //Υπολογισμός βάρους
         // if (!product.weight) {
