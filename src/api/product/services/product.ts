@@ -319,7 +319,10 @@ export default factories.createCoreService('api::product.product', ({ strapi }) 
 
         const product: IProduct = await strapi.db.query('api::product.product').findOne({
             where: {
-                slug: slug
+                $and: [
+                    { slug: slug },
+                    { publishedAt: { $notNull: true } }
+                ]
             },
             select: [
                 'name',

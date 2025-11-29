@@ -3,352 +3,377 @@
 const xml2js = require('xml2js');
 const slugify = require("slugify");
 const fs = require('fs');
-const Axios = require('axios');
+const { createWriteStream } = require('fs');
+const { promisify } = require('util');
+const writeFileAsync = promisify(fs.writeFile);
 
 module.exports = ({ strapi }) => ({
     async createXml(platform) {
         try {
+            // 1. Φόρτωσε suppliers (μικρό dataset)
             const suppliers = await strapi.db.query('plugin::import-products.importxml').findMany({
                 select: ['name', 'availability', 'order_time', 'shipping'],
             });
 
-            const entries = await strapi.db.query('api::platform.platform').findOne({
+            // 2. Φόρτωσε platform με export categories (χωρίς products ακόμα)
+            const platformData = await strapi.db.query('api::platform.platform').findOne({
                 select: ['name', 'order_time'],
-                where: {
-                    name: platform
-                },
+                where: { name: platform },
                 populate: {
                     export_categories: {
+                        select: ['id', 'name'],
                         populate: {
                             cat_percentage: {
                                 populate: {
-                                    brand_perc:
-                                    {
+                                    brand_perc: {
                                         populate: {
                                             brand: true
                                         }
                                     }
                                 }
-                            },
-                            products: {
-                                where: {
-                                    publishedAt: { $notNull: true },
-                                },
-                                populate: {
-                                    image: true,
-                                    additionalImages: true,
-                                    brand: true,
-                                    supplierInfo: true,
-                                    platforms: true,
-                                },
                             }
                         }
                     }
                 },
             });
 
-            this.checkIfThereIsSupplierInStock(entries)
-
-
-            const platformAttr = {
-                name: entries.name,
-                order_time: entries.order_time
+            if (!platformData) {
+                throw new Error(`Platform ${platform} not found`);
             }
 
-            switch (platform.toLowerCase()) {
-                case "skroutz":
-                    await this.createSkroutzXML(entries, suppliers, platformAttr)
-                    break;
-                case "shopflix":
-                    await this.createShopflixXML(entries, suppliers, platformAttr)
-                    break;
-                case "bestprice":
-                    await this.createBestpriceXML(entries, suppliers, platformAttr)
-                    break;
+            // 3. Check suppliers in stock πριν ξεκινήσουμε
+            await this.checkIfThereIsSupplierInStock();
 
-                default:
-                    break;
+            // 4. Επεξεργασία categories και δημιουργία entries
+            const allEntries = [];
+
+            for (const category of platformData.export_categories) {
+
+                const categoryEntries = await this.processCategoryProducts(
+                    category,
+                    suppliers,
+                    platformData,
+                    platform.toLowerCase()
+                );
+
+                allEntries.push(...categoryEntries);
+
+                // Cleanup
+                categoryEntries.length = 0;
             }
+
+            // 5. Δημιουργία XML ανάλογα με την πλατφόρμα
+            await this.writeXmlForPlatform(platform.toLowerCase(), allEntries, platformData);
+
+            // Final cleanup
+            allEntries.length = 0;
+
         } catch (error) {
-            console.log(error)
+            console.error('Error in createXml:', error);
+            throw error;
         }
     },
 
-    async createBestpriceXML(entries, suppliers, platform) {
-        try {
-            let finalEntries = []
-            for (let category of entries.export_categories) {
-                let categoryPath = await this.createCategoryPath(category)
-                for (let product of category.products) {
-                    if (product.mpn === "BHR4215GL")
-                        continue
+    async processCategoryProducts(category, suppliers, platformData, platformName) {
+        const BATCH_SIZE = 50;
+        let offset = 0;
+        const categoryEntries = [];
 
-                    let { cheaperAvailableSupplier, availability, price } = this.createAvailabilityAndPrice(product, suppliers, platform, category)
+        // Δημιούργησε το category path μία φορά
+        const categoryPath = platformName === 'shopflix'
+            ? category.name  // Μόνο το όνομα για Shopflix
+            : await this.createCategoryPath(category); // Full path για τα άλλα
 
-                    if (!price) { continue }
+        while (true) {
+            // Φόρτωσε products σε batches - χρησιμοποιούμε entityService για relations
+            const products = await strapi.entityService.findMany('api::product.product', {
+                filters: {
+                    $and: [
+                        { publishedAt: { $notNull: true } },
+                        { category: { id: { $eq: category.id } } }]
+                },
+                fields: [
+                    'id', 'name', 'slug', 'price', 'sale_price', 'is_sale',
+                    'mpn', 'sku', 'barcode', 'description', 'weight',
+                    'inventory', 'is_in_house'
+                ],
+                populate: {
+                    image: {
+                        fields: ['url']
+                    },
+                    additionalImages: {
+                        fields: ['url']
+                    },
+                    brand: {
+                        fields: ['name']
+                    },
+                    supplierInfo: {
+                        fields: ['name', 'in_stock', 'wholesale', 'recycle_tax']
+                    },
+                    platforms: {
+                        fields: ['platform', 'price']
+                    }
+                },
+                start: offset,
+                limit: BATCH_SIZE,
+            });
 
-                    let newEntry = {
-                        productId: product.id,
-                        title: product.name,
-                        productURL: `https://magnetmarket.gr/product/${product.slug}`,
-                        imageURL: product.image ? `https://api.magnetmarket.eu/${product.image.url}` : "",
-                        category_path: categoryPath,
-                        price: price,
+            if (products.length === 0) break;
+
+            // Επεξεργασία κάθε product
+            for (const product of products) {
+                // Skip specific product
+                if (product.mpn === "BHR4215GL") continue;
+
+                const { cheaperAvailableSupplier, availability, price } = this.createAvailabilityAndPrice(
+                    product,
+                    suppliers,
+                    platformData,
+                    category
+                );
+
+                if (!price) continue;
+
+                const entry = this.createProductEntry(
+                    product,
+                    availability,
+                    price,
+                    categoryPath,
+                    platformData.name,
+                    cheaperAvailableSupplier
+                );
+
+                if (entry) {
+                    categoryEntries.push(entry);
+                }
+            }
+
+            offset += BATCH_SIZE;
+        }
+
+        return categoryEntries;
+    },
+
+    createProductEntry(product, availability, price, categoryPath, platformName, cheaperAvailableSupplier) {
+        const cleanDescription = product.description
+            ? this.cleanHtmlForXml(this.removeControlChars(product.description))
+            : "";
+
+        const imageUrl = product.image ? `https://api.magnetmarket.eu${product.image.url}` : "";
+        const productLink = `https://magnetmarket.gr/product/${product.slug}`;
+
+        // Calculate quantity
+        const quantity = product.inventory > 0
+            ? product.inventory
+            : (cheaperAvailableSupplier && cheaperAvailableSupplier.name.toLowerCase() === "globalsat" ? 1 : 2);
+
+        switch (platformName.toLowerCase()) {
+            case "skroutz":
+                return {
+                    product: {
+                        uniqueID: product.id,
+                        name: product.name,
+                        link: productLink,
+                        image: imageUrl,
+                        category: categoryPath,
+                        price: parseFloat(price).toFixed(2),
                         weight: product.weight,
                         availability: availability,
-                        brand: product.brand ? product.brand?.name : "",
+                        manufacturer: product.brand?.name || "",
+                        mpn: product.mpn,
+                        sku: product.sku,
+                        description: cleanDescription,
+                        quantity: quantity,
+                        barcode: product.barcode,
+                    }
+                };
+
+            case "bestprice":
+                return {
+                    product: {
+                        productId: product.id,
+                        title: product.name,
+                        productURL: productLink,
+                        imageURL: imageUrl,
+                        category_path: categoryPath,
+                        price: parseFloat(price).toFixed(2),
+                        weight: product.weight,
+                        availability: availability,
+                        brand: product.brand?.name || "",
                         mpn: product.mpn,
                         sku: product.sku,
                         stock: 'Y',
                         Barcode: product.barcode,
                     }
+                };
 
-                    finalEntries.push({ product: newEntry })
-                }
-            }
-
-            var builder = new xml2js.Builder();
-            let date = new Date()
-            let createdAt = `${date.toLocaleDateString()} ${date.toLocaleTimeString()}`
-            var xml = builder.buildObject({ store: { date: createdAt, products: [finalEntries] } });
-
-            fs.writeFile('./public/feeds/BestPrice.xml', xml, (err) => {
-                if (err)
-                    console.log(err);
-            })
-        } catch (error) {
-            console.log(error)
-        }
-    },
-
-    async createSkroutzXML(entries, suppliers, platform) {
-        try {
-            let finalEntries = []
-            for (let category of entries.export_categories) {
-                let categoryPath = await this.createCategoryPath(category)
-                for (let product of category.products) {
-                    if (product.mpn === "BHR4215GL")
-                        continue
-
-                    let { cheaperAvailableSupplier, availability, price } = this.createAvailabilityAndPrice(product, suppliers, platform, category)
-
-                    // Process your description
-                    const cleanDescription = product.description ?
-                        this.cleanHtmlForXml(this.removeControlChars(product.description)) :
-                        ""
-
-                    if (!price) { continue }
-                    let newEntry = {
-                        uniqueID: product.id,
-                        name: product.name,
-                        // link: `https://magnetmarket.gr/product/${slugify(`${product.name.replaceAll("/", "-").replaceAll("|", "")}`, { lower: true, remove: /[^A-Za-z0-9-_.~-\s]*$/g })}`,
-                        link: `https://magnetmarket.gr/product/${product.slug}`,
-                        image: product.image ? `https://api.magnetmarket.eu/${product.image.url}` : "",
-                        category: categoryPath,
-                        price: parseFloat(price).toFixed(2),
-                        weight: product.weight,
-                        availability: availability,
-                        manufacturer: product.brand ? product.brand?.name : "",
-                        mpn: product.mpn,
-                        sku: product.sku,
-                        description: cleanDescription,
-                        quantity: product.inventory > 0 ? product.inventory
-                            : (cheaperAvailableSupplier && cheaperAvailableSupplier.name.toLowerCase() === "globalsat" ? 1 : 2),
-                        barcode: product.barcode,
-                    }
-
-                    finalEntries.push({ product: newEntry })
-                }
-            }
-
-            const builder = new xml2js.Builder({
-                xmldec: { version: '1.0', encoding: 'UTF-8' },
-                renderOpts: { pretty: true }
-            });
-
-            function getSafeLocalDate() {
-                const date = new Date();
-                return date.toLocaleDateString('el-GR') + ' ' +
-                    date.toLocaleTimeString('el-GR', { hour12: false });
-            }
-
-            const createdAt = escapeXml(getSafeLocalDate());
-            // Ensure all strings are XML-safe
-            function escapeXml(unsafe) {
-                if (!unsafe) return unsafe;
-                return unsafe.toString()
-                    .replace(/&/g, '&amp;')
-                    .replace(/</g, '&lt;')
-                    .replace(/>/g, '&gt;')
-                    .replace(/"/g, '&quot;')
-                    .replace(/'/g, '&apos;');
-            }
-
-            // Clean the final entries before building XML
-            const cleanEntries = finalEntries.map(entry => {
-                const cleanEntry = {};
-                Object.keys(entry).forEach(key => {
-                    if (typeof entry[key] === 'string') {
-                        cleanEntry[key] = escapeXml(entry[key]);
-                    } else {
-                        cleanEntry[key] = entry[key];
-                    }
-                });
-                return cleanEntry;
-            });
-
-            const xmlObject = {
-                webstore: {
-                    created_at: createdAt,
-                    products: cleanEntries // xml2js prefers array as named elements
-
-                }
-            };
-
-            const xml = builder.buildObject(xmlObject);
-
-            fs.writeFile('./public/feeds/Skroutz.xml', xml, (err) => {
-                if (err)
-                    console.log(err);
-            })
-        } catch (error) {
-            console.log(error)
-        }
-    },
-
-    async createShopflixXML(entries, suppliers, platform) {
-        try {
-            let finalEntries = []
-            for (let category of entries.export_categories) {
-                for (let product of category.products) {
-                    if (product.mpn === "BHR4215GL")
-                        continue
-
-                    let { cheaperAvailableSupplier, availability, price } = this.createAvailabilityAndPrice(product, suppliers, platform)
-                    // Process your description
-                    const cleanDescription = product.description ?
-                        this.cleanHtmlForXml(this.removeControlChars(product.description)) :
-                        ""
-
-                    if (!price) { continue }
-                    let newEntry = {
+            case "shopflix":
+                return {
+                    product: {
                         SKU: product.id,
                         name: product.name,
-                        EAN: product.barcode ? product.barcode : `magnetmarket-${product.id}`,
+                        EAN: product.barcode || `magnetmarket-${product.id}`,
                         MPN: product.mpn,
-                        manufacturer: product.brand?.name,
+                        manufacturer: product.brand?.name || "",
                         description: cleanDescription,
-                        url: `https://magnetmarket.gr/product/${product.slug}`,
-                        image: product.image ? `https://api.magnetmarket.eu/${product.image.url}` : "",
-                        // additional_image: product.additionalImages ? `https://api.magnetmarket.eu/${product.additionalImages[0]}` : "",
-                        category: category.name,
+                        url: productLink,
+                        image: imageUrl,
+                        category: categoryPath,
                         price: parseFloat(price).toFixed(2),
                         list_price: '',
-                        quantity: product.inventory > 0 ? product.inventory
-                            : (cheaperAvailableSupplier && cheaperAvailableSupplier.name.toLowerCase() === "globalsat" ? 1 : 2),
+                        quantity: quantity,
                         offer_from: '',
                         offer_to: '',
                         offer_price: '',
                         offer_quantity: '',
                         shipping_lead_time: availability,
                     }
+                };
 
-                    finalEntries.push({ product: newEntry })
-                }
-
-            }
-
-            const builder = new xml2js.Builder({
-                xmldec: { version: '1.0', encoding: 'UTF-8' },
-                renderOpts: { pretty: true }
-            });
-
-            function getSafeLocalDate() {
-                const date = new Date();
-                return date.toLocaleDateString('el-GR') + ' ' +
-                    date.toLocaleTimeString('el-GR', { hour12: false });
-            }
-
-            const createdAt = escapeXml(getSafeLocalDate());
-            // Ensure all strings are XML-safe
-            function escapeXml(unsafe) {
-                if (!unsafe) return unsafe;
-                return unsafe.toString()
-                    .replace(/&/g, '&amp;')
-                    .replace(/</g, '&lt;')
-                    .replace(/>/g, '&gt;')
-                    .replace(/"/g, '&quot;')
-                    .replace(/'/g, '&apos;');
-            }
-
-            // Clean the final entries before building XML
-            const cleanEntries = finalEntries.map(entry => {
-                const cleanEntry = {};
-                Object.keys(entry).forEach(key => {
-                    if (typeof entry[key] === 'string') {
-                        cleanEntry[key] = escapeXml(entry[key]);
-                    } else {
-                        cleanEntry[key] = entry[key];
-                    }
-                });
-                return cleanEntry;
-            });
-
-            var xml = builder.buildObject({ MPITEMS: { created_at: createdAt, products: cleanEntries } });
-
-            fs.writeFile('./public/feeds/Shopflix.xml', xml, (err) => {
-                if (err)
-                    console.log(err);
-            })
-        } catch (error) {
-            console.log(error)
+            default:
+                return null;
         }
+    },
+
+    async writeXmlForPlatform(platform, entries, platformData) {
+        const builder = new xml2js.Builder({
+            xmldec: { version: '1.0', encoding: 'UTF-8' },
+            renderOpts: { pretty: true },
+            cdata: true  // Χρησιμοποιούμε CDATA για να μην κάνει escape το >
+        });
+
+        const createdAt = this.getSafeLocalDate();
+
+        let xmlObject, fileName;
+
+        switch (platform) {
+            case "skroutz":
+                // Για Skroutz δεν κάνουμε escape το category path
+                const cleanSkroutzEntries = entries.map(entry => {
+                    const cleanEntry = { product: {} };
+                    Object.keys(entry.product).forEach(key => {
+                        // Κάνε escape όλα εκτός από το category
+                        if (key === 'category') {
+                            cleanEntry.product[key] = entry.product[key]; // Όχι escape
+                        } else if (typeof entry.product[key] === 'string') {
+                            cleanEntry.product[key] = this.escapeXml(entry.product[key]);
+                        } else {
+                            cleanEntry.product[key] = entry.product[key];
+                        }
+                    });
+                    return cleanEntry;
+                });
+
+                xmlObject = {
+                    webstore: {
+                        created_at: this.escapeXml(createdAt),
+                        products: cleanSkroutzEntries
+                    }
+                };
+                fileName = './public/feeds/Skroutz.xml';
+                break;
+
+            case "bestprice":
+                // Για BestPrice δεν κάνουμε escape το category_path
+                const cleanBestPriceEntries = entries.map(entry => {
+                    const cleanEntry = { product: {} };
+                    Object.keys(entry.product).forEach(key => {
+                        // Κάνε escape όλα εκτός από το category_path
+                        if (key === 'category_path') {
+                            cleanEntry.product[key] = entry.product[key]; // Όχι escape
+                        } else if (typeof entry.product[key] === 'string') {
+                            cleanEntry.product[key] = this.escapeXml(entry.product[key]);
+                        } else {
+                            cleanEntry.product[key] = entry.product[key];
+                        }
+                    });
+                    return cleanEntry;
+                });
+
+                xmlObject = {
+                    store: {
+                        date: createdAt,
+                        products: [cleanBestPriceEntries]
+                    }
+                };
+                fileName = './public/feeds/BestPrice.xml';
+                break;
+
+            case "shopflix":
+                // Για Shopflix κάνουμε escape κανονικά (έχει μόνο το όνομα, όχι path)
+                const cleanShopflixEntries = entries.map(entry => {
+                    const cleanEntry = { product: {} };
+                    Object.keys(entry.product).forEach(key => {
+                        if (typeof entry.product[key] === 'string') {
+                            cleanEntry.product[key] = this.escapeXml(entry.product[key]);
+                        } else {
+                            cleanEntry.product[key] = entry.product[key];
+                        }
+                    });
+                    return cleanEntry;
+                });
+
+                xmlObject = {
+                    MPITEMS: {
+                        created_at: this.escapeXml(createdAt),
+                        products: cleanShopflixEntries
+                    }
+                };
+                fileName = './public/feeds/Shopflix.xml';
+                break;
+
+            default:
+                throw new Error(`Unknown platform: ${platform}`);
+        }
+
+        const xml = builder.buildObject(xmlObject);
+
+        await writeFileAsync(fileName, xml, 'utf8');
     },
 
     async createCategoryPath(category) {
         try {
-            const entry = await strapi.entityService.findOne('api::category.category', category.id, {
-                fields: ['name'],
-                populate: {
-                    parents: {
-                        populate: {
-                            parents: {
-                                populate: {
-                                    parents: true
-                                }
-                            }
+            const path = ['Αρχική σελίδα'];
+            let currentId = category.id;
+            const MAX_DEPTH = 10;
+            let depth = 0;
+
+            // Traverse up the category tree
+            while (currentId && depth < MAX_DEPTH) {
+                const cat = await strapi.entityService.findOne('api::category.category', currentId, {
+                    fields: ['name'],
+                    populate: {
+                        parents: {
+                            fields: ['id']
                         }
                     }
-                },
-            });
+                });
 
-            let categoryPath = 'Αρχική σελίδα'
-            let categoryPathArray = []
+                if (!cat) break;
 
-            function createPath(cat) {
-                categoryPathArray.push(cat.name);
-                if (cat.parents.length > 0) {
-                    createPath(cat.parents[0])
+                path.push(cat.name);
+
+                // Move to parent
+                if (cat.parents && cat.parents.length > 0) {
+                    currentId = cat.parents[0].id;
+                } else {
+                    break;
                 }
+
+                depth++;
             }
 
-            createPath(entry)
-
-            for (let cat of categoryPathArray.reverse()) {
-                categoryPath += `> ${cat}`;
-            }
-
-            return categoryPath
+            return path.join(' > ');
         } catch (error) {
-            console.log(error)
+            console.error('Error in createCategoryPath:', error);
+            return 'Αρχική σελίδα';
         }
     },
 
-    // Function to strip HTML tags and decode HTML entities
     cleanHtmlForXml(html) {
         if (!html) return '';
 
-        // First decode HTML entities
+        // Decode HTML entities
         const decoded = html
             .replace(/&lt;/g, '<')
             .replace(/&gt;/g, '>')
@@ -356,21 +381,37 @@ module.exports = ({ strapi }) => ({
             .replace(/&quot;/g, '"')
             .replace(/&apos;/g, "'");
 
-        // Then strip all HTML tags
+        // Strip HTML tags
         const stripped = decoded.replace(/<[^>]+>/g, ' ');
 
-        // Collapse multiple spaces and trim
+        // Collapse multiple spaces
         return stripped.replace(/\s+/g, ' ').trim();
     },
 
     removeControlChars(str) {
+        if (!str) return '';
         return str.replace(/[\x00-\x1F\x7F-\x9F]/g, '');
     },
 
+    escapeXml(unsafe) {
+        if (!unsafe) return unsafe;
+        return unsafe.toString()
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&apos;');
+    },
+
+    getSafeLocalDate() {
+        const date = new Date();
+        return date.toLocaleDateString('el-GR') + ' ' +
+            date.toLocaleTimeString('el-GR', { hour12: false });
+    },
 
     /**
- * Creates availability and price information for a product based on platform and supplier data
- */
+     * Creates availability and price information for a product
+     */
     createAvailabilityAndPrice(product, suppliers, platform, category) {
         try {
             if (product.inventory > 0) {
@@ -385,18 +426,16 @@ module.exports = ({ strapi }) => ({
     },
 
     /**
- * Handles in-stock products with platform-specific logic
- */
+     * Handles in-stock products
+     */
     handleInStockProduct(product, platform) {
         const platformPrice = this.getPlatformPrice(product, platform);
         const platformName = platform.name.toLowerCase();
 
         if (platformName === "skroutz") {
-
             const availability = product.is_in_house
                 ? "Άμεσα διαθέσιμο"
                 : "Διαθέσιμο από 4-10 ημέρες";
-
             return { availability, price: platformPrice };
         }
 
@@ -408,14 +447,14 @@ module.exports = ({ strapi }) => ({
             return { availability, price: finalPrice };
         }
 
-        // Default case for other platforms
+        // Default for other platforms
         const availability = product.is_in_house ? 0 : 2;
         return { availability, price: platformPrice };
     },
 
     /**
- * Handles out-of-stock products by finding the cheapest supplier
- */
+     * Handles out-of-stock products
+     */
     handleOutOfStockProduct(product, suppliers, platform) {
         const { cheaperAvailableSupplier } = this.findCheaperSupplier(product, suppliers);
 
@@ -430,8 +469,8 @@ module.exports = ({ strapi }) => ({
     },
 
     /**
- * Gets platform-specific price if available, otherwise returns base price
- */
+     * Gets platform-specific price
+     */
     getPlatformPrice(product, platform) {
         if (!product.platforms) return product.price;
 
@@ -443,8 +482,8 @@ module.exports = ({ strapi }) => ({
     },
 
     /**
- * Calculates the final price for BestPrice platform
- */
+     * Calculates BestPrice platform price
+     */
     calculateBestPrice(product) {
         const priceToUse = product.is_sale && product.sale_price
             ? product.sale_price
@@ -453,8 +492,8 @@ module.exports = ({ strapi }) => ({
     },
 
     /**
- * Finds the cheapest available supplier for a product
- */
+     * Finds the cheapest available supplier
+     */
     findCheaperSupplier(product, suppliers) {
         try {
             const availableSuppliers = product.supplierInfo
@@ -468,22 +507,23 @@ module.exports = ({ strapi }) => ({
                 const bestCost = this.calculateSupplierTotalCost(best);
                 const currentCost = this.calculateSupplierTotalCost(current);
 
-                // First compare by total cost
+                // Compare by total cost first
                 if (currentCost < bestCost) return current;
-                if (current > bestCost) return best;
+                if (currentCost > bestCost) return best;
 
-                // If costs are equal, compare by availability
+                // If equal, compare by availability
                 return (current.availability < best.availability) ? current : best;
-            }, availableSuppliers[0]); // Start with first supplier as initial best
+            }, availableSuppliers[0]);
 
-            return { cheaperAvailableSupplier }
+            return { cheaperAvailableSupplier };
         } catch (error) {
-            console.log("error in findcheaperSupplier:", error)
+            console.error("Error in findCheaperSupplier:", error);
+            return { cheaperAvailableSupplier: null };
         }
     },
 
     /**
-     * Enriches supplier data with additional information from suppliers list
+     * Enriches supplier with additional data
      */
     enrichSupplierData(supplier, suppliers) {
         const supplierData = suppliers.find(s => s.name === supplier.name);
@@ -499,32 +539,7 @@ module.exports = ({ strapi }) => ({
     },
 
     /**
-     * Compares two suppliers to determine which is cheaper
-     */
-    // compareSupplierCosts(previous, current) {
-    //     try {
-    //         const priceHelpers = strapi.plugin('import-products').service('priceHelpers');
-
-    //         console.log("current:", current, "previous:", previous)
-
-    //         const currentTotal = this.calculateTotalCost(current);
-    //         const previousTotal = this.calculateTotalCost(previous);
-
-    //         if (priceHelpers.is_a_greaterthan_b(previousTotal, currentTotal)) {
-    //             if (!priceHelpers.is_not_equal(previousTotal, currentTotal)) {
-    //                 return current.availability < previous.availability ? current : previous;
-    //             }
-    //             return current;
-    //         }
-    //         return previous;
-
-    //     } catch (error) {
-    //         console.log(error)
-    //     }
-    // },
-
-    /**
-     * Calculates total cost including wholesale, recycle tax, and shipping
+     * Calculates total supplier cost
      */
     calculateSupplierTotalCost(supplier) {
         try {
@@ -532,15 +547,15 @@ module.exports = ({ strapi }) => ({
             const shipping = parseFloat(supplier.shipping || 0);
             const wholesale = parseFloat(supplier.wholesale || 0);
             return wholesale + recycleTax + shipping;
-
         } catch (error) {
-            console.log(error)
+            console.error('Error calculating supplier cost:', error);
+            return 0;
         }
     },
 
     /**
- * Creates availability information based on supplier and platform
- */
+     * Creates availability information
+     */
     createAvailability(supplier, platform) {
         const platformName = platform.name.toLowerCase();
         const currentTime = this.getMinutesOfDay(new Date());
@@ -562,25 +577,16 @@ module.exports = ({ strapi }) => ({
         return { availability };
     },
 
-    /**
-     * Helper to parse time string into minutes of day
-     */
     parseTimeString(timeString) {
         if (!timeString) return 0;
         const [hours, minutes] = timeString.split('.')[0].split(':');
         return parseInt(hours) * 60 + parseInt(minutes);
     },
 
-    /**
-     * Helper to get minutes of day from Date object
-     */
     getMinutesOfDay(date) {
         return date.getMinutes() + date.getHours() * 60;
     },
 
-    /**
-     * Determines short-term availability based on time constraints
-     */
     getShortTermAvailability(currentTime, orderTime, platformCutoff, platformName, supplier) {
         if (orderTime > currentTime || platformCutoff < currentTime) {
             return this.getPlatformSpecificText(platformName, 'short', supplier);
@@ -588,23 +594,14 @@ module.exports = ({ strapi }) => ({
         return this.getPlatformSpecificText(platformName, 'medium', supplier);
     },
 
-    /**
-     * Returns medium-term availability text
-     */
     getMediumTermAvailability(platformName, supplier) {
         return this.getPlatformSpecificText(platformName, 'medium', supplier);
     },
 
-    /**
-     * Returns long-term availability text
-     */
     getLongTermAvailability(platformName, supplier) {
         return this.getPlatformSpecificText(platformName, 'long', supplier);
     },
 
-    /**
-     * Returns platform-specific availability text
-     */
     getPlatformSpecificText(platformName, term, supplier) {
         const platformTexts = {
             skroutz: {
@@ -622,161 +619,6 @@ module.exports = ({ strapi }) => ({
         return platformTexts[platformName]?.[term] || supplier.availability;
     },
 
-    // createAvailabilityAndPrice(product, suppliers, platform, category) {
-
-    //     try {
-    //         if (product.inventory && product.inventory > 0) {
-    //             let platformPrice = product.price
-    //             if (product.platforms) {
-    //                 let index = product.platforms.find(p => p.platform.toLowerCase() === platform.name.toLowerCase())
-    //                 if (index) { platformPrice = index.price }
-    //             }
-
-    //             if (platform.name.toLowerCase() === "skroutz") {
-    //                 if (product.is_in_house) {
-    //                     return { availability: "Άμεσα διαθέσιμο", price: platformPrice }
-    //                 }
-    //                 else {
-    //                     return { availability: "Διαθέσιμο από 4-10 ημέρες", price: platformPrice }
-    //                 }
-    //             }
-    //             else if (platform.name.toLowerCase() === "bestprice") {
-    //                 if (product.is_in_house) {
-    //                     let finalPrice = parseFloat(product.price).toFixed(2)
-
-    //                     if (product.is_sale && product.sale_price) {
-    //                         finalPrice = parseFloat(product.sale_price).toFixed(2)
-    //                     }
-    //                     return { availability: "Άμεσα διαθέσιμο", price: finalPrice }
-    //                 }
-    //                 else {
-    //                     let finalPrice = parseFloat(product.price).toFixed(2)
-
-    //                     if (product.is_sale && product.sale_price) {
-    //                         finalPrice = parseFloat(product.sale_price).toFixed(2)
-    //                     }
-    //                     return { availability: "Παράδοση σε 1–3 ημέρες", price: finalPrice }
-    //                 }
-    //             }
-    //             else {
-    //                 if (product.is_in_house) {
-    //                     return { availability: 0, price: platformPrice }
-    //                 }
-    //                 else {
-    //                     return { availability: 2, price: platformPrice }
-    //                 }
-
-    //             }
-    //         }
-    //         else {
-    //             const { cheaperAvailableSupplier } = this.findCheaperSupplier(product, suppliers)
-
-    //             let { availability } = this.createAvailability(cheaperAvailableSupplier, platform)
-    //             let { price } = this.createPrice(cheaperAvailableSupplier, platform, product)
-
-    //             return { cheaperAvailableSupplier, availability, price }
-    //         }
-    //     } catch (error) {
-    //         console.log(error)
-    //     }
-    // },
-
-    // createAvailability(cheaperAvailableSupplier, platform) {
-    //     const platformName = platform.name.toLowerCase()
-    //     let availability = ""
-
-    //     var minutesOfDay = function (m) {
-    //         return m.getMinutes() + m.getHours() * 60;
-    //     }
-
-    //     let date = new Date()
-
-    //     let platformTime = new Date()
-    //     let platformOrderHour = platform.order_time.split('.')[0].split(':')[0]
-    //     let platformOrderMinute = platform.order_time.split('.')[0].split(':')[1]
-    //     platformTime.setHours(platformOrderHour, platformOrderMinute)
-
-    //     let orderTime = new Date()
-    //     let orderHour = cheaperAvailableSupplier.order_time?.split('.')[0].split(':')[0]
-    //     let orderMinute = cheaperAvailableSupplier.order_time?.split('.')[0].split(':')[1]
-    //     orderTime.setHours(orderHour, orderMinute)
-
-    //     if (cheaperAvailableSupplier.availability < 2) {
-    //         if (minutesOfDay(orderTime) > minutesOfDay(date) || minutesOfDay(platformTime) < minutesOfDay(date)) {
-    //             if (platformName === "skroutz") { availability = "Διαθέσιμο από 1-3 ημέρες" }
-    //             else if (platformName === "bestprice") { availability = "Παράδοση σε 1–3 ημέρες" }
-    //             else {
-    //                 availability = cheaperAvailableSupplier.availability
-    //             }
-    //         }
-    //         else {
-    //             if (platformName === "skroutz") { availability = "Διαθέσιμο από 4-10 ημέρες" }
-    //             else if (platformName === "bestprice") { availability = "Παράδοση σε 1–3 ημέρες" }
-    //             else {
-    //                 availability = cheaperAvailableSupplier.availability
-    //             }
-    //         }
-    //     }
-    //     else if (cheaperAvailableSupplier.availability < 5) {
-    //         if (platformName === "skroutz") { availability = "Διαθέσιμο από 4-10 ημέρες" }
-    //         else if (platformName === "bestprice") { availability = "Παράδοση σε 1–3 ημέρες" }
-    //         else {
-    //             availability = cheaperAvailableSupplier.availability
-    //         }
-    //     }
-    //     else {
-    //         if (platformName === "skroutz") { availability = "Διαθέσιμο από 10 έως 30 ημέρες" }
-    //         else if (platformName === "bestprice") { availability = "Παράδοση σε 1–3 ημέρες" }
-
-    //         else {
-    //             availability = cheaperAvailableSupplier.availability
-    //         }
-    //     }
-    //     return { availability }
-    // },
-
-    // findCheaperSupplier(product, suppliers) {
-    //     const availableSuppliers = product.supplierInfo.filter(x => x.in_stock === true)
-
-    //     if (availableSuppliers.length === 0) {
-    //         return { availability: null, price: null }
-    //     }
-
-    //     availableSuppliers.forEach(x => {
-    //         const supplierAvailability = suppliers.find(supplier => supplier.name === x.name)
-    //         if (supplierAvailability) {
-    //             x.availability = supplierAvailability.availability
-    //             x.order_time = supplierAvailability.order_time
-    //             x.shipping = supplierAvailability.shipping
-    //         }
-    //     })
-
-    //     const cheaperAvailableSupplier = availableSuppliers.reduce((previous, current) => {
-    //         let currentRecycleTax = current.recycle_tax ? parseFloat(current.recycle_tax) : parseFloat(0)
-    //         let previousRecycleTax = previous.recycle_tax ? parseFloat(previous.recycle_tax) : parseFloat(0)
-    //         let currentCost = parseFloat(current.wholesale) + currentRecycleTax + parseFloat(current.shipping)
-    //         let previousCost = parseFloat(previous.wholesale) + previousRecycleTax + parseFloat(previous.shipping)
-    //         if (strapi
-    //             .plugin('import-products')
-    //             .service('priceHelpers')
-    //             .is_a_greaterthan_b(previousCost, currentCost)) {
-    //             if (!strapi
-    //                 .plugin('import-products')
-    //                 .service('priceHelpers')
-    //                 .is_not_equal(previousCost, currentCost)) {
-    //                 if (current.availability < previous.availability) {
-    //                     return current
-    //                 }
-    //                 return previous
-    //             }
-    //             return current
-    //         }
-    //         return previous;
-    //     })
-
-    //     return { cheaperAvailableSupplier }
-    // },
-
     createPrice(platform, product) {
         try {
             // For BestPrice, use sale price if available
@@ -784,58 +626,72 @@ module.exports = ({ strapi }) => ({
                 return this.calculateBestPrice(product);
             }
 
-            // Otherwise use the price we've already calculated
+            // Otherwise use platform-specific price
             return this.getPlatformPrice(product, platform);
-
         } catch (error) {
-            console.log(error)
+            console.error('Error in createPrice:', error);
+            return null;
         }
     },
 
-    // createPrice(supplierInfo, platform, product, categoryInfo) {
-    //     try {
-    //         if (product.platforms) {
-    //             let productPlatform = product.platforms.find(x => x.platform.toLowerCase().trim() === platform.name.toLowerCase().trim())
-    //             if (productPlatform && productPlatform.price) {
-    //                 return { price: productPlatform.price }
-    //             }
-    //         }
-    //         return { price: product.price }
-
-    //     } catch (error) {
-    //         console.log(error)
-    //     }
-    // },
-
+    /**
+     * Checks and unpublishes products without supplier stock
+     */
     async checkIfThereIsSupplierInStock() {
-
         try {
+            console.log('Checking supplier stock status...');
 
-            const entries = await strapi.db.query('api::product.product').findMany({
-                select: ['id', 'inventory'],
-                where: {
-                    publishedAt: { $notNull: true },
-                },
-                populate: {
-                    supplierInfo: true,
-                },
-            });
+            const BATCH_SIZE = 100;
+            let offset = 0;
+            let totalUnpublished = 0;
 
-            for (let product of entries) {
-                const isAllSuppliersOutOfStock = product.supplierInfo.every(supplier => supplier.in_stock === false)
-                if (isAllSuppliersOutOfStock && !product.inventory > 0) {
-                    await strapi.entityService.update('api::product.product', product.id, {
+            while (true) {
+                // Φόρτωσε μόνο products χωρίς inventory
+                const products = await strapi.db.query('api::product.product').findMany({
+                    select: ['id', 'inventory'],
+                    where: {
+                        $and: [
+                            { publishedAt: { $notNull: true } },
+                            { inventory: { $lte: 0 } }
+                        ]
+                    },
+                    populate: {
+                        supplierInfo: {
+                            select: ['in_stock']
+                        }
+                    },
+                    offset,
+                    limit: BATCH_SIZE,
+                });
+
+                if (products.length === 0) break;
+
+                // Βρες products που πρέπει να unpublish
+                const toUnpublish = products
+                    .filter(p => p.supplierInfo.every(s => s.in_stock === false))
+                    .map(p => p.id);
+
+                // Bulk update
+                if (toUnpublish.length > 0) {
+                    await strapi.db.query('api::product.product').updateMany({
+                        where: {
+                            id: { $in: toUnpublish }
+                        },
                         data: {
                             publishedAt: null,
                             deletedAt: new Date()
-                        },
+                        }
                     });
+
+                    totalUnpublished += toUnpublish.length;
                 }
+
+                offset += BATCH_SIZE;
             }
 
-
         } catch (error) {
-            console.log(error)
+            console.error('Error in checkIfThereIsSupplierInStock:', error);
+            throw error;
         }
     }
 });

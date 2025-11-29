@@ -115,7 +115,7 @@ export default {
                 .parseOktabitXml({ entry });
         },
         options: {
-            rule: "15 9,13 * * *",
+            rule: "15 9,11,13,15 * * *",
         },
     },
 
@@ -139,7 +139,7 @@ export default {
                 .parseZegetronXml({ entry });
         },
         options: {
-            rule: "55 8,12 * * *",
+            rule: "45 8,11,14 * * *",
         },
     },
 
@@ -355,7 +355,7 @@ export default {
                 .parseSmart4AllXml({ entry });
         },
         options: {
-            rule: "56 * * * *",
+            rule: "50 * * * *",
         },
     },
 
@@ -410,7 +410,7 @@ export default {
                 .createXml('bestprice');
         },
         options: {
-            rule: "3 * * * *",
+            rule: "4 * * * *",
         },
     },
 

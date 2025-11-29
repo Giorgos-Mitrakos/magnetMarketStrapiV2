@@ -1,6 +1,5 @@
 'use strict';
 
-const myService = require('./my-service');
 const importxmlService = require('./importxml');
 const categoryService = require('./categorymap');
 const charnameService = require('./charnamemap');
@@ -27,9 +26,58 @@ const dotmediaService = require('./supplierServices/dotmediaService');
 const aciService = require('./supplierServices/aciService');
 const stefinetService = require('./supplierServices/stefinetService');
 const smart4allService = require('./supplierServices/smart4allService');
+const cacheService = require('./helpers/cache-service');
+const batchHelpers = require('./helpers/batch-helpers.js');
+
+// Parsers
+const weightParser = require('./parsers/weight-parser');
+const dimensionsParser = require('./parsers/dimensions-parser');
+const imagesParser = require('./parsers/images-parser');
+const characteristicsParser = require('./parsers/characteristics-parser');
+
+// Base supplier class
+const baseSupplier = require('./helpers/base-supplier.js');
+
+// Supplier adapters
+const zegetronAdapter = require('./supplierAdapters/zegetron-adapter.js');
+const telehermesAdapter = require('./supplierAdapters/telehermes-adapter.js');
+const globalsatAdapter = require('./supplierAdapters/globalsat-adapter.js');
+const dotmediaAdapter = require('./supplierAdapters/dotmedia-adapter');
+const cpiAdapter = require('./supplierAdapters/cpi-adapter.js');
+const oktabitAdapter = require('./supplierAdapters/oktabit-adapter.js');
+const stefinetAdapter = require('./supplierAdapters/stefinet-adapter.js');
+const westnetAdapter = require('./supplierAdapters/westnet-adapter.js');
+const smart4allAdapter = require('./supplierAdapters/smart4all-adapter.js');
+const questAdapter = require('./supplierAdapters/quest-adapter.js');
+const novatronAdapter = require('./supplierAdapters/novatron-adapter.js');
 
 module.exports = {
-  myService,
+  cacheService,
+  batchHelpers,
+
+  // Base supplier class
+  baseSupplier,
+
+  // Parsers
+  weightParser,
+  dimensionsParser,
+  imagesParser,
+  characteristicsParser,
+
+  // Supplier adapters
+  zegetronAdapter,
+  telehermesAdapter,
+  globalsatAdapter,
+  dotmediaAdapter,
+  cpiAdapter,
+  oktabitAdapter,
+  stefinetAdapter,
+  westnetAdapter,
+  smart4allAdapter,
+  questAdapter,
+  novatronAdapter,
+
+  // Supplier services
   importxmlService,
   categoryService,
   charnameService,

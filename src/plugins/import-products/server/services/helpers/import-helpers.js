@@ -95,7 +95,7 @@ module.exports = ({ strapi }) => ({
             skipped: 0,
             deleted: 0,
             republished: 0,
-            related_entries: [],
+            related_entries: new Set(),  // ✅ USE SET INSTEAD OF ARRAY
             related_products: [],
             charMaps: {},
         }
@@ -273,7 +273,7 @@ module.exports = ({ strapi }) => ({
                 .getAndConvertImgToWep(product);
 
             if (!responseImage) {
-                console.log('No images for product:', product.name);
+                // console.log('No images for product:', product.name);
                 return { success: false, reason: 'no_images' }
             }
 
@@ -297,12 +297,35 @@ module.exports = ({ strapi }) => ({
                 data: data,
             });
 
-            importRef.related_entries.push(newEntry.id)
-            if (product.relativeProducts && product.relativeProducts.length > 0)
-                importRef.related_products.push({ productID: newEntry.id, relatedProducts: product.relativeProducts })
+            importRef.related_entries.add(newEntry.id);  // ✅ CHANGED FROM PUSH TO ADD
+
+            if (product.relativeProducts && product.relativeProducts.length > 0) {
+                importRef.related_products.push({
+                    productID: newEntry.id,
+                    relatedProducts: product.relativeProducts
+                });
+            }
 
             importRef.created += 1;
-            return { success: true, id: newEntry.id }
+
+            // ✅ RETURN PRODUCT FOR CACHING
+            return {
+                success: true,
+                id: newEntry.id,
+                product: {
+                    id: newEntry.id,
+                    mpn: data.mpn,
+                    barcode: data.barcode,
+                    model: data.model,
+                    name: data.name,
+                    supplierInfo: data.supplierInfo,
+                    related_import: [product.entry],
+                    brand: product.brand,
+                    category: categoryInfo,
+                    platforms: data.platforms,
+                    prod_chars: data.prod_chars
+                }
+            };
         } catch (error) {
             console.log("Error in Entry Function:", error, error.details?.errors, product.name)
             return { success: false, reason: 'exception', error: error.message }
@@ -458,7 +481,7 @@ module.exports = ({ strapi }) => ({
 
             for (let product of importXmlFile.related_products) {
 
-                if (!importRef.related_entries.includes(product.id)) {
+                if (!importRef.related_entries.has(product.id)) {
 
                     const data = {}
 
@@ -529,12 +552,9 @@ module.exports = ({ strapi }) => ({
     },
 
     updateImportReferences(importRef, entryCheck, product, data) {
-        // Προσθέτω το id του προϊόντος στη βάση ώστε αργότερα όταν γίνει η διαγραφή
-        // των προϊόντων να μην δαγραφεί.
-        importRef.related_entries.push(entryCheck.id);
+        // ✅ USE SET.ADD INSTEAD OF ARRAY.PUSH
+        importRef.related_entries.add(entryCheck.id);
 
-        // Για τις περιπτώσεις όπου ο προμηθευτής έχει σχετικά προϊόντα αποθηκεύω 
-        // τα προϊόντα ώστε να τα συσχετίσω στη βάση
         if (product.relativeProducts?.length > 0) {
             importRef.related_products.push({
                 productID: entryCheck.id,
@@ -542,16 +562,19 @@ module.exports = ({ strapi }) => ({
             });
         }
 
-        // Βρίσκω τους προμηθευτές που έχουν το προϊόν 
+        // ✅ FIX: Check if related_import exists and is an array
         const relatedImport = entryCheck.related_import;
-        const relatedImportIds = relatedImport.map(x => x.id)
+        if (!relatedImport || !Array.isArray(relatedImport)) {
+            console.warn(`Product ${entryCheck.id} has invalid related_import`);
+            return;
+        }
 
-        // Αναζητώ αν προμηθεύομαι ήδη το προϊόν απο τον συγκεκριμένο προμηθευτή
-        const findImport = relatedImport.findIndex(x =>
-            x.id === product.entry.id)
+        const relatedImportIds = relatedImport.map(x => x.id);
+        const findImport = relatedImport.findIndex(x => x.id === product.entry.id);
 
-        // Αν δεν υπάρχει ο προμηθευτής σε αυτο το προϊόν ενημερώνω τη συσχέτιση
-        if (findImport === -1) { data.related_import = [...relatedImportIds, product.entry.id] }
+        if (findImport === -1) {
+            data.related_import = [...relatedImportIds, product.entry.id];
+        }
     },
 
     updateProductChars(importRef, entryCheck, product, data, dbChange) {
@@ -625,108 +648,114 @@ module.exports = ({ strapi }) => ({
     },
 
     updateProductMetadata(entryCheck, product, categoryInfo, data, dbChange) {
-        // Αν το προϊόν δεν είναι σε κάποια κατηγορία ή αν είναι σε διαφορετική 
-        // από ότι βρήκα στο μαπάρισμα του προμηθευτή ενημερώνω την κατηγορία.
-        // εδώ κινδυνέυω αν εχει γίνει λάθος μαπάρισμα να αλλάζει το προϊόν συνεχώς κατηγορίες
-        // μελλοντικά θα συμβαίνει και όταν θα διορθώνω τις κατηγορίες μέσω το σκρουτζ
-        if (!entryCheck.category || entryCheck.category.id !== categoryInfo.id) {
-            data.category = categoryInfo.id
-            dbChange.typeOfChange = 'updated'
-        }
-
-        // Αν δεν υπάρχει slug το δημιουργώ
-        if (entryCheck.slug?.includes("undefined")) {
-            data.slug = this.createSlug(product.name, product.mpn)
-            dbChange.typeOfChange = 'updated'
-        }
-
-        // Αν δεν υπάρχει barcode και έχει barcode στο import τότε το ενημερώνω
-        if (!entryCheck.barcode && product.barcode) {
-            data.barcode = product.barcode
-            dbChange.typeOfChange = 'updated'
-        }
-
-        // Αν δεν υπάρχουν διαστάσεις και έχει στο import τότε το ενημερώνω
-        // Update dimensions if missing
-        const dimensions = {
-            length: Number(product.length),
-            width: Number(product.width),
-            height: Number(product.height)
-        };
-
-        ['length', 'width', 'height'].forEach(dim => {
-            if (isNaN(dimensions[dim])) return
-            const ceiledValue = Math.ceil(dimensions[dim]);
-
-            // Update only if:
-            // 1. Database has no value and new value is valid (> 0)
-            // 2. Database has value but it's different from new value
-            if ((!entryCheck[dim] && ceiledValue > 0) ||
-                (entryCheck[dim] && entryCheck[dim] !== ceiledValue && ceiledValue > 0)) {
-                data[dim] = ceiledValue;
-                dbChange.typeOfChange = 'updated';
-            }
-        });
-
-        //Εδώ κάνω έλεγχο Κατασκευαστή
-        // Update brand if different
-        if (product.brand) {
-            if (!entryCheck.brand || entryCheck.brand.id !== product.brand.id) {
-                data.brand = product.brand.id;
-                dbChange.typeOfChange = 'updated';
-            }
-        }
-
         try {
-            strapi.plugin('import-products')
-                .service('productHelpers')
-                .updateProductWeight(entryCheck, product, categoryInfo, data, dbChange);
+            // Αν το προϊόν δεν είναι σε κάποια κατηγορία ή αν είναι σε διαφορετική 
+            // από ότι βρήκα στο μαπάρισμα του προμηθευτή ενημερώνω την κατηγορία.
+            // εδώ κινδυνέυω αν εχει γίνει λάθος μαπάρισμα να αλλάζει το προϊόν συνεχώς κατηγορίες
+            // μελλοντικά θα συμβαίνει και όταν θα διορθώνω τις κατηγορίες μέσω το σκρουτζ
+            if (!entryCheck.category || entryCheck.category.id !== categoryInfo.id) {
+                data.category = categoryInfo.id
+                dbChange.typeOfChange = 'updated'
+            }
+
+            // Αν δεν υπάρχει slug το δημιουργώ
+            if (entryCheck.slug?.includes("undefined")) {
+                data.slug = this.createSlug(product.name, product.mpn)
+                dbChange.typeOfChange = 'updated'
+            }
+
+            // Αν δεν υπάρχει barcode και έχει barcode στο import τότε το ενημερώνω
+            if (!entryCheck.barcode && product.barcode) {
+                data.barcode = product.barcode
+                dbChange.typeOfChange = 'updated'
+            }
+
+            // Αν δεν υπάρχουν διαστάσεις και έχει στο import τότε το ενημερώνω
+            // Update dimensions if missing
+            const dimensions = {
+                length: Number(product.length),
+                width: Number(product.width),
+                height: Number(product.height)
+            };
+
+            ['length', 'width', 'height'].forEach(dim => {
+                if (isNaN(dimensions[dim])) return
+                const ceiledValue = Math.ceil(dimensions[dim]);
+
+                // Update only if:
+                // 1. Database has no value and new value is valid (> 0)
+                // 2. Database has value but it's different from new value
+                if ((!entryCheck[dim] && ceiledValue > 0) ||
+                    (entryCheck[dim] && entryCheck[dim] !== ceiledValue && ceiledValue > 0)) {
+                    data[dim] = ceiledValue;
+                    dbChange.typeOfChange = 'updated';
+                }
+            });
+
+            //Εδώ κάνω έλεγχο Κατασκευαστή
+            // Update brand if different
+            if (product.brand) {
+                if (!entryCheck.brand || entryCheck.brand.id !== product.brand.id) {
+                    data.brand = product.brand.id;
+                    dbChange.typeOfChange = 'updated';
+                }
+            }
+
+            try {
+                strapi.plugin('import-products')
+                    .service('productHelpers')
+                    .updateProductWeight(entryCheck, product, categoryInfo, data, dbChange);
+            } catch (error) {
+                console.error('Error updating product weight:', error, 'Product:', entryCheck.id);
+                // Continue - don't let weight calculation break the entire update
+            }
+
+            // //Υπολογισμός βάρους
+            // if (!product.weight) {
+            //     product.weight = strapi
+            //         .plugin('import-products')
+            //         .service('productHelpers')
+            //         .createProductWeight(product, categoryInfo)
+            // }
+
+            // // Να το ελέγξω όταν θα έχω περάσει όλους τους προμηθευτές
+            // if (!entryCheck.weight) {
+            //     if (entryCheck.weight === 0) {
+            //         if (parseInt(product.weight) === 0) {
+            //             if (categoryInfo.average_weight) {
+            //                 data.weight = parseInt(categoryInfo.average_weight)
+            //                 dbChange.typeOfChange = 'updated'
+            //             }
+            //         }
+            //         else if (parseInt(product.weight) !== 0) {
+            //             data.weight = parseInt(product.weight)
+            //             dbChange.typeOfChange = 'updated'
+            //         }
+            //     }
+            //     else {
+            //         data.weight = categoryInfo.average_weight ? parseInt(categoryInfo.average_weight) : parseInt(0)
+            //         dbChange.typeOfChange = 'updated'
+            //     }
+            // }
+            // else {
+            //     if (product.weight && product.weight > 0) {
+            //         if (parseInt(entryCheck.weight) !== parseInt(product.weight)) {
+            //             data.weight = parseInt(product.weight)
+            //             dbChange.typeOfChange = 'updated'
+            //         }
+            //     }
+            //     else {
+            //         if (categoryInfo.average_weight && parseInt(categoryInfo.average_weight) !== parseInt(entryCheck.weight)) {
+            //             data.weight = parseInt(categoryInfo.average_weight)
+            //             dbChange.typeOfChange = 'updated'
+            //         }
+            //     }
+            // }
+
+
         } catch (error) {
-            console.error('Error updating product weight:', error, 'Product:', entryCheck.id);
-            // Continue - don't let weight calculation break the entire update
+            console.error(error)
         }
-
-        // //Υπολογισμός βάρους
-        // if (!product.weight) {
-        //     product.weight = strapi
-        //         .plugin('import-products')
-        //         .service('productHelpers')
-        //         .createProductWeight(product, categoryInfo)
-        // }
-
-        // // Να το ελέγξω όταν θα έχω περάσει όλους τους προμηθευτές
-        // if (!entryCheck.weight) {
-        //     if (entryCheck.weight === 0) {
-        //         if (parseInt(product.weight) === 0) {
-        //             if (categoryInfo.average_weight) {
-        //                 data.weight = parseInt(categoryInfo.average_weight)
-        //                 dbChange.typeOfChange = 'updated'
-        //             }
-        //         }
-        //         else if (parseInt(product.weight) !== 0) {
-        //             data.weight = parseInt(product.weight)
-        //             dbChange.typeOfChange = 'updated'
-        //         }
-        //     }
-        //     else {
-        //         data.weight = categoryInfo.average_weight ? parseInt(categoryInfo.average_weight) : parseInt(0)
-        //         dbChange.typeOfChange = 'updated'
-        //     }
-        // }
-        // else {
-        //     if (product.weight && product.weight > 0) {
-        //         if (parseInt(entryCheck.weight) !== parseInt(product.weight)) {
-        //             data.weight = parseInt(product.weight)
-        //             dbChange.typeOfChange = 'updated'
-        //         }
-        //     }
-        //     else {
-        //         if (categoryInfo.average_weight && parseInt(categoryInfo.average_weight) !== parseInt(entryCheck.weight)) {
-        //             data.weight = parseInt(categoryInfo.average_weight)
-        //             dbChange.typeOfChange = 'updated'
-        //         }
-        //     }
-        // }
     },
 
     createSlug(name, mpn) {

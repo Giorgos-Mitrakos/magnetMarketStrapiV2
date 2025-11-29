@@ -62,7 +62,7 @@ module.exports = ({ strapi }) => ({
                 }
 
                 await page.setCookie(...cookies);
-                console.log("Cookies loaded successfully\n");
+                // console.log("Cookies loaded successfully\n");
             }
         } catch (error) {
             console.log("Error loading cookies:", error.message);
@@ -98,7 +98,6 @@ module.exports = ({ strapi }) => ({
             },
                 { timeout: 10000 });
         } catch (error) {
-            console.log("ERROR")
             await strapi
                 .plugin('import-products')
                 .service('globalsatService')
@@ -263,198 +262,187 @@ module.exports = ({ strapi }) => ({
         }
     },
 
-    async updateAndFilterScrapProducts(products, category, subcategory, sub2category, importRef, entry) {
+    async importScrappedProduct(scrapedProduct, importRef) {
         try {
-            const newProducts = []
-            let stockLevelFilter = []
-            for (let stock of importRef.categoryMap.stock_map) {
-                stockLevelFilter.push(stock.name)
+            if (!scrapedProduct.wholesale || isNaN(scrapedProduct.wholesale) || !scrapedProduct.imagesSrc?.length) {
+                console.warn(`Skipping product ${scrapedProduct.name}: missing price or images`);
+                return { success: false, reason: 'invalid_data' };
             }
 
-            for (let product of products) {
-                product.entry = entry
-                product.category = { title: category }
-                product.sub2category = { title: sub2category }
-                product.subcategory = { title: subcategory }
+            // ✅ 1. Apply transformations via adapter
+            // The adapter's transformProduct is called BEFORE this
+            // So product is already enriched with characteristics, weight, dimensions, etc.
 
-                if (stockLevelFilter.includes(product.stockLevel) && product.wholesale) {
-
-                    const checkIfEntry = await strapi.db.query('api::product.product').findOne({
-                        where: {
-                            supplierInfo: {
-                                supplierProductId: product.supplierCode
-                            }
-                        },
-                        populate: {
-                            supplierInfo: {
-                                populate: {
-                                    price_progress: true,
-                                }
-                            },
-                            brand: true,
-                            related_import: true,
-                            prod_chars: true,
-                            category: {
-                                populate: {
-                                    cat_percentage: {
-                                        populate: {
-                                            brand_perc: {
-                                                populate: {
-                                                    brand: true
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            },
-                            platforms: true,
-                        },
-                    });
-
-                    if (checkIfEntry) {
-                        const { brandId } = await strapi
-                            .plugin('import-products')
-                            .service('productHelpers')
-                            .brandIdCheck(product.brand, product.name)
-
-                        if (brandId) {
-                            product.brand = {
-                                id: brandId
-                            }
-                        }
-
-                        if ((checkIfEntry.brand &&
-                            !checkIfEntry.brand.name.toLowerCase().includes("dahua") &&
-                            !product.name.toLowerCase().includes("iris")) ||
-                            !checkIfEntry.brand)
-                            await strapi
-                                .plugin('import-products')
-                                .service('importHelpers')
-                                .updateEntry(checkIfEntry, product, importRef)
-                    }
-                    else {
-                        if (!product.name.toLowerCase().includes("dahua") || !product.name.toLowerCase().includes("iris"))
-                            newProducts.push(product)
-                    }
-                }
-            }
-            return newProducts
-        } catch (error) {
-            console.log(error)
-        }
-
-    },
-
-    async importScrappedProduct(product, importRef) {
-        try {
-            if (!product.wholesale || isNaN(product.wholesale) || product.imagesSrc.length === 0)
-                return;
-
-            // Αν δεν είναι Διαθέσιμο τότε προχώρα στο επόμενο
-            const isAvailable = this.filterScrappedProducts(importRef.categoryMap, product);
-
-            if (!isAvailable)
-                return
-
-            const { entryCheck, brandId } = await strapi
+            // ✅ 2. Create product fields from scraped data
+            const product = await strapi
                 .plugin('import-products')
                 .service('productHelpers')
-                .checkProductAndBrand(product.mpn, product.name, product.barcode, product.brand, product.model);
+                .createScrapedProductFields(scrapedProduct.entry, scrapedProduct, importRef);
 
-            if (product.prod_chars && product.prod_chars.length > 0) {
-                const parsedChars = strapi
+            if (!product.mpn && !product.barcode) {
+                console.warn(`Product ${scrapedProduct.name}: no MPN or barcode`);
+                return { success: false, reason: 'no_identifiers' };
+            }
+
+            // ✅ 3. Categorize: check cache and decide create or update
+            const { toCreate, toUpdate } = await strapi
+                .plugin('import-products')
+                .service('batchHelpers')
+                .categorizeProducts([product], scrapedProduct.entry, importRef);
+
+            // ✅ 4. Process: create or update
+            if (toCreate.length > 0) {
+                // New product
+                const result = await strapi
                     .plugin('import-products')
-                    .service('charnameService')
-                    .parseChars(product.prod_chars, importRef)
+                    .service('importHelpers')
+                    .createEntry(product, importRef);
 
-                product.prod_chars = parsedChars
-            }
-
-            if (brandId) { product.brand = { id: brandId } }
-
-            if (!entryCheck) {
-                try {
-                    await await strapi
+                if (result?.success && result.product) {
+                    // ✅ Add to cache for future matching
+                    strapi
                         .plugin('import-products')
-                        .service('importHelpers')
-                        .createEntry(product, importRef)
+                        .service('cacheService')
+                        .addProductToCache(result.product);
 
-                } catch (error) {
-                    console.log("entryCheck:", entryCheck, "mpn:", product.mpn, "name:", product.name,
-                        "barcode:", product.barcode, "brand_name:", product.brand, "model:", product.model)
-                    console.log(error, error.details?.errors)
+                    // console.log(`✅ Created: ${product.name.substring(0, 50)}`);
+                    return { success: true, action: 'created', id: result.id };
+                } else {
+                    console.log(`❌ Failed to create: ${product.name.substring(0, 50)}`);
+                    return { success: false, reason: result?.reason || 'creation_failed' };
                 }
-            }
-            else {
-                try {
-                    // if (product.entry.name.toLowerCase() === "quest") {
-                    //     if (entryCheck.prod_chars) {
-                    //         if (entryCheck.prod_chars.find(x => x.name === "Μεικτό βάρος")) {
-                    //             let chars = entryCheck.prod_chars.find(x => x.name === "Μεικτό βάρος")
-                    //             let weight = parseInt(chars.value.replace("kg", "").replace(",", ".").trim()) * 1000
+            } else if (toUpdate.length > 0) {
+                // Existing product - update
+                const { product: existingProduct, existingProduct: dbProduct } = toUpdate[0];
 
-                    //             product.weight = weight
-                    //         }
-                    //         else if (entryCheck.prod_chars.find(x => x.name === "Βάρος (κιλά)")) {
-                    //             let chars = entryCheck.prod_chars.find(x => x.name === "Βάρος (κιλά)")
-                    //             let weight = parseInt(chars.value.replace("kg", "").replace(",", ".").trim()) * 1000
+                const result = await strapi
+                    .plugin('import-products')
+                    .service('importHelpers')
+                    .updateEntry(dbProduct, product, importRef);
 
-                    //             product.weight = weight
-                    //         }
-                    //     }
-                    // }
-                    // else if (product.entry.name.toLowerCase() === "globalsat") {
-                    //     if (entryCheck.prod_chars) {
-                    //         if (entryCheck.prod_chars.find(x => x.name.toLowerCase().contains("βάρος") || x.name.toLowerCase().contains("specs"))) {
-                    //             let chars = entryCheck.prod_chars.find(x => x.name.toLowerCase().contains("βάρος"))
-
-                    //             let specs = entryCheck.prod_chars.find(x => x).toLowerCase().contains("specs")
-
-                    //             let value = chars.value.toLowerCase()
-                    //             // if (value.contains("kg")) {
-                    //             //     product.weight = parseInt(chars.value.replace("kg", "").replace(",", ".").trim()) * 1000
-                    //             // }
-                    //             // else if (value.contains("gr")) {
-                    //             //     product.weight = parseInt(chars.value.replace("gr", "").replace(",", ".").trim())
-                    //             // }
-                    //         }
-                    //     }
-                    // } 
-
-                    await await strapi
-                        .plugin('import-products')
-                        .service('importHelpers')
-                        .updateEntry(entryCheck, product, importRef)
-
-                } catch (error) {
-                    console.log(error)
+                if (result?.success) {
+                    // console.log(`🔄 Updated: ${product.name.substring(0, 50)}`);
+                    return { success: true, action: 'updated', id: dbProduct.id };
+                } else {
+                    console.log(`❌ Failed to update: ${product.name.substring(0, 50)}`);
+                    return { success: false, reason: 'update_failed' };
                 }
+            } else {
+                console.warn(`No matching product found for: ${product.name}`);
+                return { success: false, reason: 'no_match' };
             }
+
         } catch (error) {
-            console.log(error)
+            console.error(`Error importing scraped product:`, error.message);
+            return { success: false, reason: 'exception', error: error.message };
         }
     },
 
-    filterScrappedProducts(categoryMap, product) {
+    /**
+     * Update and filter scraped products
+     * NEW: Uses cache AND checks by supplierProductId
+     * ALSO: Returns mapping of product -> existingId for quick updates
+     * 
+     * @param {Array} products - Scraped products from category listing
+     * @param {string} category - Category name
+     * @param {string} subcategory - Subcategory name
+     * @param {string} sub2category - Sub2category name
+     * @param {Object} importRef - Import reference
+     * @param {Object} entry - Supplier entry
+     * @returns {Object} { products: [], updateProducts: [] }
+     */
+    async updateAndFilterScrapProducts(products, category, subcategory, sub2category, importRef, entry) {
         try {
-            let isPassingFilteres = true
+            const newProducts = [];
+            const updateProducts = [];
+            let stockLevelFilter = [];
 
-            let stockLevelFilter = []
-            for (let stock of categoryMap.stock_map) {
-                stockLevelFilter.push(stock.name)
+            // Get stock filter
+            for (let stock of importRef.categoryMap.stock_map) {
+                stockLevelFilter.push(stock.name);
             }
 
-            if (!stockLevelFilter.includes(product.stockLevel)) {
-                isPassingFilteres = false
-            }
-
-            let minPrice = categoryMap.minimumPrice ? categoryMap.minimumPrice : 0;
+            let minPrice = importRef.categoryMap.minimumPrice ? importRef.categoryMap.minimumPrice : 0;
             let maxPrice;
-            if (categoryMap.maximumPrice && categoryMap.maximumPrice > 0) {
-                maxPrice = categoryMap.maximumPrice;
+            if (importRef.categoryMap.maximumPrice && importRef.categoryMap.maximumPrice > 0) {
+                maxPrice = importRef.categoryMap.maximumPrice;
             }
             else {
                 maxPrice = 100000;
+            }
+
+            for (let product of products) {
+                // Set category info
+                product.entry = entry;
+                product.category = { title: category };
+                product.subcategory = { title: subcategory };
+                product.sub2category = { title: sub2category };
+
+                //filter product
+                if (!this.filterScrappedProducts(product, stockLevelFilter, minPrice, maxPrice)) {
+                    continue
+                }
+
+
+                // Filter by price
+                if (!product.wholesale) {
+                    continue;
+                }
+
+                // ✅ 1. First try to find by supplierProductId (most reliable)
+                let existingBySupplier = null;
+                if (product.supplierCode) {
+                    existingBySupplier = await strapi.db.query('api::product.product').findOne({
+                        where: {
+                            supplierInfo: {
+                                $and: [
+                                    { name: entry.name },
+                                    { supplierProductId: product.supplierCode }
+                                ]
+                            }
+                        },
+                        select: ['id', 'mpn', 'barcode', 'model', 'name'],
+                        populate: {
+                            supplierInfo: {
+                                fields: ['supplierProductId']
+                            }
+                        }
+                    }).catch(err => {
+                        console.warn(`Error searching by supplierProductId ${product.supplierCode}:`, err.message);
+                        return null;
+                    });
+
+                    if (existingBySupplier) {
+                        // console.log(`📦 Found existing product by supplierProductId: ${product.name}`);
+                        product._existingId = existingBySupplier.id;
+
+                        updateProducts.push(product);
+                        continue;
+                    }
+                }
+
+                // Keep product for processing (whether new or existing)
+                newProducts.push(product);
+            }
+
+            // ✅ Return both products and map
+            return {
+                products: newProducts,
+                updateProducts: updateProducts
+            };
+
+        } catch (error) {
+            console.log('Error in updateAndFilterScrapProducts:', error);
+            return { products: [], updateProducts: [] };
+        }
+    },
+
+    filterScrappedProducts(product, stockLevelFilter, minPrice, maxPrice) {
+        try {
+            let isPassingFilteres = true
+
+            if (!stockLevelFilter.includes(product.stockLevel)) {
+                isPassingFilteres = false
             }
 
             if (Number.isNaN(product.wholesale) || product.wholesale < minPrice || product.wholesale > maxPrice) {

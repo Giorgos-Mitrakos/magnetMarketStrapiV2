@@ -538,7 +538,82 @@ module.exports = ({ strapi }) => ({
 
   formatPrice(value) {
     if (value === null || value === undefined) return null;
-    const num = typeof value === 'number' ? value : parseFloat(value);
-    return isNaN(num) ? null : num.toFixed(2);
-  }
+
+    // Αν είναι ήδη number, επιστροφή
+    if (typeof value === 'number') {
+      return this.roundPrice(value);
+    }
+
+    // Αν είναι string, normalize το format
+    if (typeof value === 'string') {
+      let normalized = value.trim();
+
+      // Αφαίρεση whitespace
+      normalized = normalized.replace(/\s/g, '');
+
+      // Βρες την τελευταία τελεία ή κόμμα
+      const lastDotIndex = normalized.lastIndexOf('.');
+      const lastCommaIndex = normalized.lastIndexOf(',');
+
+      // Προσδιορισμός ποιο είναι το decimal separator
+      if (lastDotIndex > -1 && lastCommaIndex > -1) {
+        // Και τα δύο υπάρχουν - το τελευταίο είναι το decimal separator
+        if (lastDotIndex > lastCommaIndex) {
+          // Format: 1,274.25 (US format)
+          normalized = normalized.replace(/,/g, '');
+        } else {
+          // Format: 1.274,25 ή 3.450,00 (European format)
+          normalized = normalized.replace(/\./g, '').replace(',', '.');
+        }
+      } else if (lastCommaIndex > -1) {
+        // Μόνο κόμμα - έλεγχος αν είναι thousands ή decimal
+        const charsAfterComma = normalized.length - lastCommaIndex - 1;
+
+        // Αν έχει 2 ψηφία μετά το κόμμα, είναι decimal separator
+        // Αν έχει 3 ψηφία και δεν υπάρχει άλλο separator, είναι thousands
+        if (charsAfterComma === 2 || charsAfterComma === 1) {
+          // Format: 105,00 ή 105,5 (decimal separator)
+          normalized = normalized.replace(',', '.');
+        } else if (charsAfterComma === 3) {
+          // Format: 1,000 (thousands separator)
+          normalized = normalized.replace(/,/g, '');
+        } else {
+          // Default: treat as decimal
+          normalized = normalized.replace(',', '.');
+        }
+      } else if (lastDotIndex > -1) {
+        // Μόνο τελεία/τελείες
+        const dotCount = (normalized.match(/\./g) || []).length;
+
+        if (dotCount > 1) {
+          // Format: 4.113.00 (European με τελείες παντού)
+          // Αφαίρεση όλων των τελειών εκτός της τελευταίας
+          const parts = normalized.split('.');
+          const lastPart = parts.pop();
+          normalized = parts.join('') + '.' + lastPart;
+        } else {
+          // Μία τελεία - έλεγχος ψηφίων μετά
+          const charsAfterDot = normalized.length - lastDotIndex - 1;
+
+          // Αν έχει 3 ψηφία μετά την τελεία, πιθανόν thousands separator
+          if (charsAfterDot === 3 && lastDotIndex <= 1) {
+            // Format: 1.000
+            normalized = normalized.replace('.', '');
+          }
+          // Αλλιώς μένει ως έχει (π.χ. 6934.79)
+        }
+      }
+
+      const num = parseFloat(normalized);
+      return this.roundPrice(num);
+    }
+
+    return null;
+  },
+
+  // Στην αρχή του module
+  roundPrice(value) {
+    if (value === null || value === undefined || isNaN(value)) return null;
+    return Math.round(value * 100) / 100;
+  },
 });

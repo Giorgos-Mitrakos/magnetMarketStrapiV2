@@ -192,12 +192,31 @@ module.exports = ({ strapi }) => ({
     // Helper methods for better organization
     handleExistingSupplier(supplierInfo, index, product, data, dbChange, isDotMedia) {
         const currentSupplier = supplierInfo[index];
-        const currentWholesale = parseFloat(currentSupplier.wholesale);
+        const currentWholesale = strapi
+            .plugin('import-products')
+            .service('priceHelpers')
+            .formatPrice(currentSupplier.wholesale);
+
+        const currentRetailPrice = strapi
+            .plugin('import-products')
+            .service('priceHelpers')
+            .formatPrice(currentSupplier.retail_price);
+
+        const productRetailPrice = strapi
+            .plugin('import-products')
+            .service('priceHelpers')
+            .formatPrice(product.retail_price);
+
+        const productWholesalePrice = strapi
+            .plugin('import-products')
+            .service('priceHelpers')
+            .formatPrice(product.wholesale);
 
         if (currentWholesale <= 0) {
             this.handleZeroWholesale(currentSupplier, product, data, dbChange, isDotMedia, supplierInfo);
-        } else if (this.isPriceDifferent(currentSupplier.wholesale, product.wholesale) || (product.retail_price && this.isPriceDifferent(currentSupplier.retail_price, product.retail_price))) {
-           this.updatePriceWithHistory(currentSupplier, product, data, dbChange, supplierInfo, index);
+        } else if (this.isPriceDifferent(currentWholesale, productWholesalePrice) ||
+            (productRetailPrice && this.isPriceDifferent(currentRetailPrice, productRetailPrice))) {
+            this.updatePriceWithHistory(currentSupplier, product, data, dbChange, supplierInfo, index);
         } else {
             this.updateOtherFields(currentSupplier, product, data, dbChange, supplierInfo);
         }
@@ -229,12 +248,22 @@ module.exports = ({ strapi }) => ({
             .service('supplierHelpers')
             .createPriceProgress(product);
 
+        const supplierRetailPrice = strapi
+            .plugin('import-products')
+            .service('priceHelpers')
+            .formatPrice(supplier.retail_price);
+
+        const productRetailPrice = strapi
+            .plugin('import-products')
+            .service('priceHelpers')
+            .formatPrice(product.retail_price);
+
         priceProgress.push(newPriceProgress);
 
         supplier = this.createSupplierInfoData(product, priceProgress);
 
-        if (product.retail_price && supplier.retail_price !== product.retail_price) {
-            supplier.retail_price = product.retail_price;
+        if (productRetailPrice && supplierRetailPrice !== productRetailPrice) {
+            supplier.retail_price = productRetailPrice;
         }
 
         supplierInfo[index] = supplier
@@ -245,9 +274,18 @@ module.exports = ({ strapi }) => ({
 
     updateOtherFields(supplier, product, data, dbChange, supplierInfo) {
         let needsUpdate = false;
+        const supplierRetailPrice = strapi
+            .plugin('import-products')
+            .service('priceHelpers')
+            .formatPrice(supplier.retail_price);
 
-        if (product.retail_price && Number(supplier.retail_price) !== Number(product.retail_price)) {
-            supplier.retail_price = product.retail_price;
+        const productRetailPrice = strapi
+            .plugin('import-products')
+            .service('priceHelpers')
+            .formatPrice(product.retail_price);
+
+        if (product.retail_price && supplierRetailPrice !== productRetailPrice) {
+            supplier.retail_price = productRetailPrice
             needsUpdate = true;
         }
 
