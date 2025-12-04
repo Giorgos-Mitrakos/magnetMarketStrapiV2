@@ -17,7 +17,7 @@ const scrapHelpers = require('./helpers/scrap-helpers')
 const oktabitService = require('./supplierServices/oktabitService');
 const questService = require('./supplierServices/questService');
 const novatronService = require('./supplierServices/novatronService');
-const globalsatService = require('./supplierServices/globalsatService1');
+const globalsatService = require('./supplierServices/globalsatService');
 const zegetronService = require('./supplierServices/zegetronService');
 const westnetService = require('./supplierServices/westnetService');
 const cpiService = require('./supplierServices/cpiService');
@@ -50,6 +50,7 @@ const westnetAdapter = require('./supplierAdapters/westnet-adapter.js');
 const smart4allAdapter = require('./supplierAdapters/smart4all-adapter.js');
 const questAdapter = require('./supplierAdapters/quest-adapter.js');
 const novatronAdapter = require('./supplierAdapters/novatron-adapter.js');
+const globalsatScrapAdapter = require('./supplierAdapters/globalsat-scrap-adapter.js');
 
 module.exports = {
   cacheService,
@@ -65,9 +66,11 @@ module.exports = {
   characteristicsParser,
 
   // Supplier adapters
+
   zegetronAdapter,
   telehermesAdapter,
   globalsatAdapter,
+  globalsatScrapAdapter,
   dotmediaAdapter,
   cpiAdapter,
   oktabitAdapter,

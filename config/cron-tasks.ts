@@ -43,7 +43,7 @@ export default {
                 .parseGlobalsat({ entry });
         },
         options: {
-            rule: "52 6-22 * * *",
+            rule: "10 5-22 * * *",
         },
     },
 
@@ -115,7 +115,7 @@ export default {
                 .parseOktabitXml({ entry });
         },
         options: {
-            rule: "15 9,11,13,15 * * *",
+            rule: "15 5,9,11,13,15,20 * * *",
         },
     },
 
@@ -139,7 +139,7 @@ export default {
                 .parseZegetronXml({ entry });
         },
         options: {
-            rule: "45 8,11,14 * * *",
+            rule: "45 5,8,11,14 * * *",
         },
     },
 
@@ -235,7 +235,7 @@ export default {
                 .parseCpiXml({ entry });
         },
         options: {
-            rule: "25 9,12,15,18 * * *",
+            rule: "25 5,9,12,15,18 * * *",
         },
     },
 

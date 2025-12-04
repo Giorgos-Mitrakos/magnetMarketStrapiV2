@@ -1,72 +1,168 @@
 'use strict';
 
-const index = require("@strapi/plugin-users-permissions/strapi-admin");
-
 module.exports = ({ strapi }) => ({
 
     async parseGlobalsat({ entry }) {
-        const importRef = await strapi
-            .plugin('import-products')
-            .service('importHelpers')
-            .createImportRef(entry);
+        try {
+            const adapter = strapi
+                .plugin('import-products')
+                .service('globalsatScrapAdapter')(entry);
 
-        if (!entry.isActive) {
-            await strapi
+            return await adapter.import();
+
+        } catch (err) {
+            console.error('Error in parseGlobalsat:', err);
+            return { message: "Error", error: err.message };
+        }
+    },
+
+    /**
+     * Check if product needs full scraping
+     */
+    async needsFullScrapGlobalsatProduct(productMeta, entry) {
+        try {
+            if (!productMeta._existingId) {
+                console.log(`🆕 NEW product: ${productMeta.name}`);
+                return true;
+            }
+
+            const existingProduct = await strapi.entityService.findOne(
+                'api::product.product',
+                productMeta._existingId,
+                {
+                    fields: ['id', 'name'],
+                    populate: {
+                        prod_chars: { fields: ['id'], limit: 1 },
+                        image: { fields: ['id'], limit: 1 },
+                        additionalImages: { fields: ['id'], limit: 5 }
+                    }
+                }
+            ).catch(err => {
+                console.warn(`Error fetching product ${productMeta._existingId}:`, err.message);
+                return null;
+            });
+
+            if (!existingProduct) {
+                return true;
+            }
+
+            const hasImages = !!(existingProduct.image?.id ||
+                (existingProduct.additionalImages && existingProduct.additionalImages.length > 0));
+            const hasCharacteristics = !!(existingProduct.prod_chars && existingProduct.prod_chars.length > 0);
+
+            if (!hasImages || !hasCharacteristics) {
+                console.log(`🖼️  Missing data: ${productMeta.name}`);
+                return true;
+            }
+
+            console.log(`✅ Complete: ${productMeta.name}`);
+            return false;
+
+        } catch (error) {
+            console.error(`Error in needsFullScrapGlobalsatProduct:`, error.message);
+            return true;
+        }
+    },
+
+    /**
+     * Quick update: only prices from list page
+     */
+    async quickUpdateGlobalsatProduct(productMeta, category, subcategory, sub2category, importRef, entry) {
+        try {
+            if (!productMeta._existingId) {
+                console.warn(`⚠️  No existing ID: ${productMeta.name}`);
+                return;
+            }
+
+            const product = {
+                entry,
+                name: productMeta.name,
+                supplierCode: productMeta.supplierCode,
+                mpn: productMeta.mpn,
+                wholesale: productMeta.wholesale,
+                retail_price: productMeta.retail_price,
+                stockLevel: productMeta.stockLevel,
+                category: { title: category },
+                subcategory: { title: subcategory },
+                sub2category: { title: sub2category }
+            };
+
+            const existingProduct = await strapi.db.query('api::product.product').findOne({
+                where: { id: productMeta._existingId },
+                populate: {
+                    supplierInfo: {
+                        populate: {
+                            price_progress: true,
+                        }
+                    },
+                    related_import: true,
+                    brand: true,
+                    category: {
+                        populate: {
+                            cat_percentage: {
+                                populate: {
+                                    brand_perc: {
+                                        populate: {
+                                            brand: true
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    platforms: true,
+                    prod_chars: true
+                }
+            }).catch(err => {
+                console.warn(`Error fetching product:`, err.message);
+                return null;
+            });
+
+            if (!existingProduct) {
+                console.warn(`❌ Product not found: ${productMeta._existingId}`);
+                return;
+            }
+
+            const result = await strapi
                 .plugin('import-products')
                 .service('importHelpers')
-                .deleteEntry(entry, importRef);
-        }
-        else {
-            const response = await this.scrapGlobalsat(importRef, entry);
+                .updateEntry(existingProduct, product, importRef);
 
-            if (response && response.message === "error") {
-                console.log("An error occured")
-                await strapi.entityService.update('plugin::import-products.importxml', entry.id,
-                    {
-                        data: {
-                            lastRun: new Date(),
-                            report: `Created: ${importRef.created}, Updated: ${importRef.updated},Republished: ${importRef.republished} Skipped: ${importRef.skipped}, Deleted: ${importRef.deleted},
-                            Δημιουργήθηκε κάποιο σφάλμα κατά τη διαδικάσία. Ξαναπροσπασθήστε!`,
-                        },
-                    })
+            if (result?.success) {
+                console.log(`💰 Quick update: ${product.name}`);
             }
-            else {
-                await strapi
-                    .plugin('import-products')
-                    .service('importHelpers')
-                    .deleteEntry(entry, importRef);
-            }
+
+        } catch (error) {
+            console.error(`Error in quickUpdateGlobalsatProduct:`, error.message);
         }
-
-        console.log("End of Import")
-        return { "message": "ok" }
-
     },
 
     async acceptCookies(body) {
         try {
-            const acceptCookiesBtn = await body.$('button#onetrust-accept-btn-handler')
-            if (acceptCookiesBtn) {
-                await acceptCookiesBtn.click()
-            }
+            await body.evaluate(() => {
+                const btn = document.querySelector('.layout-main .cky-notice-btn-wrapper .cky-btn-accept');
+                if (btn) {
+                    btn.click();
+                }
+            });
+            // Give it time to process
+            await new Promise(resolve => setTimeout(resolve, 500));
         } catch (error) {
-            console.log(error)
+            // Ignore - cookies might already be accepted
         }
     },
 
     async closeAlert(body) {
         try {
-            // await strapi
-            //     .plugin('import-products')
-            //     .service('scrapHelpers')
-            //     .sleep(2500)
-
-            const closeAlertBtn = await body.$('#onesignal-slidedown-cancel-button')
-            if (closeAlertBtn) {
-                await closeAlertBtn.click()
-            }
+            await body.evaluate(() => {
+                const btn = document.querySelector('#onesignal-slidedown-cancel-button');
+                if (btn) {
+                    btn.click();
+                }
+            });
+            await new Promise(resolve => setTimeout(resolve, 500));
         } catch (error) {
-            console.log(error)
+            // Ignore
         }
     },
 
@@ -75,34 +171,39 @@ module.exports = ({ strapi }) => ({
             await strapi
                 .plugin('import-products')
                 .service('scrapHelpers')
-                .sleep(1500)
+                .sleep(1500);
 
-            await this.acceptCookies(body)
+            await this.acceptCookies(body);
 
-            const mainContent = await body.$('.main-content')
-            const loginForm = await mainContent.$('.b2bLogin')
+            const mainContent = await body.$('.main-content');
+            const loginForm = await mainContent.$('.b2bLogin');
+
+            if (!loginForm)
+                return page
 
             const username = await loginForm.$('#login-email_address');
             const password = await loginForm.$('#login-password');
+
             await username.type(process.env.GLOBALSAT_USERNAME, {
                 delay: strapi
                     .plugin('import-products')
                     .service('scrapHelpers')
                     .randomWait(300, 700)
-            })
+            });
+
             await password.type(process.env.GLOBALSAT_PASSWORD, {
                 delay: strapi
                     .plugin('import-products')
                     .service('scrapHelpers')
                     .randomWait(300, 700)
-            })
+            });
 
             await strapi
                 .plugin('import-products')
                 .service('scrapHelpers')
-                .sleep(1500)
+                .sleep(1500);
 
-            const submitLogin = await loginForm.$('button')
+            const submitLogin = await loginForm.$('button');
             await submitLogin.scrollIntoView({ behavior: 'smooth' });
 
             await Promise.all([
@@ -110,82 +211,72 @@ module.exports = ({ strapi }) => ({
                 page.waitForNavigation({ waitUntil: 'networkidle0' }),
             ]);
 
-            await page.cookies()
-                .then((cookies) => {
-                    const cookiesJson = JSON.stringify(cookies, null, 2)
-                    return cookiesJson
-                })
-                .then((cookiesJson) => {
-                    strapi
-                        .plugin('import-products')
-                        .service('scrapHelpers')
-                        .saveCookies(supplier, cookiesJson)
-                })
-                .catch((error) => console.log(error))
+            const cookies = await page.cookies();
+            if (cookies && cookies.length > 0) {
+                const cookiesJson = JSON.stringify(cookies, null, 2);
+                await strapi
+                    .plugin('import-products')
+                    .service('scrapHelpers')
+                    .saveCookies(supplier, cookiesJson);
+            }
 
-            return page
+            return page;
 
         } catch (error) {
-            console.log(error)
+            console.log(error);
+            throw error;
         }
     },
 
     async scrapGlobalsat(importRef, entry) {
-        const browser = await strapi
-            .plugin('import-products')
-            .service('scrapHelpers')
-            .createBrowser()
-        try {
+        let browser = null;
 
-            const loadImages = true;
+        try {
+            browser = await strapi
+                .plugin('import-products')
+                .service('scrapHelpers')
+                .createBrowser();
+
+            const loadImages = false;
             let page = await strapi
                 .plugin('import-products')
                 .service('scrapHelpers')
-                .createPage(await browser, loadImages)
+                .createPage(browser, loadImages);
 
             await strapi
                 .plugin('import-products')
                 .service('scrapHelpers')
-                .loadCookies(entry.name, await page)
+                .loadCookies(entry.name, page);
 
             await strapi
                 .plugin('import-products')
                 .service('scrapHelpers')
                 .retry(
                     () => page.goto('https://eshop.globalsat.gr/b2b/', { waitUntil: "networkidle0" }),
-                    10, // retry this 10 times,
+                    10,
                     false
                 );
+
             await strapi
                 .plugin('import-products')
                 .service('scrapHelpers')
-                .sleep(3500)
+                .sleep(3500);
 
             const body = await page.$('body');
 
-            await this.closeAlert(body)
 
-            const newPage = await this.loginGlobalsat(body, entry.name, page)
-
+            const newPage = await this.loginGlobalsat(body, entry.name, page);
             const newBody = await newPage.$('body');
+            await this.closeAlert(newBody);
+            await this.acceptCookies(newBody);
 
-            await this.acceptCookies(newBody)
-
-            const categories = await this.scrapGlobalsatCategories(newBody)
-
-            let newCategories = strapi
+            const categories = await this.scrapGlobalsatCategories(newBody);
+            const newCategories = strapi
                 .plugin('import-products')
                 .service('scrapHelpers')
-                .filterCategories(categories, importRef)
+                .filterCategories(categories, importRef);
 
-            const brandEntries = await strapi.entityService.findMany('api::brand.brand', {
-                fields: ['name'],
-            });
-
-            let sortedBrandArray = brandEntries.sort(function (a, b) {
-                return b.name.length - a.name.length;
-            });
-
+            // Process each category
             for (let category of newCategories) {
                 for (let subCategory of category.subCategories) {
                     for (let sub2Category of subCategory.subCategories) {
@@ -195,82 +286,93 @@ module.exports = ({ strapi }) => ({
                             .sleep(strapi
                                 .plugin('import-products')
                                 .service('scrapHelpers')
-                                .randomWait(4000, 8000))
-                        await this.scrapGlobalsatCategory(browser, category, subCategory, sub2Category, sortedBrandArray, importRef, entry)
+                                .randomWait(4000, 8000));
+
+                        await this.scrapGlobalsatCategory(
+                            browser,
+                            category,
+                            subCategory,
+                            sub2Category,
+                            importRef,
+                            entry
+                        );
                     }
                 }
             }
 
+            return { message: "ok" };
+
         } catch (error) {
-            console.log(error)
-            return { "message": "error" }
-        }
-        finally {
-            await browser.close();
+            console.log(error);
+            return { message: "error", error: error.message };
+        } finally {
+            if (browser) {
+                await browser.close().catch(err => console.error('Error closing browser:', err));
+            }
         }
     },
 
     async scrapGlobalsatCategories(body) {
         try {
-            // await this.acceptCookies(body)
-
-            let scrap = await body.evaluate(() => {
+            const scrap = await body.evaluate(() => {
                 const categoriesNav = document.querySelectorAll('.menu-content>ul>.parent>ul>li');
-
-                const categories = []
+                const categories = [];
 
                 for (let li of categoriesNav) {
                     const anchor = li.querySelector('a');
-                    const link = anchor.getAttribute('href')
-                    const titleAnchor = anchor.textContent
+                    const link = anchor.getAttribute('href');
+                    const titleAnchor = anchor.textContent;
 
-                    const subCategoryList = li.querySelectorAll('ul.level-3>li')
-                    const subCategories = []
+                    const subCategoryList = li.querySelectorAll('ul.level-3>li');
+                    const subCategories = [];
+
                     for (let subLi of subCategoryList) {
                         const subAnchor = subLi.querySelector('a');
-                        const subTitle = subAnchor.textContent
-                        const subLink = subAnchor.getAttribute('href')
+                        const subTitle = subAnchor.textContent;
+                        const subLink = subAnchor.getAttribute('href');
 
-                        const subCategoryListItems = subLi.querySelectorAll('ul.level-4>li')
-
-                        const subCategories2 = []
+                        const subCategoryListItems = subLi.querySelectorAll('ul.level-4>li');
+                        const subCategories2 = [];
 
                         for (let sub2Li of subCategoryListItems) {
                             const sub2Anchor = sub2Li.querySelector('a');
-                            const sub2Title = sub2Anchor.textContent
-                            const sub2Link = sub2Anchor.getAttribute('href')
-                            subCategories2.push({ title: sub2Title, link: sub2Link })
+                            const sub2Title = sub2Anchor.textContent;
+                            const sub2Link = sub2Anchor.getAttribute('href');
+                            subCategories2.push({ title: sub2Title, link: sub2Link });
                         }
-                        subCategories.push({ title: subTitle, link: subLink, subCategories: subCategories2 })
+
+                        subCategories.push({ title: subTitle, link: subLink, subCategories: subCategories2 });
                     }
 
-                    categories.push({ title: titleAnchor, link: link, subCategories })
+                    categories.push({ title: titleAnchor, link: link, subCategories });
                 }
-                return categories
-            })
-            return scrap
+
+                return categories;
+            });
+
+            return scrap;
 
         } catch (error) {
-            console.log(error)
+            console.log(error);
+            return [];
         }
     },
 
     async findCardGroups(page, card) {
         const cardListWrapper = await page.$('div.list-productlisting');
-        const cardList = await cardListWrapper.$$("div.item")
-        const cardGroups = await cardList[card.index].$$('.radioBox2')
-
-        return cardGroups
+        const cardList = await cardListWrapper.$$("div.item");
+        const cardGroups = await cardList[card.index].$$('.radioBox2');
+        return cardGroups;
     },
 
     async scrapCard(page, index) {
         try {
             const productCard = await page.evaluate((index) => {
                 const productListWrapper = document.querySelector('div.list-productlisting');
-                const productsCardList = productListWrapper.querySelectorAll('div.item')
-                const productsCard = productsCardList[index]
+                const productsCardList = productListWrapper.querySelectorAll('div.item');
+                const productsCard = productsCardList[index];
 
-                const product = {}
+                const product = {};
 
                 const productInfoWrapper = productsCard.querySelector('.name');
                 const productTitleAnchor = productInfoWrapper.querySelector('a');
@@ -280,7 +382,6 @@ module.exports = ({ strapi }) => ({
                 const modelWrapper = productsCard.querySelector('.model');
                 const modelProductWrapper = modelWrapper.querySelector('.products-model');
                 const modelSpansWrapper = modelProductWrapper.querySelectorAll('span');
-
                 product.mpn = modelSpansWrapper[1].textContent.trim();
 
                 const skuWrapper = productsCard.querySelector('.Sku');
@@ -294,8 +395,7 @@ module.exports = ({ strapi }) => ({
 
                 if (priceCurrentSpan) {
                     product.wholesale = priceCurrentSpan.textContent.replace('€', '').replace(',', '').trim();
-                }
-                else {
+                } else {
                     product.wholesale = priceSpecialSpan.textContent.replace('€', '').replace(',', '').trim();
                 }
 
@@ -303,33 +403,34 @@ module.exports = ({ strapi }) => ({
                 if (retailPriceWrapper) {
                     const retailPriceSpanWrapper = retailPriceWrapper.querySelectorAll('span');
                     const retail_price = retailPriceSpanWrapper[1].textContent.replace('€', '').replace(',', '').trim();
-                    product.retail_price = parseFloat(retail_price)
+                    product.retail_price = parseFloat(retail_price);
                 }
 
                 const stockWrapper = productsCard.querySelector('.in-stock');
-                if (stockWrapper) { product.stockLevel = stockWrapper.textContent.trim(); }
-                else {
+                if (stockWrapper) {
+                    product.stockLevel = stockWrapper.textContent.trim();
+                } else {
                     const preOrderWrapper = productsCard.querySelector('.pre-order');
-                    product.stockLevel = preOrderWrapper ? preOrderWrapper.textContent.trim() : "Μη διαθέσιμο"
+                    product.stockLevel = preOrderWrapper ? preOrderWrapper.textContent.trim() : "Μη διαθέσιμο";
                 }
-                return product
-            }, index)
 
-            return productCard
+                return product;
+            }, index);
+
+            return productCard;
         } catch (error) {
-            console.log("An error ocured")
-            console.log(error)
-            return null
+            console.log("An error occurred in scrapCard");
+            console.log(error);
+            return null;
         }
     },
 
-    async scrapeProducts(browser, link, sortedBrandArray) {
-
+    async scrapeProducts(browser, link) {
         const loadImages = false;
         let page = await strapi
             .plugin('import-products')
             .service('scrapHelpers')
-            .createPage(await browser, loadImages)
+            .createPage(browser, loadImages);
 
         try {
             await strapi
@@ -337,60 +438,61 @@ module.exports = ({ strapi }) => ({
                 .service('scrapHelpers')
                 .retry(
                     () => page.goto(link, { waitUntil: "networkidle0" }),
-                    10, // retry this 10 times,
+                    10,
                     false
                 );
 
             const body = await page.$('body');
-            await this.acceptCookies(body)
-            await this.closeAlert(body)
+            await this.acceptCookies(body);
+            await this.closeAlert(body);
 
-            const cards = []
+            const cards = [];
 
             const productListWrapper = await page.$('div.list-productlisting');
-            const productsCardList = await productListWrapper.$$("div.item")
+            const productsCardList = await productListWrapper.$$("div.item");
 
-            const cardsNumbers = []
+            const cardsNumbers = [];
             for (let i = 0; i < productsCardList.length; i++) {
-                cardsNumbers.push(i)
+                cardsNumbers.push(i);
             }
 
             for (let numberOfCard of cardsNumbers) {
-                const card = { index: numberOfCard, groups: [] }
-                const productGroups = await productsCardList[numberOfCard].$$('.radioBox2')
+                const card = { index: numberOfCard, groups: [] };
+                const productGroups = await productsCardList[numberOfCard].$$('.radioBox2');
 
                 if (productGroups.length > 0) {
-                    const productGroupsNumbers = []
+                    const productGroupsNumbers = [];
                     for (let i = 0; i < productGroups.length; i++) {
-                        productGroupsNumbers.push(i)
+                        productGroupsNumbers.push(i);
                     }
 
                     for (let productGroupNumber of productGroupsNumbers) {
                         try {
-                            const group = { index: productGroupNumber }
-                            const groupLabels = await productGroups[productGroupNumber].$$('label')
+                            const group = { index: productGroupNumber };
+                            const groupLabels = await productGroups[productGroupNumber].$$('label');
 
                             if (groupLabels.length > 0) {
-                                const productGroupsLabelsNumbers = []
+                                const productGroupsLabelsNumbers = [];
                                 for (let i = 0; i < groupLabels.length; i++) {
-                                    productGroupsLabelsNumbers.push(i)
+                                    productGroupsLabelsNumbers.push(i);
                                 }
-
-                                group.labels = productGroupsLabelsNumbers
+                                group.labels = productGroupsLabelsNumbers;
                             }
 
-                            card.groups.push(group)
+                            card.groups.push(group);
 
                         } catch (error) {
-                            console.log("Κάποιο λάθος στο productGroupNumber")
+                            console.log("Error in productGroupNumber");
                         }
                     }
                 }
-                cards.push(card)
+                cards.push(card);
             }
 
-            const products = []
-            for await (let card of cards) {
+            console.log("cards:", cards)
+
+            const products = [];
+            for (let card of cards) {
                 try {
                     if (card.groups.length > 0) {
                         await strapi
@@ -399,33 +501,35 @@ module.exports = ({ strapi }) => ({
                             .sleep(strapi
                                 .plugin('import-products')
                                 .service('scrapHelpers')
-                                .randomWait(300, 500))
+                                .randomWait(300, 500));
 
-                        let firstGroup = card.groups[0]
-                        let secondGroup = card.groups[1]
+                        let firstGroup = card.groups[0];
+                        let secondGroup = card.groups[1];
+
                         if (firstGroup.labels.length > 0) {
-                            for await (let firstGroupLabel of firstGroup.labels) {
+                            for (let firstGroupLabel of firstGroup.labels) {
                                 await strapi
                                     .plugin('import-products')
                                     .service('scrapHelpers')
                                     .sleep(strapi
                                         .plugin('import-products')
                                         .service('scrapHelpers')
-                                        .randomWait(300, 700))
+                                        .randomWait(300, 700));
+
                                 if (secondGroup && secondGroup.labels.length > 1) {
-                                    for await (let secondGroupLabel of secondGroup.labels) {
+                                    for (let secondGroupLabel of secondGroup.labels) {
                                         await strapi
                                             .plugin('import-products')
                                             .service('scrapHelpers')
                                             .sleep(strapi
                                                 .plugin('import-products')
                                                 .service('scrapHelpers')
-                                                .randomWait(500, 800))
+                                                .randomWait(500, 800));
 
-                                        let cardGroups = await this.findCardGroups(page, card)
-                                        const firstGroupLabels = await cardGroups[firstGroup.index].$$('label')
+                                        let cardGroups = await this.findCardGroups(page, card);
+                                        const firstGroupLabels = await cardGroups[firstGroup.index].$$('label');
                                         await firstGroupLabels[firstGroupLabel].waitForSelector('.js-list-prod');
-                                        const firstGroupLabelNumber = await firstGroupLabels[firstGroupLabel].$(".js-list-prod")
+                                        const firstGroupLabelNumber = await firstGroupLabels[firstGroupLabel].$(".js-list-prod");
                                         await firstGroupLabelNumber.scrollIntoView({ behavior: 'smooth' });
 
                                         if (firstGroup.labels.length > 1) {
@@ -435,16 +539,15 @@ module.exports = ({ strapi }) => ({
                                                 .retryClick(
                                                     firstGroupLabelNumber,
                                                     page,
-                                                    10, // retry this 10 times,
+                                                    10,
                                                     false
                                                 );
                                         }
 
-                                        cardGroups = await this.findCardGroups(page, card)
-                                        const secondGroupLabels = await cardGroups[secondGroup.index].$$('label')
-
+                                        cardGroups = await this.findCardGroups(page, card);
+                                        const secondGroupLabels = await cardGroups[secondGroup.index].$$('label');
                                         await secondGroupLabels[secondGroupLabel].waitForSelector('.js-list-prod');
-                                        const secondGroupLabelNumber = await secondGroupLabels[secondGroupLabel].$(".js-list-prod")
+                                        const secondGroupLabelNumber = await secondGroupLabels[secondGroupLabel].$(".js-list-prod");
                                         await secondGroupLabelNumber.scrollIntoView({ behavior: 'smooth' });
                                         await strapi
                                             .plugin('import-products')
@@ -452,26 +555,24 @@ module.exports = ({ strapi }) => ({
                                             .retryClick(
                                                 secondGroupLabelNumber,
                                                 page,
-                                                10, // retry this 10 times,
+                                                10,
                                                 false
                                             );
 
-                                        const product = await this.scrapCard(await page, card.index)
+                                        const product = await this.scrapCard(page, card.index);
                                         if (product) {
-                                            const findProduct = products.findIndex(x => x.mpn === product.mpn)
-                                            if (findProduct === -1)
-                                                products.push(product)
+                                            const findProduct = products.findIndex(x => x.mpn === product.mpn);
+                                            if (findProduct === -1) products.push(product);
                                         }
                                     }
-                                }
-                                else {
+                                } else {
                                     const cardListWrapper = await page.$('div.list-productlisting');
-                                    const cardList = await cardListWrapper.$$("div.item")
-                                    const cardGroups = await cardList[card.index].$$('.radioBox2')
-                                    const firstGroupLabels = await cardGroups[firstGroup.index].$$('label')
+                                    const cardList = await cardListWrapper.$$("div.item");
+                                    const cardGroups = await cardList[card.index].$$('.radioBox2');
+                                    const firstGroupLabels = await cardGroups[firstGroup.index].$$('label');
 
                                     await firstGroupLabels[firstGroupLabel].waitForSelector('.js-list-prod');
-                                    const labelNumber = await firstGroupLabels[firstGroupLabel].$(".js-list-prod")
+                                    const labelNumber = await firstGroupLabels[firstGroupLabel].$(".js-list-prod");
                                     if (firstGroup.labels.length > 1) {
                                         await labelNumber.scrollIntoView({ behavior: 'smooth' });
                                         await strapi
@@ -480,51 +581,49 @@ module.exports = ({ strapi }) => ({
                                             .retryClick(
                                                 labelNumber,
                                                 page,
-                                                10, // retry this 10 times,
+                                                10,
                                                 false
                                             );
                                     }
-                                    const product = await this.scrapCard(await page, card.index)
+                                    const product = await this.scrapCard(page, card.index);
                                     if (product) {
-                                        const findProduct = products.findIndex(x => x.mpn === product.mpn)
-                                        if (findProduct === -1)
-                                            products.push(product)
+                                        const findProduct = products.findIndex(x => x.mpn === product.mpn);
+                                        if (findProduct === -1) products.push(product);
                                     }
                                 }
                             }
                         }
-                    }
-                    else {
-                        const product = await this.scrapCard(await page, card.index)
+                    } else {
+                        const product = await this.scrapCard(page, card.index);
                         if (product) {
-                            const findProduct = products.findIndex(x => x.mpn === product.mpn)
-                            if (findProduct === -1)
-                                products.push(product)
+                            const findProduct = products.findIndex(x => x.mpn === product.mpn);
+                            if (findProduct === -1) products.push(product);
                         }
                     }
 
                 } catch (error) {
-                    console.log("Κάποιο λάθος στο cards loop")
+                    console.log("Error in cards loop", error);
                 }
             }
 
-            return products
+            return products;
 
         } catch (error) {
-            console.log("Κάποιο λάθος στο scrapeProducts")
-            console.log(error)
-        }
-        finally {
-            page.close()
+            console.log("Error in scrapeProducts",error);
+            return [];
+        } finally {
+            if (page) {
+                await page.close().catch(err => console.error('Error closing page:', err));
+            }
         }
     },
 
-    async scrapGlobalsatCategory(browser, category, subcategory, sub2category, sortedBrandArray, importRef, entry) {
+    async scrapGlobalsatCategory(browser, category, subcategory, sub2category, importRef, entry) {
         const loadImages = false;
         let page = await strapi
             .plugin('import-products')
             .service('scrapHelpers')
-            .createPage(await browser, loadImages)
+            .createPage(browser, loadImages);
 
         try {
             let status = await strapi
@@ -532,21 +631,20 @@ module.exports = ({ strapi }) => ({
                 .service('scrapHelpers')
                 .retry(
                     () => page.goto(`${sub2category.link}`, { waitUntil: "networkidle0" }),
-                    10, // retry this 10 times,
+                    10,
                     false
                 );
 
             status = status.status();
 
             if (status !== 404) {
-
                 const body = await page.$('body');
-                await this.acceptCookies(body)
-                await this.closeAlert(body)
+                await this.acceptCookies(body);
+                await this.closeAlert(body);
 
                 const availableProductsCheck = await page.$('#headerStock');
                 await availableProductsCheck.scrollIntoView({ behavior: 'smooth' });
-                const isChecked = await (await availableProductsCheck.getProperty("checked")).jsonValue()
+                const isChecked = await (await availableProductsCheck.getProperty("checked")).jsonValue();
 
                 await strapi
                     .plugin('import-products')
@@ -554,12 +652,11 @@ module.exports = ({ strapi }) => ({
                     .sleep(strapi
                         .plugin('import-products')
                         .service('scrapHelpers')
-                        .randomWait(1000, 1500))
-
+                        .randomWait(1000, 1500));
 
                 if (isChecked) {
-                    availableProductsCheck.click()
-                    await page.waitForNavigation()
+                    availableProductsCheck.click();
+                    await page.waitForNavigation();
                 }
 
                 await strapi
@@ -568,12 +665,11 @@ module.exports = ({ strapi }) => ({
                     .sleep(strapi
                         .plugin('import-products')
                         .service('scrapHelpers')
-                        .randomWait(1000, 2000))
+                        .randomWait(1000, 2000));
 
-                let url = await page.url()
-                const newProductList = await this.scrapeProducts(browser, url, sortedBrandArray);
+                let url = await page.url();
+                const newProductList = await this.scrapeProducts(browser, url);
 
-                // set last page reached to false
                 let lastPageReached = false;
 
                 while (!lastPageReached) {
@@ -582,13 +678,12 @@ module.exports = ({ strapi }) => ({
                     const hrefValue = await href?.jsonValue();
 
                     if (!hrefValue) {
-                        lastPageReached = true
-                    }
-                    else {
+                        lastPageReached = true;
+                    } else {
                         await nextPageLink.scrollIntoView({ behavior: 'smooth' });
                         await nextPageLink.click();
 
-                        url = await page.url()
+                        url = await page.url();
 
                         await strapi
                             .plugin('import-products')
@@ -596,39 +691,101 @@ module.exports = ({ strapi }) => ({
                             .sleep(strapi
                                 .plugin('import-products')
                                 .service('scrapHelpers')
-                                .randomWait(1200, 2200))
+                                .randomWait(1200, 2200));
 
-                        // call the function to scrape products on the current page
-                        let products = await this.scrapeProducts(browser, url, sortedBrandArray);
-
-                        // Eνοποιώ τους πινακες
-                        newProductList.push(...products)
+                        let products = await this.scrapeProducts(browser, url);
+                        newProductList.push(...products);
                     }
                 }
 
-                const products = await strapi
+                // ✅ Filter and check existing products
+                const { products: toCreate, updateProducts } = await strapi
                     .plugin('import-products')
                     .service('scrapHelpers')
-                    .updateAndFilterScrapProducts(newProductList, category.title, subcategory.title, sub2category.title, importRef, entry)
+                    .updateAndFilterScrapProducts(
+                        newProductList,
+                        category.title,
+                        subcategory.title,
+                        sub2category.title,
+                        importRef,
+                        entry
+                    );
 
-                for (let product of products) {
-                    await strapi
-                        .plugin('import-products')
-                        .service('scrapHelpers')
-                        .sleep(strapi
+                console.log(`📦 Found ${toCreate.length + updateProducts.length} products to process in ${category.title} > ${subcategory.title} > ${sub2category.title}`);
+
+                // ✅ Process each product - smart decision tree
+                for (let product of updateProducts) {
+                    if (!product || !product.link) continue;
+
+                    try {
+                        // ✅ CHECK: Does it need full scrape?
+                        const needsFullScrape = await this.needsFullScrapGlobalsatProduct(product, entry);
+
+                        if (!needsFullScrape) {
+                            // ✅ QUICK UPDATE: Just update prices, no scraping
+                            console.log(`⏭️  Skipping full scrape, updating prices: ${product.name}`);
+                            await this.quickUpdateGlobalsatProduct(
+                                product,
+                                category.title,
+                                subcategory.title,
+                                sub2category.title,
+                                importRef,
+                                entry
+                            );
+                            continue;
+                        }
+
+                        // ✅ FULL SCRAPE: Product is new or missing data
+                        await this.scrapGlobalsatProduct(
+                            browser,
+                            category,
+                            subcategory,
+                            sub2category,
+                            product.link,
+                            importRef,
+                            entry
+                        );
+
+                    } catch (err) {
+                        console.error(`Error processing product ${product?.name}:`, err.message);
+                    }
+                }
+
+                for (let product of toCreate) {
+                    if (!product || !product.link) continue;
+
+                    try {
+                        await strapi
                             .plugin('import-products')
                             .service('scrapHelpers')
-                            .randomWait(3000, 6000))
+                            .sleep(strapi
+                                .plugin('import-products')
+                                .service('scrapHelpers')
+                                .randomWait(3000, 6000));
 
-                    await this.scrapGlobalsatProduct(browser, category, subcategory, sub2category, product.link, importRef, entry)
+                        // ✅ FULL SCRAPE: Product is new or missing data
+                        await this.scrapGlobalsatProduct(
+                            browser,
+                            category,
+                            subcategory,
+                            sub2category,
+                            product.link,
+                            importRef,
+                            entry
+                        );
+
+                    } catch (err) {
+                        console.error(`Error processing product ${product?.name}:`, err.message);
+                    }
                 }
             }
 
         } catch (error) {
-            console.error(error, importRef, entry)
-        }
-        finally {
-            await page.close()
+            console.error(error, importRef, entry);
+        } finally {
+            if (page) {
+                await page.close().catch(err => console.error('Error closing page:', err));
+            }
         }
     },
 
@@ -637,52 +794,50 @@ module.exports = ({ strapi }) => ({
         let page = await strapi
             .plugin('import-products')
             .service('scrapHelpers')
-            .createPage(await browser, loadImages)
+            .createPage(browser, loadImages);
 
         try {
-
             await strapi
                 .plugin('import-products')
                 .service('scrapHelpers')
                 .retry(
                     () => page.goto(productLink, { waitUntil: "networkidle0" }),
-                    10, // retry this 10 times,
+                    10,
                     false
                 );
 
             const body = await page.$('body');
-            await this.acceptCookies(body)
-            await this.closeAlert(body)
+            await this.acceptCookies(body);
+            await this.closeAlert(body);
 
             const productPage = await page.$('div.productWrapper');
 
             const scrapProduct = await productPage.evaluate(() => {
-
-                const product = {}
+                const product = {};
 
                 product.name = document.querySelector('.w-product-name>h1').textContent.trim();
 
-                const modelWrapper = document.querySelector('.model')
+                const modelWrapper = document.querySelector('.model');
                 const modelSpansWrapper = modelWrapper.querySelectorAll('span');
                 product.mpn = modelSpansWrapper[modelSpansWrapper.length - 1].textContent.trim();
 
-                const barcodeWrapper = document.querySelector('.ean')
+                const barcodeWrapper = document.querySelector('.ean');
                 const barcodeSpansWrapper = barcodeWrapper.querySelectorAll('span');
                 product.barcode = barcodeSpansWrapper[barcodeSpansWrapper.length - 1].textContent.trim();
 
-                const supplierCodeWrapper = document.querySelector('.upc')
+                const supplierCodeWrapper = document.querySelector('.upc');
                 const supplierCodeSpansWrapper = supplierCodeWrapper.querySelectorAll('span');
                 product.supplierCode = supplierCodeSpansWrapper[supplierCodeSpansWrapper.length - 1].textContent.trim();
 
-                const baseUrl = 'https://eshop.globalsat.gr'
-                product.imagesSrc = []
+                const baseUrl = 'https://eshop.globalsat.gr';
+                product.imagesSrc = [];
                 const productMainImgUrl = document.querySelector('.images a');
-                product.imagesSrc.push({ url: `${baseUrl}${productMainImgUrl.getAttribute('href')}` })
+                product.imagesSrc.push({ url: `${baseUrl}${productMainImgUrl.getAttribute('href')}` });
 
                 const productImgUrlsWrapper = document.querySelectorAll('.images img');
                 for (let productImgUrl of productImgUrlsWrapper) {
-                    let imgURL = productImgUrl.getAttribute("src")
-                    product.imagesSrc.push({ url: `${baseUrl}${imgURL}` })
+                    let imgURL = productImgUrl.getAttribute("src");
+                    product.imagesSrc.push({ url: `${baseUrl}${imgURL}` });
                 }
 
                 const productTag = document.querySelector('.in-stock');
@@ -690,13 +845,13 @@ module.exports = ({ strapi }) => ({
 
                 switch (product.stockLevel) {
                     case 'Διαθέσιμο':
-                        product.status = "InStock"
+                        product.status = "InStock";
                         break;
                     case 'Αναμένεται':
-                        product.status = "OutOfStock"
+                        product.status = "OutOfStock";
                         break;
                     default:
-                        product.status = "OutOfStock"
+                        product.status = "OutOfStock";
                         break;
                 }
 
@@ -705,8 +860,7 @@ module.exports = ({ strapi }) => ({
                 if (wholesaleCurrentNode) {
                     const wholesaleSpansWrapper = wholesaleCurrentNode.querySelectorAll('span');
                     product.wholesale = wholesaleSpansWrapper[wholesaleSpansWrapper.length - 1].textContent.replace("€", "").replace(",", "").trim();
-                }
-                else {
+                } else {
                     const wholesaleSpansWrapper = wholesaleSpecialNode.querySelectorAll('span');
                     product.wholesale = wholesaleSpecialNode.textContent.split("€")[0].replace(",", "").trim();
                 }
@@ -717,101 +871,95 @@ module.exports = ({ strapi }) => ({
                     const retailPrice = retailNode.querySelector('.b2b-price-value');
                     product.retail_price = retailPrice.textContent.replace("€", "").replace(",", "").trim();
                     const initialRetailPrice = retailNode.querySelector('.was');
-                    if (initialRetailPrice)
+                    if (initialRetailPrice) {
                         product.initial_retail_price = initialRetailPrice.textContent.replace("€", "").replace(",", "").trim();
+                    }
                 }
 
-                return product
-            })
+                return product;
+            });
 
-            const description = await page.$('#description')
+            const description = await page.$('#description');
             if (description) {
                 scrapProduct.description = await page.$eval('#description', el => el.innerHTML);
             }
+
             const scrapProductAttributes = await page.evaluate(() => {
-                const attributes = []
-                const attributeWrapper = document.querySelector('.product-properties')
+                const attributes = [];
+                const attributeWrapper = document.querySelector('.product-properties');
                 const attributeList = attributeWrapper.querySelectorAll('ul');
 
                 for (let attr of attributeList) {
-                    const attribute = {}
-                    attribute.name = attr.querySelector('.propertiesName-span').textContent
-                    attribute.value = attr.querySelector('.propertiesValue-span').textContent
-                    attributes.push(attribute)
+                    const attribute = {};
+                    attribute.name = attr.querySelector('.propertiesName-span').textContent;
+                    attribute.value = attr.querySelector('.propertiesValue-span').textContent;
+                    attributes.push(attribute);
                 }
 
-                return attributes
-            })
+                return attributes;
+            });
 
-            scrapProduct.prod_chars = scrapProductAttributes
-            scrapProduct.supplierProductURL = productLink
-            scrapProduct.entry = entry
-            scrapProduct.category = category
-            scrapProduct.subcategory = subcategory
-            scrapProduct.sub2category = sub2category
-            scrapProduct.link = page.url()
+            scrapProduct.prod_chars = scrapProductAttributes;
+            scrapProduct.supplierProductURL = productLink;
+            scrapProduct.entry = entry;
+            scrapProduct.category = category;
+            scrapProduct.subcategory = subcategory;
+            scrapProduct.sub2category = sub2category;
+            scrapProduct.link = page.url();
 
+            // Weight extraction logic (kept from original)
             if (scrapProduct.prod_chars) {
                 if (scrapProduct.prod_chars.find(x => x.name.toLowerCase().includes("βάρος"))) {
                     if (scrapProduct.prod_chars.find(x => x.name.toLowerCase().includes("μεικτό βάρος"))) {
-                        let weightChar = scrapProduct.prod_chars.find(x => x.name.toLowerCase().includes("μεικτό βάρος"))
+                        let weightChar = scrapProduct.prod_chars.find(x => x.name.toLowerCase().includes("μεικτό βάρος"));
                         if (weightChar) {
                             if (weightChar.value.toLowerCase().includes("kg")) {
-                                let result = weightChar.value.toLowerCase().match(/\d{1,3}(.|,|\s)?\d{0,3}\s*kg/gmi)
+                                let result = weightChar.value.toLowerCase().match(/\d{1,3}(.|,|\s)?\d{0,3}\s*kg/gmi);
                                 if (result) {
                                     if (result[result.length - 1].match(/\d{1,3}(.|\s)?\d{0,3}\s*kg/gmi)) {
-                                        scrapProduct.weight = parseFloat(result[result.length - 1].replace("kg", "").replace(",", ".").trim()) * 1000
+                                        scrapProduct.weight = parseFloat(result[result.length - 1].replace("kg", "").replace(",", ".").trim()) * 1000;
+                                    } else {
+                                        scrapProduct.weight = parseFloat(result[result.length - 1].replace("kg", "").replace(".", "").replace(",", ".").trim()) * 1000;
                                     }
-                                    else {
-                                        scrapProduct.weight = parseFloat(result[result.length - 1].replace("kg", "").replace(".", "").replace(",", ".").trim()) * 1000
-                                    }
-
                                 }
-                            }
-                            else if (weightChar.value.toLowerCase().includes("gr")) {
-                                let result = weightChar.value.toLowerCase().match(/\d*(.|,|\s)?\d{0,3}\s*gr/gmi)
+                            } else if (weightChar.value.toLowerCase().includes("gr")) {
+                                let result = weightChar.value.toLowerCase().match(/\d*(.|,|\s)?\d{0,3}\s*gr/gmi);
                                 if (result[result.length - 1].match(/\d*.\d{3}\s*gr/gmi)) {
-                                    scrapProduct.weight = parseFloat(result[result.length - 1].replace("gr", "").replace(".", "").trim())
-                                }
-                                else {
-                                    scrapProduct.weight = parseFloat(result[result.length - 1].replace("gr", "").replace(",", ".").trim())
+                                    scrapProduct.weight = parseFloat(result[result.length - 1].replace("gr", "").replace(".", "").trim());
+                                } else {
+                                    scrapProduct.weight = parseFloat(result[result.length - 1].replace("gr", "").replace(",", ".").trim());
                                 }
                             }
                         }
-                    }
-                    else {
-                        let weightChar = scrapProduct.prod_chars.find(x => x.name.toLowerCase().includes("βάρος"))
+                    } else {
+                        let weightChar = scrapProduct.prod_chars.find(x => x.name.toLowerCase().includes("βάρος"));
                         if (weightChar) {
                             if (weightChar.value.toLowerCase().includes("kg")) {
-                                let result = weightChar.value.toLowerCase().match(/\d{1,3}(.|,|\s)?\d{0,3}\s*kg/gmi)
+                                let result = weightChar.value.toLowerCase().match(/\d{1,3}(.|,|\s)?\d{0,3}\s*kg/gmi);
                                 if (result) {
                                     if (result[result.length - 1].match(/\d{1,3}(.|\s)?\d{0,3}\s*kg/gmi)) {
-                                        scrapProduct.weight = parseFloat(result[result.length - 1].replace("kg", "").replace(",", ".").trim()) * 1000
+                                        scrapProduct.weight = parseFloat(result[result.length - 1].replace("kg", "").replace(",", ".").trim()) * 1000;
+                                    } else {
+                                        scrapProduct.weight = parseFloat(result[result.length - 1].replace("kg", "").replace(".", "").replace(",", ".").trim()) * 1000;
                                     }
-                                    else {
-                                        scrapProduct.weight = parseFloat(result[result.length - 1].replace("kg", "").replace(".", "").replace(",", ".").trim()) * 1000
-                                    }
-
                                 }
-                            }
-                            else if (weightChar.value.toLowerCase().includes("gr")) {
-                                let result = weightChar.value.toLowerCase().match(/\d*(.|,|\s)?\d{0,3}\s*gr/gmi)
+                            } else if (weightChar.value.toLowerCase().includes("gr")) {
+                                let result = weightChar.value.toLowerCase().match(/\d*(.|,|\s)?\d{0,3}\s*gr/gmi);
                                 if (result[result.length - 1].match(/\d*.\d{3}\s*gr/gmi)) {
-                                    scrapProduct.weight = parseFloat(result[result.length - 1].replace("gr", "").replace(".", "").trim())
-                                }
-                                else {
-                                    scrapProduct.weight = parseFloat(result[result.length - 1].replace("gr", "").replace(",", ".").trim())
+                                    scrapProduct.weight = parseFloat(result[result.length - 1].replace("gr", "").replace(".", "").trim());
+                                } else {
+                                    scrapProduct.weight = parseFloat(result[result.length - 1].replace("gr", "").replace(",", ".").trim());
                                 }
                             }
                         }
 
-                        let specsChar = scrapProduct.prod_chars.find(x => x.name.toLowerCase().includes("specs"))
+                        let specsChar = scrapProduct.prod_chars.find(x => x.name.toLowerCase().includes("specs"));
                         if (specsChar) {
                             if (specsChar.value.toLowerCase().includes("βάρος") || specsChar.value.toLowerCase().includes("weight")) {
-                                let result = specsChar.value.toLowerCase().match(/(βάρος|weight)\s?:\s?\d+(.)?\d+\s?gr?/gmi)
+                                let result = specsChar.value.toLowerCase().match(/(βάρος|weight)\s?:\s?\d+(.)?\d+\s?gr?/gmi);
                                 if (result) {
                                     if (result[result.length - 1].match(/\d+.?\d+/gmi)) {
-                                        scrapProduct.weight = parseFloat(result[result.length - 1].match(/\d+.?\d+/gmi)[0])
+                                        scrapProduct.weight = parseFloat(result[result.length - 1].match(/\d+.?\d+/gmi)[0]);
                                     }
                                 }
                             }
@@ -820,16 +968,22 @@ module.exports = ({ strapi }) => ({
                 }
             }
 
-            await strapi
-                .plugin('import-products')
-                .service('scrapHelpers')
-                .importScrappedProduct(scrapProduct, importRef)
+            // ✅ Import product (transformProduct will be called by GlobalsatAdapter)
+            if (scrapProduct.imagesSrc && scrapProduct.imagesSrc.length !== 0) {
+                await strapi
+                    .plugin('import-products')
+                    .service('scrapHelpers')
+                    .importScrappedProduct(scrapProduct, importRef);
+            } else {
+                console.warn(`⚠️  Product ${scrapProduct.name} has no images, skipping`);
+            }
 
         } catch (error) {
-            console.error(error)
-        }
-        finally {
-            await page.close()
+            console.error(error);
+        } finally {
+            if (page) {
+                await page.close().catch(err => console.error('Error closing page:', err));
+            }
         }
     },
 });
