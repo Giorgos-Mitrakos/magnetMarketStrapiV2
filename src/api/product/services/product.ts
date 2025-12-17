@@ -167,6 +167,12 @@ export default factories.createCoreService('api::product.product', ({ strapi }) 
 
             searchFilters.push({ name: { $containsi: search } });
             searchFilters.push({ description: { $containsi: search } }); // Additional search field
+
+            // 3. Αναζήτηση με MPN (Manufacturer Part Number)
+            searchFilters.push({ mpn: { $containsi: search } });
+
+            // 4. Αναζήτηση με Barcode
+            searchFilters.push({ barcode: { $containsi: search } });
         }
 
         // Brand filters
