@@ -38,7 +38,10 @@ const Platforms = () => {
                     <TabPanels>
                         {!isLoading && allPlatforms.map(platform =>
                             <TabPanel key={platform.id}>
-                                <TransferLists platformID={platform.id} categories={allCategories} categoriesExport={platform.export_categories} />
+                                <TransferLists
+                                    categories={allCategories}
+                                    platform={platform}
+                                />
                             </TabPanel>
                         )}
                     </TabPanels>

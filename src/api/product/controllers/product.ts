@@ -6,7 +6,7 @@ import { factories } from '@strapi/strapi'
 
 export default factories.createCoreController('api::product.product',
     ({ strapi }) => ({
-        async searchProducts(ctx) {console.log("params:", "Helloooo")
+        async searchProducts(ctx) {
             ctx.body = await strapi.service('api::product.product').searchProducts(ctx);
             return {
                 okay: true,

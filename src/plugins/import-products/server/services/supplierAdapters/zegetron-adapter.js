@@ -111,21 +111,38 @@ module.exports = ({ strapi }) => {
             product.length = product.length?.replace(',', '.').trim() || null;
             product.height = product.height?.replace(',', '.').trim() || null;
 
-            // // Zegetron sends weight in kg, convert to grams
-            // if (product.weight) {
-            //     product.weight = parseInt(parseFloat(product.weight) * 1000);
-            // }
+            // ✅ Extract characteristics from HTML description
+            if (rawData.description) {
+                console.log('=== DEBUG START ===');
+                console.log('Type:', typeof rawData.description);
+                console.log('Is Array:', Array.isArray(rawData.description));
 
-            // // Zegetron sends dimensions in cm, convert to mm
-            // if (product.length) {
-            //     product.length = parseInt(parseFloat(product.length) * 10);
-            // }
-            // if (product.width) {
-            //     product.width = parseInt(parseFloat(product.width) * 10);
-            // }
-            // if (product.height) {
-            //     product.height = parseInt(parseFloat(product.height) * 10);
-            // }
+                // Get first element if array
+                const descriptionString = Array.isArray(rawData.description)
+                    ? rawData.description[0]
+                    : rawData.description;
+
+                console.log('String Type:', typeof descriptionString);
+                console.log('First 1000 chars:', descriptionString?.substring(0, 1000));
+                console.log('=== DEBUG END ===');
+
+                const charsParser = strapi
+                    .plugin('import-products')
+                    .service('characteristicsParser');
+
+                // Pass the string, not the array
+                const chars = charsParser.parseFromHtmlZegetronDescription(descriptionString);
+                console.log('Parsed chars:', chars);
+
+                if (chars.length > 0) {
+                    const parsedChars = strapi
+                        .plugin('import-products')
+                        .service('charnameService')
+                        .parseChars(chars, importRef);
+                    product.prod_chars = parsedChars;
+                }
+            }
+
         }
     }
 

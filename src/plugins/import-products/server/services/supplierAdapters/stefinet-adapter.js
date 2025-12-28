@@ -118,18 +118,27 @@ module.exports = ({ strapi }) => {
             product.wholesale = this.cleanPrice((product.wholesale || "0").replace(',', '.').trim());
             product.retail_price = this.cleanPrice((product.retail_price || "0").replace(',', '.').trim());
 
-            // Clean description
-            product.description = product.description
-                ?.replace(/(<([^>]+)>)/ig, '')
-                .replaceAll('&apos;', "'")
-                .replaceAll('&quot;', '"')
-                .trim() || "";
+            // ✅ Clean description from fulldescr (removes data: attributes, keeps clean HTML)
+            if (rawData.fulldescr) {
+                const charsParser = strapi
+                    .plugin('import-products')
+                    .service('characteristicsParser');
+
+                product.description = charsParser.cleanStefinetDescription(rawData.fulldescr);
+            } else if (product.description) {
+                // Fallback: clean basic description if fulldescr doesn't exist
+                product.description = product.description
+                    ?.replace(/(<([^>]+)>)/ig, '')
+                    .replaceAll('&apos;', "'")
+                    .replaceAll('&quot;', '"')
+                    .trim() || "";
+            }
 
             // ✅ Parse weight (Stefinet sends weight in field)
             if (product.weight) {
                 const weightStr = String(product.weight).replace(',', '.').trim();
                 const weightValue = parseFloat(weightStr);
-                
+
                 if (!isNaN(weightValue) && weightValue > 0) {
                     // Stefinet likely sends in grams or kg - check value
                     product.weight = weightValue > 100 ? Math.round(weightValue) : Math.round(weightValue * 1000);

@@ -1,0 +1,47 @@
+{
+  "kind": "collectionType",
+  "collectionName": "platformcategory",
+  "info": {
+    "singularName": "platformcategory",
+    "pluralName": "platformcategories",
+    "displayName": "platformcategory"
+  },
+  "options": {
+    "draftAndPublish": false,
+    "comment": ""
+  },
+  "pluginOptions": {
+    "content-manager": {
+      "visible": false
+    },
+    "content-type-builder": {
+      "visible": false
+    }
+  },
+  "attributes": {
+    "title": {
+      "type": "string"
+    },
+    "link": {
+      "type": "string"
+    },
+    "numberOfProducts": {
+      "type": "integer"
+    },
+    "isChecked": {
+      "type": "boolean"
+    },
+    "marketPlaceFee": {
+      "type": "decimal"
+    },
+    "cpsFee": {
+      "type": "decimal"
+    },
+    "platform": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::platform.platform",
+      "inversedBy": "platformCategories"
+    }
+  }
+}

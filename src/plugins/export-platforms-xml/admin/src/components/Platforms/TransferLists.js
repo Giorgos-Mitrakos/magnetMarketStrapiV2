@@ -13,19 +13,28 @@ import { Loader } from '@strapi/design-system';
 import { useFetchClient } from "@strapi/helper-plugin";
 import pluginId from "../../pluginId";
 
-const TransferLists = ({ platformID, categories, categoriesExport }) => {
+// ✅ ΜΟΝΟ 2 PROPS: categories και platform
+const TransferLists = ({ categories, platform }) => {
     const [isSaving, setIsSaving] = useState(false);
+    const [onlyInHouseInventory, setOnlyInHouseInventory] = useState(false);
     const [categoriesToExport, dispatchCategoriesToExport] = useReducer(categoriesReducer, { categories: [], isAllCategoriesChecked: false, numberOfItems: 0 });
     const [notExportedCategories, dispatchNotExportedCategories] = useReducer(categoriesReducer, { categories: [], isAllCategoriesChecked: false, numberOfItems: 0 });
     const { post } = useFetchClient()
 
     useEffect(() => {
-        const categoriesExportIds = categoriesExport.map(x => x.id)
-        const exportCategories = categoriesExport.map(x => { x.isChecked = false; return x })
+        // ✅ ΧΡΗΣΗ platform.export_categories
+        const categoriesExportIds = platform.export_categories.map(x => x.id)
+        const exportCategories = platform.export_categories.map(x => { x.isChecked = false; return x })
         const notExported = categories.filter(x => !categoriesExportIds.includes(x.id)).map(x => { x.isChecked = false; return x })
+        
         dispatchNotExportedCategories({ type: 'initialize', payload: notExported })
         dispatchCategoriesToExport({ type: 'initialize', payload: exportCategories })
-    }, []);
+        
+        // ✅ ΦΟΡΤΩΣΕ ΤΗΝ ΤΡΕΧΟΥΣΑ ΤΙΜΗ
+        if (platform.only_in_house_inventory !== undefined) {
+            setOnlyInHouseInventory(platform.only_in_house_inventory);
+        }
+    }, [platform, categories]);
 
     function categoriesReducer(state, action) {
         let newState;
@@ -53,7 +62,6 @@ const TransferLists = ({ platformID, categories, categoriesExport }) => {
                 newState = state.categories.map(x => { x.isChecked = action.payload ? false : true; return x })
                 return { categories: newState, isAllCategoriesChecked: !state.isAllCategoriesChecked, numberOfItems: action.payload ? 0 : state.categories.length };
             case 'initialize':
-                // const newState = state.map(x => x.isChecked = true)
                 return { categories: action.payload, isAllCategoriesChecked: false, numberOfItems: 0 };
             default:
                 throw new Error();
@@ -76,21 +84,42 @@ const TransferLists = ({ platformID, categories, categoriesExport }) => {
         const categoriesID = categoriesToExport.categories.map(x => x.id)
 
         setIsSaving(true)
+        // ✅ ΧΡΗΣΗ platform.id
         const message = await post(`/${pluginId}/saveExportedCategories`, {
-            platformID,
-            categoriesID
+            platformID: platform.id,
+            categoriesID,
+            only_in_house_inventory: onlyInHouseInventory
         })
 
-        // await savePlatformExportedCategories(platformID, categoriesID)
         setIsSaving(false)
     }
 
     return (
         <Box paddingTop={2} background="neutral100">
+            {/* ✅ CHECKBOX ΓΙΑ IN-HOUSE INVENTORY */}
+            <Flex direction="column" gap={2} style={{ marginBottom: "16px" }}>
+                <Box padding={4} background="neutral0" shadow="filterShadow" hasRadius>
+                    <Typography variant="omega" fontWeight="semiBold" style={{ marginBottom: "8px" }}>
+                        Ρυθμίσεις Export
+                    </Typography>
+                    <Checkbox
+                        checked={onlyInHouseInventory}
+                        onChange={() => setOnlyInHouseInventory(!onlyInHouseInventory)}
+                    >
+                        Εξαγωγή μόνο προϊόντων με απόθεμα (in-house inventory)
+                    </Checkbox>
+                    <Typography variant="pi" textColor="neutral600" style={{ marginTop: "4px", marginLeft: "24px" }}>
+                        Όταν ενεργοποιηθεί, θα εξάγονται μόνο προϊόντα που έχουν απόθεμα και είναι in_house
+                    </Typography>
+                </Box>
+            </Flex>
+
             <Flex style={{ "justifyContent": "flex-end", "margin": "8px 0px 16px" }}>
                 <Button size="L" onClick={() => handleSave()}>
-                    {isSaving ? <Loader small>Loading...</Loader> : "Save"}</Button>
+                    {isSaving ? <Loader small>Loading...</Loader> : "Save"}
+                </Button>
             </Flex>
+            
             <Grid gap={2} padding={0}>
                 <GridItem col={5} background="primary100">
                     <Box>
@@ -145,7 +174,6 @@ const TransferLists = ({ platformID, categories, categoriesExport }) => {
                 </GridItem>
             </Grid>
         </Box>
-
     )
 }
 

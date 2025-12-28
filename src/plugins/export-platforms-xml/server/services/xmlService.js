@@ -17,7 +17,7 @@ module.exports = ({ strapi }) => ({
 
             // 2. Φόρτωσε platform με export categories (χωρίς products ακόμα)
             const platformData = await strapi.db.query('api::platform.platform').findOne({
-                select: ['name', 'order_time'],
+                select: ['name', 'order_time', 'only_in_house_inventory'],
                 where: { name: platform },
                 populate: {
                     export_categories: {
@@ -85,13 +85,25 @@ module.exports = ({ strapi }) => ({
             : await this.createCategoryPath(category); // Full path για τα άλλα
 
         while (true) {
+            // Δημιούργησε τα base filters
+            const baseFilters = {
+                $and: [
+                    { publishedAt: { $notNull: true } },
+                    { category: { id: { $eq: category.id } } }
+                ]
+            };
+
+            // Αν το platform έχει only_in_house_inventory = true, πρόσθεσε επιπλέον φίλτρα
+            if (platformData.only_in_house_inventory) {
+                baseFilters.$and.push(
+                    { inventory: { $gte: 1 } },
+                    { is_in_house: { $eq: true } }
+                );
+            }
+
             // Φόρτωσε products σε batches - χρησιμοποιούμε entityService για relations
             const products = await strapi.entityService.findMany('api::product.product', {
-                filters: {
-                    $and: [
-                        { publishedAt: { $notNull: true } },
-                        { category: { id: { $eq: category.id } } }]
-                },
+                filters: baseFilters,
                 fields: [
                     'id', 'name', 'slug', 'price', 'sale_price', 'is_sale',
                     'mpn', 'sku', 'barcode', 'description', 'weight',
@@ -122,15 +134,29 @@ module.exports = ({ strapi }) => ({
 
             // Επεξεργασία κάθε product
             for (const product of products) {
-                // Skip specific product
                 if (product.mpn === "BHR4215GL") continue;
 
-                const { cheaperAvailableSupplier, availability, price } = this.createAvailabilityAndPrice(
-                    product,
-                    suppliers,
-                    platformData,
-                    category
-                );
+                // Αν το flag είναι ενεργό, όλα τα products είναι ήδη in_house με inventory
+                // άρα μπορούμε να χρησιμοποιήσουμε απλοποιημένη λογική
+                let availability, price, cheaperAvailableSupplier = null;
+
+                if (platformData.only_in_house_inventory) {
+                    // Simplified logic - όλα είναι in stock και in_house
+                    availability = this.getInHouseAvailability(platformName);
+                    price = this.getPlatformPrice(product, platformData);
+                    cheaperAvailableSupplier = null;
+                } else {
+                    // Existing complex logic
+                    const result = this.createAvailabilityAndPrice(
+                        product,
+                        suppliers,
+                        platformData,
+                        category
+                    );
+                    availability = result.availability;
+                    price = result.price;
+                    cheaperAvailableSupplier = result.cheaperAvailableSupplier;
+                }
 
                 if (!price) continue;
 
@@ -165,7 +191,7 @@ module.exports = ({ strapi }) => ({
         // Calculate quantity
         const quantity = product.inventory > 0
             ? product.inventory
-            : (cheaperAvailableSupplier && cheaperAvailableSupplier.name.toLowerCase() === "globalsat" ? 1 : 2);
+            : (cheaperAvailableSupplier?.name?.toLowerCase() === "globalsat" ? 1 : 2);
 
         switch (platformName.toLowerCase()) {
             case "skroutz":
@@ -421,7 +447,11 @@ module.exports = ({ strapi }) => ({
             }
         } catch (error) {
             console.error('Error in createAvailabilityAndPrice:', error);
-            return { availability: null, price: null };
+            return {
+                availability: null,
+                price: null,
+                cheaperAvailableSupplier: null  // ✅ ΠΡΟΣΘΗΚΗ
+            };
         }
     },
 
@@ -436,7 +466,11 @@ module.exports = ({ strapi }) => ({
             const availability = product.is_in_house
                 ? "Άμεσα διαθέσιμο"
                 : "Διαθέσιμο από 4-10 ημέρες";
-            return { availability, price: platformPrice };
+            return {
+                availability,
+                price: platformPrice,
+                cheaperAvailableSupplier: null
+            };
         }
 
         if (platformName === "bestprice") {
@@ -444,12 +478,20 @@ module.exports = ({ strapi }) => ({
             const availability = product.is_in_house
                 ? "Άμεσα διαθέσιμο"
                 : "Παράδοση σε 1–3 ημέρες";
-            return { availability, price: finalPrice };
+            return {
+                availability,
+                price: finalPrice,
+                cheaperAvailableSupplier: null
+            };
         }
 
         // Default for other platforms
         const availability = product.is_in_house ? 0 : 2;
-        return { availability, price: platformPrice };
+        return {
+            availability,
+            price: platformPrice,
+            cheaperAvailableSupplier: null
+        };
     },
 
     /**
@@ -631,6 +673,19 @@ module.exports = ({ strapi }) => ({
         } catch (error) {
             console.error('Error in createPrice:', error);
             return null;
+        }
+    },
+
+    getInHouseAvailability(platformName) {
+        switch (platformName) {
+            case 'skroutz':
+                return 'Άμεσα διαθέσιμο';
+            case 'bestprice':
+                return 'Άμεσα διαθέσιμο';
+            case 'shopflix':
+                return 0;
+            default:
+                return 'Άμεσα διαθέσιμο';
         }
     },
 

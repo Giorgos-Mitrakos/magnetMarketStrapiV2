@@ -17,6 +17,6 @@ module.exports = ({ strapi }) => ({
         ctx.body = await strapi
             .plugin('export-platforms-xml')
             .service('categoryService')
-            .saveExportCategories(ctx.request.body);
+            .saveExportCategories(ctx);
     },
 });

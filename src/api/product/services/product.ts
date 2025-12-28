@@ -577,8 +577,6 @@ export default factories.createCoreService('api::product.product', ({ strapi }) 
             }
         }
 
-        console.log(filterAnd)
-
         try {
             // Parallel execution for better performance
             const [products, total, offerFilters] = await Promise.all([
@@ -630,8 +628,6 @@ export default factories.createCoreService('api::product.product', ({ strapi }) 
             ])
 
             const pageCount = Math.ceil(total / currentPageSize);
-
-            console.log("synolo:", products.length)
 
             // Transform the response to match the expected structure
             const res = {

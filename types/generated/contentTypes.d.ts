@@ -1016,6 +1016,7 @@ export interface ApiPlatformPlatform extends Schema.CollectionType {
     >;
     merchantFeeCatalogue: Attribute.Media<'files'>;
     name: Attribute.String & Attribute.Required;
+    only_in_house_inventory: Attribute.Boolean;
     order_time: Attribute.Time & Attribute.DefaultTo<'11:50'>;
     platformCategories: Attribute.Relation<
       'api::platform.platform',

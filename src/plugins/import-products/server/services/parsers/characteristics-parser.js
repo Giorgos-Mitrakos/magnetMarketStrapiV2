@@ -12,14 +12,23 @@ module.exports = ({ strapi }) => ({
      * @param {string} xmlString - XML string with Specification tags
      * @returns {Array} Array of {name, value} objects
      */
-    async parseFromDotMediaXml(xmlString) {
-        if (!xmlString || typeof xmlString !== 'string') return [];
+    /**
+ * Parse characteristics from DotMedia XML format
+ * Input: Array with XML string containing multiple <Specification> tags
+ * @param {Array|string} xmlData - Array with XML string or plain string
+ * @returns {Array} Array of {name, value} objects
+ */
+    async parseFromDotMediaXml(xmlData) {
+        if (!xmlData) return [];
 
         try {
-            // Wrap in root element if not already wrapped
-            const wrapped = xmlString.startsWith('<attr>') 
-                ? xmlString 
-                : `<attr>${xmlString}</attr>`;
+            // Get the string from array or use as-is
+            const xmlString = Array.isArray(xmlData) ? xmlData[0] : xmlData;
+
+            if (!xmlString || typeof xmlString !== 'string') return [];
+
+            // Wrap in root element to make valid XML
+            const wrapped = `<root>${xmlString}</root>`;
 
             // Parse XML
             const parsed = await strapi
@@ -27,14 +36,13 @@ module.exports = ({ strapi }) => ({
                 .service('importHelpers')
                 .parseXml(wrapped);
 
-            if (!parsed?.attr?.Specification) return [];
+            if (!parsed?.root?.Specification) return [];
 
-            const specs = Array.isArray(parsed.attr.Specification) 
-                ? parsed.attr.Specification 
-                : [parsed.attr.Specification];
+            const specs = Array.isArray(parsed.root.Specification)
+                ? parsed.root.Specification
+                : [parsed.root.Specification];
 
             const chars = [];
-
             for (const spec of specs) {
                 const name = Array.isArray(spec.Name) ? spec.Name[0] : spec.Name;
                 const value = Array.isArray(spec.Value) ? spec.Value[0] : spec.Value;
@@ -217,6 +225,177 @@ module.exports = ({ strapi }) => ({
     },
 
     /**
+ * Extract characteristics from HTML description (Zegetron/multiple formats)
+ * @param {Array|string} htmlData - HTML description
+ * @returns {Array} Array of {name, value} objects
+ */
+    parseFromHtmlZegetronDescription(htmlData) {
+        if (!htmlData) return [];
+
+        try {
+            const htmlDescription = Array.isArray(htmlData) ? htmlData[0] : htmlData;
+            if (!htmlDescription || typeof htmlDescription !== 'string') return [];
+
+            const chars = [];
+
+            // Format 1: Table με spec-lvl-1 (HAVN products)
+            const tableRegex = /<tr[^>]*class="spec-lvl-1"[^>]*>.*?<td[^>]*>.*?<div[^>]*class="small"[^>]*>(.*?)<\/div>.*?<\/td>.*?<td[^>]*>.*?<div[^>]*class="small"[^>]*>(.*?)<\/div>.*?<\/td>.*?<\/tr>/gs;
+            let match;
+            while ((match = tableRegex.exec(htmlDescription)) !== null) {
+                const name = this.cleanHtml(match[1]);
+                const value = this.cleanHtml(match[2]);
+                if (name && value) chars.push({ name, value });
+            }
+
+            // Format 2: UL με product-tech-spec (Razer HyperFlux style)
+            const techSpecRegex = /<li[^>]*class="row[^"]*mx-0[^"]*"[^>]*>.*?<div[^>]*class="[^"]*feature[^"]*"[^>]*>(.*?)<\/div>(?:.*?<div[^>]*class="col-12[^"]*"[^>]*>(.*?)<\/div>)?.*?<\/li>/gs;
+            while ((match = techSpecRegex.exec(htmlDescription)) !== null) {
+                let name = this.cleanHtml(match[1]);
+                let value = match[2] ? this.cleanHtml(match[2]) : null;
+
+                // Extract nested <li> items
+                if (!value && match[0].includes('<li>')) {
+                    const nestedItems = [];
+                    const nestedRegex = /<li>(.*?)<\/li>/gs;
+                    let nestedMatch;
+                    while ((nestedMatch = nestedRegex.exec(match[0])) !== null) {
+                        nestedItems.push(this.cleanHtml(nestedMatch[1]));
+                    }
+                    value = nestedItems.join(', ');
+                }
+
+                // Handle "Name: Value" inside feature div
+                if (!value && name.includes(':')) {
+                    [name, value] = name.split(':').map(s => s.trim());
+                }
+
+                if (name && value) chars.push({ name, value });
+            }
+
+            // Format 3: Simple <li>Name: Value</li>
+            const simpleListRegex = /<li[^>]*>(.*?)<\/li>/gs;
+            while ((match = simpleListRegex.exec(htmlDescription)) !== null) {
+                const content = this.cleanHtml(match[1]);
+                if (content.includes(':')) {
+                    const [name, ...valueParts] = content.split(':');
+                    const value = valueParts.join(':').trim();
+                    if (name && value && !chars.some(c => c.name === name.trim())) {
+                        chars.push({ name: name.trim(), value });
+                    }
+                }
+            }
+
+            // Format 4: <div><strong>Name:</strong> Value</div>
+            const divStrongRegex = /<div[^>]*><strong>(.*?):?<\/strong>\s*(.*?)<\/div>/gs;
+            while ((match = divStrongRegex.exec(htmlDescription)) !== null) {
+                const name = this.cleanHtml(match[1]);
+                const value = this.cleanHtml(match[2]);
+                if (name && value && !chars.some(c => c.name === name)) {
+                    chars.push({ name, value });
+                }
+            }
+
+            // Format 5: Olympus style - <p>● Text</p> followed by structured data
+            const olympusRegex = /<p[^>]*class="header5[^"]*"[^>]*><strong>(.*?):?<\/strong>\s*(.*?)<\/p>/gs;
+            while ((match = olympusRegex.exec(htmlDescription)) !== null) {
+                const name = this.cleanHtml(match[1]);
+                const value = this.cleanHtml(match[2]);
+                if (name && value && !chars.some(c => c.name === name)) {
+                    chars.push({ name, value });
+                }
+            }
+
+            // Format 6: Right-aligned dimensions <p style="text-align: right">Text</p>
+            const dimensionRegex = /<p[^>]*style="text-align:\s*right"[^>]*>(.*?)<\/p>/gs;
+            while ((match = dimensionRegex.exec(htmlDescription)) !== null) {
+                const content = this.cleanHtml(match[1]);
+                if (content.includes(':')) {
+                    const [name, ...valueParts] = content.split(':');
+                    const value = valueParts.join(':').trim();
+                    if (name && value && !chars.some(c => c.name === name.trim())) {
+                        chars.push({ name: name.trim(), value });
+                    }
+                }
+            }
+
+            return chars;
+
+        } catch (error) {
+            console.error('Error parsing Zegetron HTML characteristics:', error);
+            return [];
+        }
+    },
+
+    /**
+ * Clean Stefinet description for website display
+ * Removes data-start, data-end, data:start, data:end etc attributes
+ * @param {Array|string} cdataContent - Raw CDATA content
+ * @returns {string} Clean HTML ready for display
+ */
+    cleanStefinetDescription(cdataContent) {
+        if (!cdataContent) return '';
+
+        try {
+            // Get string from array
+            let htmlString = Array.isArray(cdataContent) ? cdataContent[0] : cdataContent;
+            if (!htmlString || typeof htmlString !== 'string') return '';
+
+            // Unescape HTML entities (&lt; -> <, &gt; -> >, etc)
+            htmlString = htmlString
+                .replace(/&lt;/g, '<')
+                .replace(/&gt;/g, '>')
+                .replace(/&amp;/g, '&')
+                .replace(/&quot;/g, '"')
+                .replace(/&apos;/g, "'")
+                .replace(/&nbsp;/g, ' ');
+
+            // ✅ FIXED: Remove all data attributes (with dash OR colon)
+            // Matches: data-start, data-end, data:start, data:end, data-is-last-node, etc
+            htmlString = htmlString
+                .replace(/\s+data[-:][a-z0-9_:-]+="[^"]*"/gi, '')
+                .replace(/\s+data[-:][a-z0-9_:-]+='[^']*'/gi, '')
+
+                // Remove empty attributes
+                .replace(/\s+class=""\s*/gi, ' ')
+                .replace(/\s+class=''\s*/gi, ' ')
+
+                // Clean multiple spaces
+                .replace(/\s{2,}/g, ' ')
+
+                // Clean spaces around tags
+                .replace(/\s+>/g, '>')
+                .replace(/>\s+</g, '><')
+
+                .trim();
+
+            return htmlString;
+
+        } catch (error) {
+            console.error('Error cleaning Stefinet description:', error);
+            return '';
+        }
+    },
+
+    /**
+     * Clean HTML tags and decode entities
+     */
+    cleanHtml(text) {
+        if (!text) return '';
+
+        return text
+            .replace(/<[^>]+>/g, '') // Remove HTML tags
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&amp;/g, '&')
+            .replace(/&quot;/g, '"')
+            .replace(/&apos;/g, "'")
+            .replace(/&nbsp;/g, ' ')
+            .replace(/\s+/g, ' ') // Normalize whitespace
+            .replace(/●/g, '') // Remove bullets
+            .trim();
+    },
+
+    /**
      * Clean and normalize characteristics
      * @param {Array} characteristics - Raw characteristics array
      * @returns {Array} Cleaned characteristics
@@ -284,7 +463,7 @@ module.exports = ({ strapi }) => ({
         if (chars.length === 0 && Array.isArray(attributesField)) {
             // Try CPI format first
             chars = this.parseFromCpiFormat(attributesField);
-            
+
             // Try Westnet format
             if (chars.length === 0) {
                 chars = this.parseFromWestnetFormat(attributesField);
@@ -344,7 +523,7 @@ module.exports = ({ strapi }) => ({
                 if (!char || !char.name) continue;
 
                 const key = char.name.toLowerCase().trim();
-                
+
                 // Keep first occurrence (priority order matters)
                 if (!merged.has(key)) {
                     merged.set(key, char);

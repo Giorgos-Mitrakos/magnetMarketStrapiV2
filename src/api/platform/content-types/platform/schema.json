@@ -48,6 +48,9 @@
       "type": "integer",
       "required": true,
       "default": 10
+    },
+    "only_in_house_inventory": {
+      "type": "boolean"
     }
   }
 }
