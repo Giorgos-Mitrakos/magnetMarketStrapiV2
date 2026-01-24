@@ -7,6 +7,7 @@ const whitelistmap = require('./whitelistmap');
 const charnamemap = require('./charnamemap');
 const charvaluemap = require('./charvaluemap');
 const stockmap = require('./stockmap');
+const brandexclmap = require('./brandExcludedMap');
 
 
 module.exports = {
@@ -16,5 +17,6 @@ module.exports = {
     whitelistmap,
     charnamemap,
     charvaluemap,
-    stockmap
+    stockmap,
+    brandexclmap
 };

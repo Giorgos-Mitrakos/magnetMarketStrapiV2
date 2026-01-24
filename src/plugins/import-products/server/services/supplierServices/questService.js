@@ -539,7 +539,7 @@ module.exports = ({ strapi }) => ({
         .service('scrapHelpers')
         .retry(
           () => page.goto(
-            `https://www.questonline.gr${link}?pagesize=300&skuavailableindays=1`,
+            `https://www.questonline.gr${link}?pagesize=300`,
             {
               waitUntil: "networkidle0",
               timeout: 30000
@@ -604,7 +604,7 @@ module.exports = ({ strapi }) => ({
               const rightContainer = prod.querySelector('.description-container-right');
               if (rightContainer) {
                 const availElement = rightContainer.querySelector('div.availability>span');
-                product.stockLevel = availElement?.textContent?.trim() || '';
+                product.stock_level = availElement?.textContent?.trim() || '';
 
                 const priceWrapper = rightContainer.querySelector('.price-container');
                 if (priceWrapper) {
@@ -828,7 +828,7 @@ module.exports = ({ strapi }) => ({
         initial_wholesale: productMeta.initial_wholesale,
         in_offer: productMeta.in_offer,
         discount: productMeta.discount,
-        stockLevel: productMeta.stockLevel,
+        stock_level: productMeta.stock_level,
         category: { title: category },
         subcategory: { title: subcategory },
         sub2category: { title: sub2category }
@@ -979,19 +979,7 @@ module.exports = ({ strapi }) => ({
                 .trim() || '0';
 
               const availElement = priceWrapper.querySelector('#realAvail');
-              product.stockLevel = availElement?.textContent?.trim() || '';
-            }
-
-            switch (product.stockLevel) {
-              case 'Διαθέσιμο':
-                product.status = "InStock";
-                break;
-              case 'Διαθέσιμο - Περιορισμένη ποσότητα':
-                product.status = "LowStock";
-                break;
-              default:
-                product.status = "OutOfStock";
-                break;
+              product.stock_level = availElement?.textContent?.trim() || '';
             }
 
             const tabsWrapper = scrap.querySelector('.details-info .accordion-container .technical-charact');
@@ -1043,6 +1031,14 @@ module.exports = ({ strapi }) => ({
           subcategory: { title: subcategory || '' },
           sub2category: { title: sub2category }
         };
+
+        if (scrapProduct.prod_chars && scrapProduct.prod_chars.length > 0) {
+          const brandChar = scrapProduct.prod_chars.find(x => x.name === 'Κατασκευαστής');
+
+          if (brandChar && brandChar.value) {
+            product.brand = brandChar.value.trim(); // Προσθήκη .trim() για ασφάλεια
+          }
+        }
 
         // ✅ Import product (transformProduct will be called by QuestAdapter)
         if (product.imagesSrc && product.imagesSrc.length !== 0) {

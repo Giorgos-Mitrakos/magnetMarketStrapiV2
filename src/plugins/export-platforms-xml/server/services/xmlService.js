@@ -33,12 +33,23 @@ module.exports = ({ strapi }) => ({
                                 }
                             }
                         }
-                    }
+                    },
+                    export_statuses: true
                 },
             });
 
             if (!platformData) {
                 throw new Error(`Platform ${platform} not found`);
+            }
+
+            // ✅ Εξαγωγή των status values
+            const allowedStatuses = platformData.export_statuses?.map(s => s.status) || [];
+            console.log(`Platform ${platform} - Allowed statuses:`, allowedStatuses);
+
+            // Αν δεν έχει επιλεγμένα statuses, δεν εξάγουμε τίποτα
+            if (allowedStatuses.length === 0) {
+                console.log(`No export statuses configured for platform ${platform}. Skipping XML generation.`);
+                return;
             }
 
             // 3. Check suppliers in stock πριν ξεκινήσουμε
@@ -53,7 +64,8 @@ module.exports = ({ strapi }) => ({
                     category,
                     suppliers,
                     platformData,
-                    platform.toLowerCase()
+                    platform.toLowerCase(),
+                    allowedStatuses
                 );
 
                 allEntries.push(...categoryEntries);
@@ -74,7 +86,7 @@ module.exports = ({ strapi }) => ({
         }
     },
 
-    async processCategoryProducts(category, suppliers, platformData, platformName) {
+    async processCategoryProducts(category, suppliers, platformData, platformName, allowedStatuses) {
         const BATCH_SIZE = 50;
         let offset = 0;
         const categoryEntries = [];
@@ -89,7 +101,8 @@ module.exports = ({ strapi }) => ({
             const baseFilters = {
                 $and: [
                     { publishedAt: { $notNull: true } },
-                    { category: { id: { $eq: category.id } } }
+                    { category: { id: { $eq: category.id } } },
+                    { status: { $in: allowedStatuses } }
                 ]
             };
 
@@ -107,7 +120,7 @@ module.exports = ({ strapi }) => ({
                 fields: [
                     'id', 'name', 'slug', 'price', 'sale_price', 'is_sale',
                     'mpn', 'sku', 'barcode', 'description', 'weight',
-                    'inventory', 'is_in_house'
+                    'inventory', 'is_in_house', 'status'
                 ],
                 populate: {
                     image: {
@@ -134,8 +147,6 @@ module.exports = ({ strapi }) => ({
 
             // Επεξεργασία κάθε product
             for (const product of products) {
-                if (product.mpn === "BHR4215GL") continue;
-
                 // Αν το flag είναι ενεργό, όλα τα products είναι ήδη in_house με inventory
                 // άρα μπορούμε να χρησιμοποιήσουμε απλοποιημένη λογική
                 let availability, price, cheaperAvailableSupplier = null;
@@ -166,7 +177,7 @@ module.exports = ({ strapi }) => ({
                     price,
                     categoryPath,
                     platformData.name,
-                    cheaperAvailableSupplier
+                    cheaperAvailableSupplier,
                 );
 
                 if (entry) {
@@ -192,6 +203,9 @@ module.exports = ({ strapi }) => ({
         const quantity = product.inventory > 0
             ? product.inventory
             : (cheaperAvailableSupplier?.name?.toLowerCase() === "globalsat" ? 1 : 2);
+
+        const allowedStatuses = ["InStock", "MediumStock", "LowStock"];
+        const stock = allowedStatuses.includes(product.status) ? "Y" : "N";
 
         switch (platformName.toLowerCase()) {
             case "skroutz":
@@ -228,7 +242,7 @@ module.exports = ({ strapi }) => ({
                         brand: product.brand?.name || "",
                         mpn: product.mpn,
                         sku: product.sku,
-                        stock: 'Y',
+                        stock: stock,
                         Barcode: product.barcode,
                     }
                 };
@@ -475,9 +489,7 @@ module.exports = ({ strapi }) => ({
 
         if (platformName === "bestprice") {
             const finalPrice = this.calculateBestPrice(product);
-            const availability = product.is_in_house
-                ? "Άμεσα διαθέσιμο"
-                : "Παράδοση σε 1–3 ημέρες";
+            const availability = this.getBestPriceAvailability(product);
             return {
                 availability,
                 price: finalPrice,
@@ -501,9 +513,19 @@ module.exports = ({ strapi }) => ({
         const { cheaperAvailableSupplier } = this.findCheaperSupplier(product, suppliers);
 
         if (!cheaperAvailableSupplier) {
-            return { availability: null, price: null };
+            return { availability: null, price: null, cheaperAvailableSupplier: null };
         }
 
+        const platformName = platform.name.toLowerCase();
+
+        // ✅ Για BestPrice χρησιμοποιούμε τη νέα λογική
+        if (platformName === "bestprice") {
+            const availability = this.getBestPriceAvailability(product, cheaperAvailableSupplier);
+            const price = this.createPrice(platform, product);
+            return { cheaperAvailableSupplier, availability, price };
+        }
+
+        // Για άλλες πλατφόρμες (Skroutz, Shopflix)
         const availability = this.createAvailability(cheaperAvailableSupplier, platform);
         const price = this.createPrice(platform, product);
 
@@ -681,12 +703,65 @@ module.exports = ({ strapi }) => ({
             case 'skroutz':
                 return 'Άμεσα διαθέσιμο';
             case 'bestprice':
-                return 'Άμεσα διαθέσιμο';
+                return 'Σε απόθεμα';
             case 'shopflix':
                 return 0;
             default:
                 return 'Άμεσα διαθέσιμο';
         }
+    },
+
+    /**
+     * ✅ Υπολογίζει το availability για BestPrice με βάση το status και supplier
+     */
+    getBestPriceAvailability(product, cheaperAvailableSupplier = null) {
+        const status = product.status;
+        const inventory = product.inventory || 0;
+
+        // 1. InStock με inventory > 0
+        if (status === 'InStock' && inventory > 0) {
+            return 'Σε απόθεμα';
+        }
+
+        // 2. InStock χωρίς inventory - έλεγξε supplier
+        if ((status === 'InStock' || status === 'MediumStock' || status === 'LowStock') && inventory <= 0 && cheaperAvailableSupplier) {
+            const supplierAvailability = cheaperAvailableSupplier.availability || 0;
+
+            if (supplierAvailability < 2) {
+                return 'Παράδοση σε 1–3 ημέρες';
+            } else if (supplierAvailability < 5) {
+                return 'Παράδοση σε 4–7 ημέρες';
+            } else if (supplierAvailability < 8) {
+                return 'Παράδοση σε 4–10 ημέρες';
+            } else if (supplierAvailability < 12) {
+                return 'Παράδοση σε 8–14 ημέρες';
+            } else if (supplierAvailability < 25) {
+                return 'Παράδοση σε 15–30 ημέρες';
+            }
+        }
+
+        // 5. Backorder
+        if (status === 'Backorder') {
+            return 'Προπαραγγελία';
+        }
+
+        // 6. IsExpected
+        if (status === 'IsExpected') {
+            return 'Παράδοση σε 15–30 ημέρες';
+        }
+
+        // 7. OutOfStock ή Discontinued
+        if (status === 'OutOfStock' || status === 'Discontinued') {
+            return 'Εξαντλήθηκε';
+        }
+
+        // 8. AskForPrice
+        if (status === 'AskForPrice') {
+            return 'Εξαντλήθηκε';
+        }
+
+        // Default fallback
+        return 'Παράδοση σε 1–3 ημέρες';
     },
 
     /**
@@ -721,24 +796,24 @@ module.exports = ({ strapi }) => ({
 
                 if (products.length === 0) break;
 
-                // Βρες products που πρέπει να unpublish
-                const toUnpublish = products
+                // Βρες products που πρέπει να γίνουν outofstock
+                const toOutOfStock = products
                     .filter(p => p.supplierInfo.every(s => s.in_stock === false))
                     .map(p => p.id);
 
                 // Bulk update
-                if (toUnpublish.length > 0) {
+                if (toOutOfStock.length > 0) {
                     await strapi.db.query('api::product.product').updateMany({
                         where: {
-                            id: { $in: toUnpublish }
+                            id: { $in: toOutOfStock }
                         },
                         data: {
-                            publishedAt: null,
+                            status: 'OutOfStock',
                             deletedAt: new Date()
                         }
                     });
 
-                    totalUnpublished += toUnpublish.length;
+                    totalUnpublished += toOutOfStock.length;
                 }
 
                 offset += BATCH_SIZE;

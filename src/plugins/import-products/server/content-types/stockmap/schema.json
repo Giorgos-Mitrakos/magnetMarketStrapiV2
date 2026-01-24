@@ -19,15 +19,34 @@
     }
   },
   "attributes": {
-    "name": {
+    "name_in_xml": {
       "type": "string",
       "required": true
     },
+    "translate_to": {
+      "type": "enumeration",
+      "enum": [
+        "InStock",
+        "MediumStock",
+        "LowStock",
+        "Backorder",
+        "IsExpected",
+        "AskForPrice",
+        "OutOfStock",
+        "Discontinued"
+      ],
+      "default": "InStock",
+      "required": true
+    },
+    "allow_import": {
+      "type": "boolean",
+      "default": false
+    },
     "related_import": {
-        "type": "relation",
-        "relation": "manyToOne",
-        "target": "plugin::import-products.importxml",
-        "inversedBy": "stock_map"
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::import-products.importxml",
+      "inversedBy": "stock_map"
     }
   }
 }

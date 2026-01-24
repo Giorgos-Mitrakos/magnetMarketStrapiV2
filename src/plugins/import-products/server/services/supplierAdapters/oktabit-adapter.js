@@ -12,12 +12,12 @@ module.exports = ({ strapi }) => {
          */
         getFieldMapping() {
             return {
-                isGreater: false,
                 splitter: null,
                 category: 'parent_category',
                 subcategory: 'subcategory',
                 sub2category: 'b2b_subcat',
                 stock_level: 'availability',
+                quantity: null,
                 wholesale: 'timi_xontrikis',
                 retail_price: 'timi_lianikis',
                 recycle_tax: 'kostos_anakyklosis_proiontos',
@@ -102,7 +102,7 @@ module.exports = ({ strapi }) => {
 
             // ✅ Parse characteristics from product_attributes (Object format)
             // This is auto-handled by BaseSupplier.parseCharacteristics()
-            
+
             // ✅ Parse weight and dimensions from characteristics
             await this.parseWeightAndDimensions(product, rawData, importRef);
         }

@@ -43,7 +43,7 @@ export default {
                 .parseGlobalsat({ entry });
         },
         options: {
-            rule: "10 5-22 * * *",
+            rule: "54 5-22 * * *",
         },
     },
 
@@ -139,7 +139,7 @@ export default {
                 .parseZegetronXml({ entry });
         },
         options: {
-            rule: "45 5,8,11,14 * * *",
+            rule: "45 5,8,11,14,19 * * *",
         },
     },
 
@@ -410,7 +410,7 @@ export default {
                 .createXml('bestprice');
         },
         options: {
-            rule: "4 * * * *",
+            rule: "5 * * * *",
         },
     },
 
@@ -424,7 +424,7 @@ export default {
                 .checkIfThereIsSupplierInStock();
         },
         options: {
-            rule: "56 * * * *",
+            rule: "53 * * * *",
         },
     },
 

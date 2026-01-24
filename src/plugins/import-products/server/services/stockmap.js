@@ -26,20 +26,24 @@ module.exports = ({ strapi }) => ({
 
                 const stockValue = await strapi.entityService.findOne('plugin::import-products.stockmap', map.id,
                     {
-                        fields: ['name'],
+                        fields: ['name_in_xml', 'translate_to', 'allow_import'],
                     })
 
                 if (stockValue) {
                     await strapi.entityService.update('plugin::import-products.stockmap', map.id, {
                         data: {
-                            name: map.name,
+                            name_in_xml: map.name_in_xml,
+                            translate_to: map.translate_to,
+                            allow_import: map.allow_import,
                         },
                     });
                 }
                 else {
                     await strapi.entityService.create('plugin::import-products.stockmap', {
                         data: {
-                            name: map.name,
+                            name_in_xml: map.name_in_xml,
+                            translate_to: map.translate_to,
+                            allow_import: map.allow_import,
                             related_import: id,
                         },
                     });

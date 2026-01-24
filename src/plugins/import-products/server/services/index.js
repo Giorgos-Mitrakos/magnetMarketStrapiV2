@@ -7,7 +7,10 @@ const charvalueService = require('./charvaluemap');
 const stockmapService = require('./stockmap');
 const whitelistService = require('./whitelistmap');
 const blacklistService = require('./blacklistmap');
+const brandsToExclude = require('./brandsExcludeMap.js');
+
 const importHelpers = require('./helpers/import-helpers')
+const productStatusHelper = require('./helpers/productStatusHelper.js')
 const productHelpers = require('./helpers/product-helpers')
 const categoryHelpers = require('./helpers/category-helpers')
 const priceHelpers = require('./helpers/price-helpers')
@@ -88,7 +91,9 @@ module.exports = {
   stockmapService,
   whitelistService,
   blacklistService,
+  brandsToExclude,
   importHelpers,
+  productStatusHelper,
   productHelpers,
   fileHelpers,
   categoryHelpers,

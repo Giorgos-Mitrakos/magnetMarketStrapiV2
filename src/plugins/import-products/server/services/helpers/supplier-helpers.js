@@ -33,11 +33,44 @@ module.exports = ({ strapi }) => ({
 
     },
 
-    createSupplierInfoData(product, price_progress) {
+    createSupplierInfoData(product, price_progress, stockMap = []) {
         try {
+            // ✅ ULTRA SIMPLE: Field mapping έχει ήδη κάνει τη δουλειά
+            // product.quantity = αριθμός (αν υπάρχει numeric field)
+            // product.stock_level = string status (ό,τι και να είναι - "Διαθέσιμο", "1-3", "Coming Soon")
+
+            const quantity = product.quantity ? parseInt(product.quantity) : null;
+            const stockLevel = product.stock_level ? String(product.stock_level).trim() : null;
+
+            // ✅ Translate stock_level → translated_status
+            let translatedStatus = null;
+            if (stockLevel && stockMap && stockMap.length > 0) {
+                const mapEntry = stockMap.find(x =>
+                    x.name_in_xml.trim().toLowerCase() === stockLevel.trim().toLowerCase()
+                );
+
+                if (mapEntry) {
+                    translatedStatus = mapEntry.translate_to;
+                }
+            }
+
+            // Simple in_stock logic
+            const notAvailableStatuses = ["Discontinued", "OutOfStock"];
+            const inStock = (quantity !== null && quantity > 0) ||
+                (stockLevel !== null && !notAvailableStatuses.includes(translatedStatus));
+
+            if (product.barcode === "5205089129047") {
+                console.log("translatedStatus:", translatedStatus,
+                    "inStock:", inStock
+                )
+            }
+
             return {
                 name: product.entry.name,
-                in_stock: true,
+                in_stock: inStock,
+                quantity: quantity,
+                stock_level: stockLevel,
+                translated_status: translatedStatus,
                 wholesale: strapi
                     .plugin('import-products')
                     .service('priceHelpers')
@@ -64,7 +97,6 @@ module.exports = ({ strapi }) => ({
                         .service('priceHelpers')
                         .formatPrice(product.recycle_tax)
                 }),
-                ...(product.quantity && { quantity: parseInt(product.quantity) })
             }
         }
         catch (error) {
@@ -72,154 +104,84 @@ module.exports = ({ strapi }) => ({
             return {
                 name: product.entry.name,
                 in_stock: true,
+                quantity: null,
+                stock_level: null,
+                translated_status: null,
                 price_progress: []
             };
         }
-
-        const supplierInfo = {
-            name: entry.name,
-            in_stock: true,
-            wholesale: strapi
-                .plugin('import-products')
-                .service('categoryHelpers')
-                .formatPrice(product.wholesale),
-            supplierProductId: product.supplierCode,
-            supplierProductURL: product.link,
-        }
-
-        if (Array.isArray(price_progress)) {
-            supplierInfo.price_progress = price_progress
-        }
-        else {
-            supplierInfo.price_progress = [price_progress]
-        }
-
-        if (product.in_offer) {
-            supplierInfo.in_offer = product.in_offer
-        }
-
-        if (product.initial_retail_price) {
-            supplierInfo.initial_retail_price = strapi
-                .plugin('import-products')
-                .service('categoryHelpers').toFixed(2)
-        }
-
-        if (product.retail_price) {
-            supplierInfo.retail_price = strapi
-                .plugin('import-products')
-                .service('categoryHelpers')
-                .formatPrice(product.retail_price)
-        }
-
-        if (product.recycle_tax) {
-            supplierInfo.recycle_tax = strapi
-                .plugin('import-products')
-                .service('categoryHelpers')
-                .formatPrice(product.recycle_tax)
-        }
-
-        if (product.quantity) {
-            supplierInfo.quantity = parseInt(product.quantity)
-        }
-
-        return supplierInfo
     },
 
     updateSupplierInfo(entryCheck, product, data, dbChange, importRef) {
         try {
-            let isNeedUpdate = false
+            let isNeedUpdate = false;
+            const allowedStatuses = strapi.components['products.info'].attributes.translated_status.enum;
 
-            // Ελέγχω αν το προϊόν έχει προμηθευτή που δεν χρησιμοποιώ πλέον και το κάνει μη διαθέσιμο 
-            // για τον συγκεκριμένο προμηθευτή
             let supplierInfo = entryCheck.supplierInfo.map(sup => {
+                let updatedSup = { ...sup };
                 const isSupplierActive = importRef.suppliers.some(
                     s => s.name.toLowerCase() === sup.name.toLowerCase()
                 );
-
-                if (!isSupplierActive) {
+                if (!isSupplierActive && sup.in_stock !== false) {
                     isNeedUpdate = true;
-                    return { ...sup, in_stock: false };
+                    updatedSup.in_stock = false;
                 }
-
-                return sup;
+                return updatedSup;
             });
 
-            supplierInfo = supplierInfo.map(supplier => {
-                const initialLength = supplier.price_progress.length;
-                const filteredPriceProgress = supplier.price_progress.filter(x => x.wholesale && x.date);
+            const supplierIndex = supplierInfo.findIndex(o => o.name === product.entry.name);
 
-                if (initialLength !== filteredPriceProgress.length) {
-                    isNeedUpdate = true;
+            if (supplierIndex !== -1) {
+                // Υπολογισμός νέου status
+                const currentStockLevel = product.stock_level ? String(product.stock_level).trim() : null;
+                let currentTranslatedStatus = null;
+
+                if (currentStockLevel && importRef.categoryMap.stock_map) {
+                    const mapEntry = importRef.categoryMap.stock_map.find(x =>
+                        x.name_in_xml.trim().toLowerCase() === currentStockLevel.toLowerCase()
+                    );
+                    if (mapEntry && allowedStatuses.includes(mapEntry.translate_to)) {
+                        currentTranslatedStatus = mapEntry.translate_to;
+                    }
                 }
 
-                return {
-                    ...supplier,
-                    price_progress: filteredPriceProgress
-                };
-            });
+                // inject τα status για να τα βρει η updateOtherFields
+                supplierInfo[supplierIndex].old_translated_status = supplierInfo[supplierIndex].translated_status;
+                supplierInfo[supplierIndex].translated_status = currentTranslatedStatus;
+
+                this.handleExistingSupplier(supplierInfo, supplierIndex, product, data, dbChange, false, importRef);
+            } else {
+                this.createNewSupplier(supplierInfo, product, data, dbChange, importRef);
+            }
 
             if (isNeedUpdate) {
-                data.supplierInfo = supplierInfo
-                dbChange.typeOfChange = 'updated'
+                data.supplierInfo = supplierInfo;
+                if (dbChange.typeOfChange === 'Skipped') dbChange.typeOfChange = 'updated';
             }
-
-            // 3. Find or create supplier entry
-            const supplierIndex = supplierInfo.findIndex(o => o.name === product.entry.name);
-            const isDotMedia = product.entry.name.toLowerCase() === 'dotmedia';
-
-            // αν υπάρχει ο προμηθευτής ενημερώνω
-            // αλλίως δημιουργώ τον προμηθευτή για το προϊόν και κρατάω ιστορικό
-            if (supplierIndex !== -1) {
-                this.handleExistingSupplier(
-                    supplierInfo,
-                    supplierIndex,
-                    product,
-                    data,
-                    dbChange,
-                    isDotMedia
-                );
-            }
-            else {
-                this.createNewSupplier(supplierInfo, product, data, dbChange);
-            }
-
         } catch (error) {
-            console.log(error)
+            console.log("Error in updateSupplierInfo:", error);
         }
-
     },
 
     // Helper methods for better organization
-    handleExistingSupplier(supplierInfo, index, product, data, dbChange, isDotMedia) {
+    handleExistingSupplier(supplierInfo, index, product, data, dbChange, isDotMedia, importRef) {
         const currentSupplier = supplierInfo[index];
-        const currentWholesale = strapi
-            .plugin('import-products')
-            .service('priceHelpers')
-            .formatPrice(currentSupplier.wholesale);
 
-        const currentRetailPrice = strapi
-            .plugin('import-products')
-            .service('priceHelpers')
-            .formatPrice(currentSupplier.retail_price);
+        const currentWholesale = strapi.plugin('import-products').service('priceHelpers').formatPrice(currentSupplier.wholesale);
+        const productWholesalePrice = strapi.plugin('import-products').service('priceHelpers').formatPrice(product.wholesale);
+        const currentRetailPrice = strapi.plugin('import-products').service('priceHelpers').formatPrice(currentSupplier.retail_price);
+        const productRetailPrice = product.retail_price ? strapi.plugin('import-products').service('priceHelpers').formatPrice(product.retail_price) : null;
 
-        const productRetailPrice = strapi
-            .plugin('import-products')
-            .service('priceHelpers')
-            .formatPrice(product.retail_price);
-
-        const productWholesalePrice = strapi
-            .plugin('import-products')
-            .service('priceHelpers')
-            .formatPrice(product.wholesale);
-
+        // 1. Έλεγχος Τιμών & Ιστορικού
         if (currentWholesale <= 0) {
             this.handleZeroWholesale(currentSupplier, product, data, dbChange, isDotMedia, supplierInfo);
         } else if (this.isPriceDifferent(currentWholesale, productWholesalePrice) ||
             (productRetailPrice && this.isPriceDifferent(currentRetailPrice, productRetailPrice))) {
-            this.updatePriceWithHistory(currentSupplier, product, data, dbChange, supplierInfo, index);
-        } else {
-            this.updateOtherFields(currentSupplier, product, data, dbChange, supplierInfo);
+            this.updatePriceWithHistory(currentSupplier, product, data, dbChange, supplierInfo, index, importRef);
         }
+
+        // 2. Έλεγχος Status & Λοιπών Πεδίων (Τρέχει ΠΑΝΤΑ)
+        this.updateOtherFields(currentSupplier, product, data, dbChange, supplierInfo, index);
     },
 
     handleZeroWholesale(supplier, product, data, dbChange, isDotMedia, supplierInfo) {
@@ -241,7 +203,7 @@ module.exports = ({ strapi }) => ({
         }
     },
 
-    updatePriceWithHistory(supplier, product, data, dbChange, supplierInfo, index) {
+    updatePriceWithHistory(supplier, product, data, dbChange, supplierInfo, index, importRef) {
         const priceProgress = supplier.price_progress;
         const newPriceProgress = strapi
             .plugin('import-products')
@@ -260,7 +222,7 @@ module.exports = ({ strapi }) => ({
 
         priceProgress.push(newPriceProgress);
 
-        supplier = this.createSupplierInfoData(product, priceProgress);
+        supplier = this.createSupplierInfoData(product, priceProgress, importRef.stock_map);
 
         if (productRetailPrice && supplierRetailPrice !== productRetailPrice) {
             supplier.retail_price = productRetailPrice;
@@ -272,31 +234,49 @@ module.exports = ({ strapi }) => ({
         dbChange.typeOfChange = 'updated';
     },
 
-    updateOtherFields(supplier, product, data, dbChange, supplierInfo) {
+    updateOtherFields(supplier, product, data, dbChange, supplierInfo, index) {
         let needsUpdate = false;
-        const supplierRetailPrice = strapi
-            .plugin('import-products')
-            .service('priceHelpers')
-            .formatPrice(supplier.retail_price);
 
-        const productRetailPrice = strapi
-            .plugin('import-products')
-            .service('priceHelpers')
-            .formatPrice(product.retail_price);
-
-        if (product.retail_price && supplierRetailPrice !== productRetailPrice) {
-            supplier.retail_price = productRetailPrice
+        // Translated Status (IsExpected, κλπ)
+        if (supplier.translated_status !== supplier.old_translated_status) {
             needsUpdate = true;
         }
 
-        if (supplier.in_stock === false) {
-            supplier.in_stock = true;
+        // Stock Level String (λεκτικό προμηθευτή)
+        const newStockLevel = product.stock_level ? String(product.stock_level).trim() : null;
+        if (newStockLevel !== supplier.stock_level) {
+            supplier.stock_level = newStockLevel;
+            needsUpdate = true;
+        }
+
+        // Quantity (αριθμητικό)
+        const newQuantity = product.quantity ? parseInt(product.quantity) : null;
+        if (newQuantity !== supplier.quantity) {
+            supplier.quantity = newQuantity;
+            needsUpdate = true;
+        }
+
+
+        // Simple in_stock logic
+        const notAvailableStatuses = ["Discontinued", "OutOfStock"];
+        const inStockFromXml = (newQuantity !== null && newQuantity > 0) ||
+            (newStockLevel !== null && !notAvailableStatuses.includes(supplier.translated_status));
+
+        // In Stock Logic
+        // const inStockFromXml = (newQuantity !== null && newQuantity > 0) || (newStockLevel !== null);
+        if (supplier.in_stock !== inStockFromXml) {
+            supplier.in_stock = inStockFromXml;
             needsUpdate = true;
         }
 
         if (needsUpdate) {
+            delete supplier.old_translated_status; // Καθαρισμός
+            supplierInfo[index] = supplier;
             data.supplierInfo = supplierInfo;
-            dbChange.typeOfChange = 'republished';
+
+            if (dbChange.typeOfChange === 'Skipped') {
+                dbChange.typeOfChange = 'updated';
+            }
         }
     },
 
@@ -307,7 +287,7 @@ module.exports = ({ strapi }) => ({
             .is_not_equal(storedPrice, newPrice);
     },
 
-    createNewSupplier(supplierInfo, product, data, dbChange) {
+    createNewSupplier(supplierInfo, product, data, dbChange, importRef) {
         const priceProgress = strapi
             .plugin('import-products')
             .service('supplierHelpers')
@@ -316,7 +296,7 @@ module.exports = ({ strapi }) => ({
         supplierInfo.push(
             strapi.plugin('import-products')
                 .service('supplierHelpers')
-                .createSupplierInfoData(product, priceProgress)
+                .createSupplierInfoData(product, priceProgress, importRef.stock_map)
         );
 
         dbChange.typeOfChange = 'created';

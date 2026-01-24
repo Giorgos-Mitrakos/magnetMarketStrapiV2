@@ -19,6 +19,7 @@ module.exports = ({ strapi }) => {
                 subcategory: null,
                 sub2category: null,
                 stock_level: null,
+                quantity: null,
                 wholesale: null,
                 retail_price: null,
                 recycle_tax: null,
@@ -129,7 +130,7 @@ module.exports = ({ strapi }) => {
             // ✅ Brand detection from name if not already set
             if (!product.brand || typeof product.brand === 'string') {
                 const brandValue = typeof product.brand === 'string' ? product.brand : '';
-                
+
                 if (brandValue) {
                     const { brandId } = await strapi
                         .plugin('import-products')

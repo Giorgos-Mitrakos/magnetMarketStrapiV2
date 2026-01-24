@@ -122,7 +122,8 @@ export default factories.createCoreService('api::product.product', ({ strapi }) 
             pageSize = '12',
             brands,
             Κατηγορίες,
-            search
+            search,
+            stock = 'false'
         } = query;
 
         return {
@@ -131,7 +132,8 @@ export default factories.createCoreService('api::product.product', ({ strapi }) 
             pageSize: Math.min(100, Math.max(1, parseInt(pageSize) || 12)), // Limit max pageSize
             brands: this.normalizeArray(brands),
             categories: this.normalizeArray(Κατηγορίες),
-            search: search ? String(search).trim() : null
+            search: search ? String(search).trim() : null,
+            stock: String(stock).trim()
         };
     },
 
@@ -151,11 +153,16 @@ export default factories.createCoreService('api::product.product', ({ strapi }) 
     },
 
     buildFilters(params) {
-        const { brands, categories, search } = params;
+        const { brands, categories, search, stock } = params;
         const filterAnd = [];
         const searchFilters = [];
 
         filterAnd.push({ publishedAt: { $notNull: true } });
+        filterAnd.push({ status: { $not: "Discontinued" } });
+
+        if (stock === 'true') {
+            filterAnd.push({ status: { $notIn: ['OutOfStock', 'IsExpected'] } });
+        }
 
         // Search filters
         if (search) {
@@ -166,7 +173,7 @@ export default factories.createCoreService('api::product.product', ({ strapi }) 
             }
 
             searchFilters.push({ name: { $containsi: search } });
-            searchFilters.push({ description: { $containsi: search } }); // Additional search field
+            // searchFilters.push({ description: { $containsi: search } }); // Additional search field
 
             // 3. Αναζήτηση με MPN (Manufacturer Part Number)
             searchFilters.push({ mpn: { $containsi: search } });
@@ -438,7 +445,8 @@ export default factories.createCoreService('api::product.product', ({ strapi }) 
                 'is_sale',
                 'is_hot',
                 'inventory',
-                'is_in_house',],
+                'is_in_house',
+                'status'],
             populate: {
                 supplierInfo: true,
                 image: true,

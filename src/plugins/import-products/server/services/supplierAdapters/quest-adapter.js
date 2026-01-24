@@ -19,6 +19,7 @@ module.exports = ({ strapi }) => {
                 subcategory: null,
                 sub2category: null,
                 stock_level: null,
+                quantity: null,
                 wholesale: null,
                 retail_price: null,
                 recycle_tax: null,

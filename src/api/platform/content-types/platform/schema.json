@@ -51,6 +51,12 @@
     },
     "only_in_house_inventory": {
       "type": "boolean"
+    },
+    "export_statuses": {
+      "displayName": "export_status",
+      "type": "component",
+      "repeatable": true,
+      "component": "platforms.export-status"
     }
   }
 }

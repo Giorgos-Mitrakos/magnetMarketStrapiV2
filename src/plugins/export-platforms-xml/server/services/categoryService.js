@@ -34,19 +34,21 @@ module.exports = ({ strapi }) => ({
                             count: true
                         },
                     }
-                }
+                },
+                export_statuses: true
             }
         })
         return platforms;
     },
 
     async saveExportCategories(ctx) {
-        const { platformID, categoriesID, only_in_house_inventory } = ctx.request.body;
+        const { platformID, categoriesID, only_in_house_inventory, export_statuses } = ctx.request.body;
         try {
             await strapi.entityService.update('api::platform.platform', platformID, {
                 data: {
                     export_categories: categoriesID,
-                    only_in_house_inventory: only_in_house_inventory
+                    only_in_house_inventory: only_in_house_inventory,
+                    export_statuses: export_statuses
                 }
             })
             return { message: 'ok' };

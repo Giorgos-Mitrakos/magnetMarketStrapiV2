@@ -108,7 +108,7 @@ module.exports = ({ strapi }) => ({
                 initial_wholesale: productMeta.initial_wholesale,
                 in_offer: productMeta.in_offer,
                 discount: productMeta.discount,
-                stockLevel: productMeta.stockLevel,
+                stock_level: productMeta.stock_level,
                 category: { title: category },
                 subcategory: { title: subcategory },
             };
@@ -499,22 +499,9 @@ module.exports = ({ strapi }) => ({
                         const stockFile = stockParts[stockParts.length - 1] || '';
                         const stockLevelImg = stockFile.split('.')[0]?.split('-')[1] || '';
 
-                        switch (stockLevelImg) {
-                            case '3':
-                                product.stockLevel = "InStock";
-                                break;
-                            case '2':
-                                product.stockLevel = "MediumStock";
-                                break;
-                            case '1':
-                                product.stockLevel = "LowStock";
-                                break;
-                            default:
-                                product.stockLevel = "OutOfStock";
-                                break;
-                        }
+                        product.stock_level = stockLevelImg;
 
-                        if (product.brand?.toLowerCase().includes('dahua') || product.brand?.toLowerCase().includes('iris')) continue;
+                        // if (product.brand?.toLowerCase().includes('dahua') || product.brand?.toLowerCase().includes('iris')) continue;
 
                         products.push(product);
                     } catch (err) {
@@ -782,24 +769,7 @@ module.exports = ({ strapi }) => ({
                 const stockImg = productStock?.getAttribute('src')?.trim() || '';
                 const stockLevelImg = stockImg.substring(stockImg.length - 5, stockImg.length - 4);
 
-                switch (stockLevelImg) {
-                    case '3':
-                        product.stockLevel = "InStock";
-                        product.status = "InStock";
-                        break;
-                    case '2':
-                        product.stockLevel = "MediumStock";
-                        product.status = "MediumStock";
-                        break;
-                    case '1':
-                        product.stockLevel = "LowStock";
-                        product.status = "LowStock";
-                        break;
-                    default:
-                        product.stockLevel = "OutOfStock";
-                        product.status = "OutOfStock";
-                        break;
-                }
+                product.stock_level = stockLevelImg;
 
                 // Description details
                 const productDetailsExtraSection = document.querySelector("section.product-details-extra");

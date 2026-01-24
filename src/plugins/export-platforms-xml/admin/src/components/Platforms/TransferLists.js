@@ -13,26 +13,42 @@ import { Loader } from '@strapi/design-system';
 import { useFetchClient } from "@strapi/helper-plugin";
 import pluginId from "../../pluginId";
 
-// ✅ ΜΟΝΟ 2 PROPS: categories και platform
+// Όλα τα διαθέσιμα statuses
+const AVAILABLE_STATUSES = [
+    { value: "InStock", label: "In Stock" },
+    { value: "MediumStock", label: "Medium Stock" },
+    { value: "LowStock", label: "Low Stock" },
+    { value: "Backorder", label: "Backorder" },
+    { value: "IsExpected", label: "Is Expected" },
+    { value: "AskForPrice", label: "Ask For Price" },
+    { value: "OutOfStock", label: "Out Of Stock" },
+    { value: "Discontinued", label: "Discontinued" }
+];
+
 const TransferLists = ({ categories, platform }) => {
     const [isSaving, setIsSaving] = useState(false);
     const [onlyInHouseInventory, setOnlyInHouseInventory] = useState(false);
+    const [selectedStatuses, setSelectedStatuses] = useState([]);
     const [categoriesToExport, dispatchCategoriesToExport] = useReducer(categoriesReducer, { categories: [], isAllCategoriesChecked: false, numberOfItems: 0 });
     const [notExportedCategories, dispatchNotExportedCategories] = useReducer(categoriesReducer, { categories: [], isAllCategoriesChecked: false, numberOfItems: 0 });
     const { post } = useFetchClient()
 
     useEffect(() => {
-        // ✅ ΧΡΗΣΗ platform.export_categories
         const categoriesExportIds = platform.export_categories.map(x => x.id)
         const exportCategories = platform.export_categories.map(x => { x.isChecked = false; return x })
         const notExported = categories.filter(x => !categoriesExportIds.includes(x.id)).map(x => { x.isChecked = false; return x })
-        
+
         dispatchNotExportedCategories({ type: 'initialize', payload: notExported })
         dispatchCategoriesToExport({ type: 'initialize', payload: exportCategories })
-        
-        // ✅ ΦΟΡΤΩΣΕ ΤΗΝ ΤΡΕΧΟΥΣΑ ΤΙΜΗ
+
         if (platform.only_in_house_inventory !== undefined) {
             setOnlyInHouseInventory(platform.only_in_house_inventory);
+        }
+
+        // Φόρτωση των επιλεγμένων statuses
+        if (platform.export_statuses && platform.export_statuses.length > 0) {
+            const platformStatuses = platform.export_statuses.map(s => s.status);
+            setSelectedStatuses(platformStatuses);
         }
     }, [platform, categories]);
 
@@ -80,15 +96,33 @@ const TransferLists = ({ categories, platform }) => {
         dispatchCategoriesToExport({ type: "remove", payload: categoriesToRemove })
     }
 
+    const handleStatusToggle = (statusValue) => {
+        setSelectedStatuses(prev => {
+            if (prev.includes(statusValue)) {
+                return prev.filter(s => s !== statusValue);
+            } else {
+                return [...prev, statusValue];
+            }
+        });
+    }
+
+    const handleSelectAllStatuses = () => {
+        if (selectedStatuses.length === AVAILABLE_STATUSES.length) {
+            setSelectedStatuses([]);
+        } else {
+            setSelectedStatuses(AVAILABLE_STATUSES.map(s => s.value));
+        }
+    }
+
     const handleSave = async () => {
         const categoriesID = categoriesToExport.categories.map(x => x.id)
 
         setIsSaving(true)
-        // ✅ ΧΡΗΣΗ platform.id
         const message = await post(`/${pluginId}/saveExportedCategories`, {
             platformID: platform.id,
             categoriesID,
-            only_in_house_inventory: onlyInHouseInventory
+            only_in_house_inventory: onlyInHouseInventory,
+            export_statuses: selectedStatuses.map(status => ({ status }))
         })
 
         setIsSaving(false)
@@ -96,30 +130,59 @@ const TransferLists = ({ categories, platform }) => {
 
     return (
         <Box paddingTop={2} background="neutral100">
-            {/* ✅ CHECKBOX ΓΙΑ IN-HOUSE INVENTORY */}
-            <Flex direction="column" gap={2} style={{ marginBottom: "16px" }}>
-                <Box padding={4} background="neutral0" shadow="filterShadow" hasRadius>
-                    <Typography variant="omega" fontWeight="semiBold" style={{ marginBottom: "8px" }}>
-                        Ρυθμίσεις Export
-                    </Typography>
-                    <Checkbox
-                        checked={onlyInHouseInventory}
-                        onChange={() => setOnlyInHouseInventory(!onlyInHouseInventory)}
-                    >
-                        Εξαγωγή μόνο προϊόντων με απόθεμα (in-house inventory)
-                    </Checkbox>
-                    <Typography variant="pi" textColor="neutral600" style={{ marginTop: "4px", marginLeft: "24px" }}>
-                        Όταν ενεργοποιηθεί, θα εξάγονται μόνο προϊόντα που έχουν απόθεμα και είναι in_house
-                    </Typography>
-                </Box>
-            </Flex>
+            <Flex justifyContent="space-between" alignItems="flex-start" style={{ margin: "8px 0px 16px" }}>
+                <Flex gap={4} justifyContent="space-between" alignItems="flex-start">
+                    {/* Ρυθμίσεις Export */}
+                    <Box padding={4} background="neutral0" shadow="filterShadow" hasRadius>
+                        <Typography variant="omega" fontWeight="semiBold" style={{ display: 'block', marginBottom: "8px" }}>
+                            Ρυθμίσεις Export
+                        </Typography>
+                        <Checkbox
+                            checked={onlyInHouseInventory}
+                            onChange={() => setOnlyInHouseInventory(!onlyInHouseInventory)}
+                        >
+                            Εξαγωγή μόνο προϊόντων με απόθεμα (in-house inventory)
+                        </Checkbox>
+                        <Typography variant="pi" textColor="neutral600" style={{ display: 'block', marginTop: "4px", marginLeft: "24px" }}>
+                            Όταν ενεργοποιηθεί, θα εξάγονται μόνο προϊόντα που έχουν απόθεμα και είναι in_house
+                        </Typography>
+                    </Box>
 
-            <Flex style={{ "justifyContent": "flex-end", "margin": "8px 0px 16px" }}>
-                <Button size="L" onClick={() => handleSave()}>
+                    {/* Export Statuses */}
+                    <Box padding={4} background="neutral0" shadow="filterShadow" hasRadius>
+                        <Typography variant="omega" fontWeight="semiBold" style={{ display: 'block', marginBottom: "8px" }}>
+                            Export Statuses
+                        </Typography>
+                        <Checkbox
+                            checked={selectedStatuses.length === AVAILABLE_STATUSES.length}
+                            indeterminate={selectedStatuses.length > 0 && selectedStatuses.length < AVAILABLE_STATUSES.length}
+                            onChange={handleSelectAllStatuses}
+                        >
+                            {selectedStatuses.length}/{AVAILABLE_STATUSES.length} Επιλέχθηκαν
+                        </Checkbox>
+                        <Divider background="neutral200" style={{ margin: "8px 0" }} />
+                        <Flex direction="column" gap={1} style={{ marginLeft: "8px" }}>
+                            {AVAILABLE_STATUSES.map(status => (
+                                <Checkbox
+                                    key={status.value}
+                                    checked={selectedStatuses.includes(status.value)}
+                                    onChange={() => handleStatusToggle(status.value)}
+                                >
+                                    {status.label}
+                                </Checkbox>
+                            ))}
+                        </Flex>
+                        <Typography variant="pi" textColor="neutral600" style={{ display: 'block', marginTop: "8px" }}>
+                            Επιλέξτε τα statuses προϊόντων που θα εξάγονται στην πλατφόρμα
+                        </Typography>
+                    </Box>
+                </Flex>
+
+                <Button size="L" onClick={() => handleSave()} disabled={isSaving}>
                     {isSaving ? <Loader small>Loading...</Loader> : "Save"}
                 </Button>
             </Flex>
-            
+
             <Grid gap={2} padding={0}>
                 <GridItem col={5} background="primary100">
                     <Box>

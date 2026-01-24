@@ -41,27 +41,34 @@ export default factories.createCoreService('api::category.category', ({ strapi }
     },
 
     async getMetadata(ctx) {
-
         const { slug } = ctx.request.body;
 
         try {
             return await strapi.db.query('api::category.category').findOne({
                 where: {
                     slug: { $eq: slug },
-                    publishedAt: { $notNull: true }
+                    publishedAt: { $notNull: true },
                 },
-                select: ['name', 'slug'],
+                select: ['id', 'name', 'slug'],
                 populate: {
                     image: {
-                        select: ['name', 'alternativeText', 'url', 'formats'],
+                        select: ['url', 'alternativeText'],
                     },
                     categories: {
-                        select: ['name'],
-                    }
-                }
+                        select: ['id', 'name', 'slug'],
+                    },
+                    parent: {
+                        select: ['id', 'name', 'slug'],
+                        populate: {
+                            parent: {
+                                select: ['id', 'name', 'slug'], // για level 3
+                            },
+                        },
+                    },
+                },
             });
         } catch (error) {
-            console.log(error)
+            console.log(error);
         }
     },
 
@@ -96,19 +103,19 @@ export default factories.createCoreService('api::category.category', ({ strapi }
                     parents: { $null: true, },
                     publishedAt: { $notNull: true }
                 },
-                select: ['name', 'slug', 'isSpecial','description'],
+                select: ['name', 'slug', 'isSpecial', 'description'],
                 populate: {
                     image: {
                         select: ['name', 'alternativeText', 'url', 'formats'],
                     },
                     categories: {
-                        select: ['name', 'slug', 'isSpecial','description'],
+                        select: ['name', 'slug', 'isSpecial', 'description'],
                         populate: {
                             image: {
                                 select: ['name', 'alternativeText', 'url', 'formats'],
                             },
                             categories: {
-                                select: ['name', 'slug', 'isSpecial','description'],
+                                select: ['name', 'slug', 'isSpecial', 'description'],
                                 populate: {
                                     image: {
                                         select: ['name', 'alternativeText', 'url', 'formats'],
@@ -123,276 +130,6 @@ export default factories.createCoreService('api::category.category', ({ strapi }
             return null
         }
     },
-
-    // async categoryFilter(ctx) {
-    //     const { name, level, searchParams } = ctx.request.body
-
-    //     const categoryFilters: ICategory = await strapi.db.query("api::category.category").findOne({
-    //         select: ['id',],
-    //         where: { slug: name },
-    //         populate: {
-    //             filters: {
-    //                 select: ['name'],
-    //             }
-    //         },
-    //     });
-
-    //     const filters = []
-
-    //     for await (let filter of categoryFilters.filters) {
-    //         let filtered: { title: string, filterValues: { name: string, numberOfItems: number }[] } = { title: filter.name, filterValues: [] }
-
-    //         let filterBrandString = {}
-    //         const filterCharString = []
-    //         const values = []
-
-    //         for (let searchParam of searchParams) {
-
-    //             if (searchParam.name === "sort" || searchParam.name === "page" || searchParam.name === "pageSize")
-    //                 continue
-
-    //             if (searchParam.name === "brands") {
-
-    //                 if (typeof searchParam.value === "string") {
-    //                     values.push(searchParam.value)
-    //                 }
-    //                 else {
-
-    //                     for (let search of searchParam.value) {
-    //                         values.push(search)
-    //                     }
-    //                 }
-    //             }
-    //             else {
-    //                 const filter = { name: { $eq: `${searchParam.name}` } }
-    //                 const values = []
-    //                 if (typeof searchParam.value === "string") {
-    //                     values.push(searchParam.value)
-    //                 }
-    //                 else {
-
-    //                     for (let search of searchParam.value) {
-    //                         values.push(search)
-    //                     }
-    //                 }
-
-    //                 filterCharString.push({
-    //                     prod_chars: {
-    //                         $and: [filter, { value: { $in: values } }]
-    //                     }
-    //                 })
-    //             }
-    //         }
-
-    //         filterBrandString = {
-    //             name: { $in: values }
-    //         }
-
-    //         let products: []
-
-    //         let populateProducts: any = {
-    //             products: {
-    //                 select: ['id'],
-    //                 where: {
-    //                     $and: [
-    //                         { publishedAt: { $notNull: true, } },
-    //                         { prod_chars: { name: `${filter.name}` } }
-    //                     ]
-    //                 },
-    //                 populate: {
-    //                     prod_chars: {
-    //                         select: ['name', 'value'],
-    //                         where: {
-    //                             name: `${filter.name}`,
-    //                         },
-    //                     }
-    //                 },
-    //             }
-    //         }
-
-    //         if (filterCharString.length > 0) {
-    //             if (values.length > 0) {
-    //                 populateProducts = {
-    //                     products: {
-    //                         select: ['id'],
-    //                         where: {
-    //                             $and: [
-    //                                 { publishedAt: { $notNull: true, } },
-    //                                 { $and: filterCharString },
-    //                                 { brand: filterBrandString }
-    //                             ]
-    //                         },
-    //                         populate: {
-    //                             prod_chars: {
-    //                                 select: ['name', 'value'],
-    //                                 where: {
-    //                                     name: `${filter.name}`,
-    //                                 },
-    //                             }
-    //                         },
-    //                     }
-    //                 }
-    //             }
-    //             else {
-    //                 populateProducts = {
-    //                     products: {
-    //                         select: ['id'],
-    //                         where: {
-    //                             $and: [
-    //                                 { publishedAt: { $notNull: true, } },
-    //                                 { $and: filterCharString }
-    //                             ]
-    //                         },
-    //                         populate: {
-    //                             prod_chars: {
-    //                                 select: ['name', 'value'],
-    //                                 where: {
-    //                                     name: `${filter.name}`,
-    //                                 },
-    //                             }
-    //                         },
-    //                     }
-    //                 }
-    //             }
-    //         }
-    //         else {
-    //             if (values.length > 0) {
-    //                 populateProducts = {
-    //                     products: {
-    //                         select: ['id'],
-    //                         where: {
-    //                             $and: [
-    //                                 { publishedAt: { $notNull: true, } },
-    //                                 { brand: filterBrandString },
-    //                                 { prod_chars: { name: `${filter.name}` } }
-    //                             ]
-    //                         },
-    //                         populate: {
-    //                             prod_chars: {
-    //                                 select: ['name', 'value'],
-    //                                 where: {
-    //                                     name: `${filter.name}`,
-    //                                 },
-    //                             }
-    //                         },
-    //                     }
-    //                 }
-    //             }
-    //             else {
-    //                 populateProducts = {
-    //                     products: {
-    //                         select: ['id'],
-    //                         where: {
-    //                             $and: [
-    //                                 { publishedAt: { $notNull: true, } },
-    //                                 { prod_chars: { name: `${filter.name}` } }
-    //                             ]
-    //                         },
-    //                         populate: {
-    //                             prod_chars: {
-    //                                 select: ['name', 'value'],
-    //                                 where: {
-    //                                     name: `${filter.name}`,
-    //                                 },
-    //                             }
-    //                         },
-    //                     }
-    //                 }
-    //             }
-    //         }
-
-    //         let populateString: any = {}
-
-    //         switch (level) {
-    //             case 1:
-    //                 populateString = {
-    //                     categories: {
-    //                         populate: {
-    //                             categories: {
-    //                                 populate: populateProducts
-    //                             }
-    //                         }
-    //                     }
-    //                 }
-    //                 break;
-    //             case 2:
-    //                 populateString = {
-    //                     categories: {
-    //                         populate: populateProducts
-    //                     }
-    //                 }
-    //                 break;
-    //             case 3:
-    //                 populateString = populateProducts
-    //                 break;
-    //             default:
-    //                 populateString = populateProducts
-    //                 break;
-    //         }
-
-    //         const category = await strapi.db.query("api::category.category").findOne({
-    //             where: { slug: name },
-    //             populate: populateString
-    //         })
-
-    //         switch (level) {
-    //             case 1:
-    //                 products = category.categories.flatMap(cat => {
-    //                     return cat.categories.flatMap(cat1 => {
-    //                         return cat1.products.map(product => {
-    //                             for (let char of product.prod_chars) {
-    //                                 if (char.name === filter.name) {
-    //                                     return char.value.trim()
-    //                                 }
-    //                             }
-    //                         })
-    //                     })
-    //                 })
-    //                 break;
-
-    //             case 2:
-    //                 products = category.categories.flatMap(cat => {
-    //                     return cat.products.map(product => {
-    //                         for (let char of product.prod_chars) {
-    //                             if (char.name === filter.name) {
-    //                                 return char.value.trim()
-    //                             }
-    //                         }
-    //                     })
-    //                 })
-    //                 break;
-
-    //             case 3:
-    //                 products = category.products.map(product => {
-    //                     for (let char of product.prod_chars) {
-    //                         if (char.name === filter.name) {
-    //                             return char.value.trim()
-    //                         }
-    //                     }
-    //                 })
-    //                 break;
-    //             default:
-    //                 products = category.products.map(product => {
-    //                     for (let char of product.prod_chars) {
-    //                         if (char.name === filter.name) {
-    //                             return char.value.trim()
-    //                         }
-    //                     }
-    //                 })
-    //                 break;
-    //         }
-
-    //         const notNullchars = products.filter(x => x !== undefined)
-
-    //         const unique = this.getDistinctValuesAndCounts(notNullchars);
-
-    //         unique.forEach(x => filtered.filterValues = unique)
-
-    //         filters.push(filtered)
-    //     }
-
-    //     return filters
-    // },
 
     async getCategoryProducts(ctx) {
         try {
@@ -479,6 +216,7 @@ export default factories.createCoreService('api::category.category', ({ strapi }
             page = '1',
             pageSize = '12',
             brands,
+            stock = 'false',
             ...characteristics
         } = query;
 
@@ -493,7 +231,8 @@ export default factories.createCoreService('api::category.category', ({ strapi }
             page: Math.max(1, parseInt(page) || 1),
             pageSize: Math.min(100, Math.max(1, parseInt(pageSize) || 12)),
             brands: this.normalizeArray(brands),
-            characteristics: this.normalizeCharacteristics(characteristics)
+            characteristics: this.normalizeCharacteristics(characteristics),
+            stock: String(stock).trim()
         };
     },
 
@@ -606,11 +345,16 @@ export default factories.createCoreService('api::category.category', ({ strapi }
     },
 
     async buildCategoryFilters(params, categoryIds) {
-        const { brands, characteristics } = params;
+        const { brands, characteristics, stock } = params;
         const filterAnd = [];
 
         // Always include published filter
         filterAnd.push({ publishedAt: { $notNull: true } });
+        filterAnd.push({ status: { $not: "Discontinued" } });
+
+        if (stock === 'true') {
+            filterAnd.push({ status: { $notIn: ['OutOfStock', 'IsExpected'] } });
+        }
 
         // Category filter - include all child categories
         if (categoryIds.length > 0) {
@@ -660,115 +404,124 @@ export default factories.createCoreService('api::category.category', ({ strapi }
     },
 
     async getCategoryAvailableFilters(categoryIds, params) {
-        try {
-            // Βήμα 1: Πάρε ΜΟΝΟ την κύρια κατηγορία (όχι τις υποκατηγορίες)
-            const mainCategory = await strapi.entityService.findMany('api::category.category', {
-                filters: {
-                    slug: { $eq: params.slug }, // Μόνο η κύρια κατηγορία
-                    publishedAt: { $notNull: true }
-                },
-                populate: {
-                    filters: true // Populate το filters component
+    try {
+        // Βήμα 1: Πάρε ΜΟΝΟ την κύρια κατηγορία (όχι τις υποκατηγορίες)
+        const mainCategory = await strapi.entityService.findMany('api::category.category', {
+            filters: {
+                slug: { $eq: params.slug },
+                publishedAt: { $notNull: true }
+            },
+            populate: {
+                filters: true
+            }
+        });
+
+        if (!mainCategory || mainCategory.length === 0) {
+            return [];
+        }
+
+        // Βήμα 2: Πάρε τα filter names ΜΟΝΟ από την κύρια κατηγορία
+        const allowedFilterNames = new Set();
+        const category = mainCategory[0];
+
+        if (category.filters && Array.isArray(category.filters)) {
+            category.filters.forEach(filter => {
+                if (filter.name) {
+                    allowedFilterNames.add(filter.name);
                 }
             });
+        }
 
-            if (!mainCategory || mainCategory.length === 0) {
-                return [];
-            }
+        if (allowedFilterNames.size === 0) {
+            return [];
+        }
 
-            // Βήμα 2: Πάρε τα filter names ΜΟΝΟ από την κύρια κατηγορία
-            const allowedFilterNames = new Set();
-            const category = mainCategory[0];
+        // Βήμα 3: Φτιάξε τα filters για τα προϊόντα
+        const productFilters: any = {
+            $and: [
+                { publishedAt: { $notNull: true } },
+                { status: { $ne: "Discontinued" } },
+                { category: { id: { $in: categoryIds } } }
+            ]
+        };
 
-            if (category.filters && Array.isArray(category.filters)) {
-                category.filters.forEach(filter => {
-                    if (filter.name) {
-                        allowedFilterNames.add(filter.name);
-                    }
-                });
-            }
-
-            // Αν δεν υπάρχουν φίλτρα στην κατηγορία, επέστρεψε άδειο array
-            if (allowedFilterNames.size === 0) {
-                return [];
-            }
-
-            // Βήμα 3: Πάρε όλα τα προϊόντα για αυτές τις κατηγορίες (κύρια + υποκατηγορίες)
-            const products = await strapi.entityService.findMany('api::product.product', {
-                filters: {
-                    $and: [
-                        { publishedAt: { $notNull: true } },
-                        { category: { id: { $in: categoryIds } } }
-                    ]
-                },
-                populate: {
-                    brand: { fields: ['name', 'slug'] },
-                    category: { fields: ['name', 'slug'] },
-                    prod_chars: true // Populate τα characteristics components
-                }
+        // Πρόσθεσε το stock filter αν είναι true
+        if (params.stock === 'true') {
+            productFilters.$and.push({ 
+                status: { 
+                    $notIn: ['OutOfStock', 'IsExpected'] 
+                } 
             });
+        }
 
-            const availableFilters = [];
-
-            // Βήμα 4: Brands (αν το θέλεις πάντα)
-            const brands = products
-                .map(product => product.brand)
-                .filter(brand => brand != null);
-
-            if (brands.length > 0) {
-                const uniqueBrands = this.getDistinctValuesAndCounts(brands);
-                availableFilters.push({
-                    title: 'Κατασκευαστές',
-                    filterBy: 'brands',
-                    filterValues: uniqueBrands
-                });
+        // Βήμα 4: Πάρε όλα τα προϊόντα με τα κατάλληλα φίλτρα
+        const products = await strapi.entityService.findMany('api::product.product', {
+            filters: productFilters,
+            populate: {
+                brand: { fields: ['name', 'slug'] },
+                category: { fields: ['name', 'slug'] },
+                prod_chars: true
             }
+        });
 
-            // Βήμα 5: Για κάθε allowed filter name, βρες τις διαθέσιμες τιμές
-            Array.from(allowedFilterNames).forEach(filterName => {
-                const characteristicValues = new Set();
+        const availableFilters = [];
 
-                // Συλλέγω όλες τις τιμές για αυτό το characteristic από ΟΛΑ τα προϊόντα
-                products.forEach(product => {
-                    if (product.prod_chars && Array.isArray(product.prod_chars)) {
-                        product.prod_chars.forEach(prodChar => {
-                            if (prodChar.name === filterName && prodChar.value) {
-                                characteristicValues.add(prodChar.value);
-                            }
-                        });
-                    }
-                });
+        // Βήμα 5: Brands
+        const brands = products
+            .map(product => product.brand)
+            .filter(brand => brand != null);
 
-                // Αν βρήκα τιμές για αυτό το filter, το προσθέτω
-                if (characteristicValues.size > 0) {
-                    const filterValues = Array.from(characteristicValues).map((value: string) => ({
-                        name: value,
-                        slug: value.toLowerCase(),
-                        numberOfItems: products.filter(p =>
-                            p.prod_chars?.some(pc =>
-                                pc.name === filterName && pc.value === value
-                            )
-                        ).length
-                    }));
+        if (brands.length > 0) {
+            const uniqueBrands = this.getDistinctValuesAndCounts(brands);
+            availableFilters.push({
+                title: 'Κατασκευαστές',
+                filterBy: 'brands',
+                filterValues: uniqueBrands
+            });
+        }
 
-                    // Ταξινόμηση alphabetically
-                    filterValues.sort((a, b) => a.name.localeCompare(b.name));
+        // Βήμα 6: Για κάθε allowed filter name, βρες τις διαθέσιμες τιμές
+        Array.from(allowedFilterNames).forEach(filterName => {
+            const characteristicValues = new Set();
 
-                    availableFilters.push({
-                        title: filterName,
-                        filterBy: filterName,
-                        filterValues: filterValues
+            products.forEach(product => {
+                if (product.prod_chars && Array.isArray(product.prod_chars)) {
+                    product.prod_chars.forEach(prodChar => {
+                        if (prodChar.name === filterName && prodChar.value) {
+                            characteristicValues.add(prodChar.value);
+                        }
                     });
                 }
             });
 
-            return availableFilters;
+            if (characteristicValues.size > 0) {
+                const filterValues = Array.from(characteristicValues).map((value: string) => ({
+                    name: value,
+                    slug: value.toLowerCase(),
+                    numberOfItems: products.filter(p =>
+                        p.prod_chars?.some(pc =>
+                            pc.name === filterName && pc.value === value
+                        )
+                    ).length
+                }));
 
-        } catch (error) {
-            strapi.log.error('Error getting available filters:', error);
-            return [];
-        }
-    },
+                filterValues.sort((a, b) => a.name.localeCompare(b.name));
+
+                availableFilters.push({
+                    title: filterName,
+                    filterBy: filterName,
+                    filterValues: filterValues
+                });
+            }
+        });
+
+        return availableFilters;
+
+    } catch (error) {
+        strapi.log.error('Error getting available filters:', error);
+        return [];
+    }
+},
 
     // Recursive function to generate breadcrumbs
     async generateCategoryBreadcrumbs(categorySlug) {

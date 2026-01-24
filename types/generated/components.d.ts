@@ -445,6 +445,27 @@ export interface PaymentTranTicket extends Schema.Component {
   };
 }
 
+export interface PlatformsExportStatus extends Schema.Component {
+  collectionName: 'components_platforms_export_statuses';
+  info: {
+    displayName: 'export_status';
+  };
+  attributes: {
+    status: Attribute.Enumeration<
+      [
+        'InStock',
+        'MediumStock',
+        'LowStock',
+        'Backorder',
+        'IsExpected',
+        'AskForPrice',
+        'OutOfStock',
+        'Discontinued'
+      ]
+    >;
+  };
+}
+
 export interface ProductsChars extends Schema.Component {
   collectionName: 'components_products_chars';
   info: {
@@ -484,8 +505,19 @@ export interface ProductsInfo extends Schema.Component {
       Attribute.Required &
       Attribute.DefaultTo<0>;
     retail_price: Attribute.Decimal;
+    stock_level: Attribute.String;
     supplierProductId: Attribute.String;
     supplierProductURL: Attribute.String;
+    translated_status: Attribute.Enumeration<
+      [
+        'InStock',
+        'MediumStock',
+        'LowStock',
+        'IsExpected',
+        'Backorder',
+        'OutOfStock'
+      ]
+    >;
     wholesale: Attribute.Decimal & Attribute.Required;
   };
 }
@@ -714,6 +746,7 @@ declare module '@strapi/types' {
       'payment.installments': PaymentInstallments;
       'payment.range': PaymentRange;
       'payment.tran-ticket': PaymentTranTicket;
+      'platforms.export-status': PlatformsExportStatus;
       'products.chars': ProductsChars;
       'products.images-supplier-urls': ProductsImagesSupplierUrls;
       'products.info': ProductsInfo;

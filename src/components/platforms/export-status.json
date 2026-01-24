@@ -1,0 +1,22 @@
+{
+  "collectionName": "components_platforms_export_statuses",
+  "info": {
+    "displayName": "export_status"
+  },
+  "options": {},
+  "attributes": {
+    "status": {
+      "type": "enumeration",
+      "enum": [
+        "InStock",
+        "MediumStock",
+        "LowStock",
+        "Backorder",
+        "IsExpected",
+        "AskForPrice",
+        "OutOfStock",
+        "Discontinued"
+      ]
+    }
+  }
+}

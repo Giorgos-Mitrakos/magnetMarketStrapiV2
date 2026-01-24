@@ -21,13 +21,13 @@ module.exports = ({ strapi }) => ({
      */
     async initialize(entry) {
         const supplierName = entry.name.toLowerCase();
-        
+
         // ✅ Add supplier to active set
         this.cache.activeSuppliers.add(supplierName);
-        
+
         console.log(`🔄 Initializing cache for ${entry.name}...`);
         console.log(`   Active suppliers: ${Array.from(this.cache.activeSuppliers).join(', ')}`);
-        
+
         const start = Date.now();
 
         // ✅ Load shared data only if cache is empty
@@ -251,17 +251,23 @@ module.exports = ({ strapi }) => ({
         const barcode = norm(product.barcode);
         const model = norm(product.model);
 
+        // ✅ Βεβαιώσου ότι το cached product έχει brandName
+        const cachedProduct = {
+            ...product,
+            brandName: product.brandName || product.brand?.name || product.brand
+        };
+
         if (mpn && barcode) {
-            this.cache.existingProducts.set(`mpn+barcode:${mpn}:${barcode}`, product);
+            this.cache.existingProducts.set(`mpn+barcode:${mpn}:${barcode}`, cachedProduct);
         }
         if (mpn) {
-            this.cache.existingProducts.set(`mpn:${mpn}`, product);
+            this.cache.existingProducts.set(`mpn:${mpn}`, cachedProduct);
         }
         if (barcode) {
-            this.cache.existingProducts.set(`barcode:${barcode}`, product);
+            this.cache.existingProducts.set(`barcode:${barcode}`, cachedProduct);
         }
         if (model) {
-            this.cache.existingProducts.set(`model:${model}`, product);
+            this.cache.existingProducts.set(`model:${model}`, cachedProduct);
         }
     },
 
@@ -271,13 +277,13 @@ module.exports = ({ strapi }) => ({
      */
     clear(supplierName) {
         const supplierKey = supplierName.toLowerCase();
-        
+
         // ✅ Remove supplier from active set
         this.cache.activeSuppliers.delete(supplierKey);
-        
+
         console.log(`🧹 ${supplierName} finished importing`);
         console.log(`   Active suppliers: ${this.cache.activeSuppliers.size > 0 ? Array.from(this.cache.activeSuppliers).join(', ') : 'none'}`);
-        
+
         // ✅ Only clear if NO suppliers are active
         if (this.cache.activeSuppliers.size === 0) {
             console.log(`🧹 No active suppliers - clearing cache`);

@@ -18,6 +18,7 @@ module.exports = ({ strapi }) => {
                 subcategory: 'SubCategory',
                 sub2category: 'SubCategory2',
                 stock_level: 'Availability',
+                quantity: null,
                 wholesale: 'WholesalePrice',
                 retail_price: 'Suggested_Web_Price',
                 recycle_tax: 'Eisfora',

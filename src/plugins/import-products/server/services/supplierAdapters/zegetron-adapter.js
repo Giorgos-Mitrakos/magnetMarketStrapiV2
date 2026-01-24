@@ -17,7 +17,8 @@ module.exports = ({ strapi }) => {
                 category: 'category',
                 subcategory: null,
                 sub2category: null,
-                stock_level: 'stock',
+                stock_level: 'availability',
+                quantity: 'stock',
                 wholesale: 'price',
                 retail_price: 'suggested_retail_price',
                 recycle_tax: 'recycling_fee',
@@ -113,18 +114,10 @@ module.exports = ({ strapi }) => {
 
             // ✅ Extract characteristics from HTML description
             if (rawData.description) {
-                console.log('=== DEBUG START ===');
-                console.log('Type:', typeof rawData.description);
-                console.log('Is Array:', Array.isArray(rawData.description));
-
                 // Get first element if array
                 const descriptionString = Array.isArray(rawData.description)
                     ? rawData.description[0]
                     : rawData.description;
-
-                console.log('String Type:', typeof descriptionString);
-                console.log('First 1000 chars:', descriptionString?.substring(0, 1000));
-                console.log('=== DEBUG END ===');
 
                 const charsParser = strapi
                     .plugin('import-products')
@@ -132,7 +125,6 @@ module.exports = ({ strapi }) => {
 
                 // Pass the string, not the array
                 const chars = charsParser.parseFromHtmlZegetronDescription(descriptionString);
-                console.log('Parsed chars:', chars);
 
                 if (chars.length > 0) {
                     const parsedChars = strapi

@@ -5,25 +5,100 @@ module.exports = ({ strapi }) => ({
 
   async setPrice(existedProduct, supplierInfo, categoryInfo, product) {
     try {
-      // Constants and initial setup
       const brandId = product.brand?.id;
       const categoryId = categoryInfo.id;
-      const taxRate = Number(process.env.GENERAL_TAX_RATE)
-      const recycleTax = product.recycle_tax ? parseFloat(product.recycle_tax) : 0
+      const taxRate = Number(process.env.GENERAL_TAX_RATE);
+      const recycleTax = product.recycle_tax ? parseFloat(product.recycle_tax) : 0;
 
-      // Helper functions
+      // ════════════════════════════════════════════════════════════
+      // ΣΕΝΑΡΙΟ 1: ΝΕΟ ΠΡΟΪΟΝ (existedProduct = null)
+      // ════════════════════════════════════════════════════════════
+      if (!existedProduct) {
+        // Για νέο προϊόν, χρησιμοποιούμε ΟΛΟΥΣ τους suppliers (in_stock ή όχι)
+        // Λογική: Αν υπάρχει στο XML, μπορούμε να το παραγγείλουμε
+        const availableSuppliers = supplierInfo;
 
-      const isSupplier = (name) => minSupplierInfo?.name.toLowerCase() === name.toLowerCase();
+        if (!availableSuppliers || availableSuppliers.length === 0) {
+          console.warn(`No suppliers found for new product: ${product.name}`);
+          return {
+            generalPrice: { price: "0.00", isFixed: false },
+            skroutzPrice: { platform: "Skroutz", price: "0.00", is_fixed_price: false },
+            shopflixPrice: { platform: "Shopflix", price: "0.00", is_fixed_price: false }
+          };
+        }
 
-      // Βρίσκω τους προμηθευτές που έχουν το προϊόν διαθέσιμο
-      const availableSuppliers = supplierInfo.filter(x => x.in_stock === true)
+        // Βρες τον φθηνότερο προμηθευτή (ακόμα και αν είναι OutOfStock)
+        let minSupplierInfo = availableSuppliers.reduce((prev, current) => {
+          return (prev.wholesale < current.wholesale) ? prev : current;
+        });
 
-      // Βρίσκω τον προμηθευτή που έχει διαθέσιμο το προϊόν και έχει τη μικρότερη τιμή χονδρικής
-      let minSupplierInfo = availableSuppliers?.reduce((prev, current) => {
-        return (prev.wholesale < current.wholesale) ? prev : current
-      })
+        return await this.calculatePrices(minSupplierInfo, brandId, categoryId, recycleTax, taxRate, categoryInfo, product, null);
+      }
 
-      // Αναζητώ στη βάση τον προμηθευτή με τη μικρότερη τιμή για να βρώ το κόστος των μεταφορικών
+      // ════════════════════════════════════════════════════════════
+      // ΣΕΝΑΡΙΟ 2: ΥΠΑΡΧΟΝ ΠΡΟΪΟΝ (existedProduct exists)
+      // ════════════════════════════════════════════════════════════
+
+      // Βρες τους διαθέσιμους προμηθευτές (in_stock=true)
+      const availableSuppliers = supplierInfo.filter(x => x.in_stock === true);
+
+      // ────────────────────────────────────────────────────────────
+      // ΣΕΝΑΡΙΟ 2Α: ΔΕΝ ΥΠΑΡΧΕΙ ΚΑΝΕΝΑΣ ΔΙΑΘΕΣΙΜΟΣ
+      // ────────────────────────────────────────────────────────────
+      if (availableSuppliers.length === 0) {
+        // Κράτα την υπάρχουσα τιμή (δεν αλλάζει τίποτα)
+        const skroutz = existedProduct.platforms.find(x => x.platform === "Skroutz");
+        const shopflix = existedProduct.platforms.find(x => x.platform === "Shopflix");
+
+        return {
+          generalPrice: {
+            price: parseFloat(existedProduct.price).toFixed(2),
+            isFixed: existedProduct.is_fixed_price
+          },
+          skroutzPrice: {
+            platform: "Skroutz",
+            price: skroutz?.price || existedProduct.price,
+            is_fixed_price: skroutz?.is_fixed_price || existedProduct.is_fixed_price
+          },
+          shopflixPrice: {
+            platform: "Shopflix",
+            price: shopflix?.price || existedProduct.price,
+            is_fixed_price: shopflix?.is_fixed_price || existedProduct.is_fixed_price
+          }
+        };
+      }
+
+      // ────────────────────────────────────────────────────────────
+      // ΣΕΝΑΡΙΟ 2Β: ΥΠΑΡΧΟΥΝ ΔΙΑΘΕΣΙΜΟΙ ΠΡΟΜΗΘΕΥΤΕΣ
+      // ────────────────────────────────────────────────────────────
+      // Βρες τον φθηνότερο διαθέσιμο
+      let minSupplierInfo = availableSuppliers.reduce((prev, current) => {
+        return (prev.wholesale < current.wholesale) ? prev : current;
+      });
+
+      // Υπολόγισε νέες τιμές με βάση τον φθηνότερο διαθέσιμο
+      return await this.calculatePrices(
+        minSupplierInfo,
+        brandId,
+        categoryId,
+        recycleTax,
+        taxRate,
+        categoryInfo,
+        product,
+        existedProduct
+      );
+
+    } catch (error) {
+      console.error("Error in setPrice:", product.name, error);
+      throw error;
+    }
+  },
+
+  // ════════════════════════════════════════════════════════════
+  // HELPER: Υπολογισμός Τιμών
+  // ════════════════════════════════════════════════════════════
+  async calculatePrices(minSupplierInfo, brandId, categoryId, recycleTax, taxRate, categoryInfo, product, existedProduct) {
+    try {
       const supplier = await strapi.db.query('plugin::import-products.importxml').findOne({
         select: ['name', 'shipping', 'useRetailPrice'],
         where: { name: minSupplierInfo.name },
@@ -34,13 +109,9 @@ module.exports = ({ strapi }) => ({
         }
       });
 
-      // Αποθηκεύω σε μεταβλητή τα μεταφορικά
-      let supplierShipping = this.parseFloatSafe(supplier?.shipping)
+      let supplierShipping = this.parseFloatSafe(supplier?.shipping);
+      let percentages = this.findProductPlatformPercentage(categoryInfo, brandId);
 
-      // Βρίσκω τα ποστοστά ανα πλατφόρμα
-      let percentages = this.findProductPlatformPercentage(categoryInfo, brandId)
-
-      // Calculate base prices for each platform
       const calculatePlatformPrice = (platform) => {
         const basePrice = this.parseFloatSafe(minSupplierInfo.wholesale) +
           recycleTax +
@@ -59,37 +130,31 @@ module.exports = ({ strapi }) => ({
         shopflix: calculatePlatformPrice('shopflix')
       };
 
-      // Handle special supplier pricing rules
-      const handleSpecialPricing = () => {
-        if (!existedProduct) {
-          return this.handleNewProductPricing(product, minPrices, supplier, categoryId);
-        }
+      // Handle special pricing rules
+      if (!existedProduct) {
+        return this.handleNewProductPricing(product, minPrices, supplier, categoryId);
+      }
 
-        // Check if the brand exists in the useRetailPriceBrands array
-        const isBrandIncluded = supplier.useRetailPriceBrands.some(brand => brand.id === brandId);
-        const isCategoryIncluded = supplier.useRetailPriceCategories.some(category => category.id === categoryId);
-        const retailPrice = this.parseFloatSafe(product.retail_price);
-        const isStringContained = this.containsRetailPriceName(existedProduct.name.toLocaleLowerCase(), supplier)
+      const isBrandIncluded = supplier.useRetailPriceBrands.some(brand => brand.id === brandId);
+      const isCategoryIncluded = supplier.useRetailPriceCategories.some(category => category.id === categoryId);
+      const retailPrice = this.parseFloatSafe(product.retail_price);
+      const isStringContained = this.containsRetailPriceName(
+        existedProduct.name.toLowerCase(),
+        supplier
+      );
 
-        // existedProduct.name.toLocaleLowerCase().includes(supplier.useRetailPriceContainName.toLocaleLowerCase().trim());
+      const skroutz = existedProduct.platforms.find(x => x.platform === "Skroutz");
+      const shopflix = existedProduct.platforms.find(x => x.platform === "Shopflix");
 
-        const skroutz = existedProduct.platforms.find(x => x.platform === "Skroutz");
-        const shopflix = existedProduct.platforms.find(x => x.platform === "Shopflix");
+      if ((supplier.useRetailPrice || isBrandIncluded || isCategoryIncluded || isStringContained) && retailPrice !== 0) {
+        return this.createPrices(existedProduct, {}, minPrices, retailPrice, skroutz, shopflix);
+      }
 
-        if ((supplier.useRetailPrice || isBrandIncluded || isCategoryIncluded || isStringContained) && retailPrice !== 0) {
-
-          return this.createPrices(existedProduct, {}, minPrices, retailPrice, skroutz, shopflix);
-        }
-
-        return this.createPrices(existedProduct, {}, minPrices, null, skroutz, shopflix);
-      };
-
-
-      return handleSpecialPricing();
+      return this.createPrices(existedProduct, {}, minPrices, null, skroutz, shopflix);
 
     } catch (error) {
-      console.error("Error in setPrice:", product.name);
-      throw error; // Consider proper error handling strategy
+      console.error("Error in calculatePrices:", error);
+      throw error;
     }
   },
 

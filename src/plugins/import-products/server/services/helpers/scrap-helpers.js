@@ -358,8 +358,8 @@ module.exports = ({ strapi }) => ({
             let stockLevelFilter = [];
 
             // Get stock filter
-            for (let stock of importRef.categoryMap.stock_map) {
-                stockLevelFilter.push(stock.name);
+            for (let stock of importRef.stock_map) {
+                stockLevelFilter.push(stock.name_in_xml);
             }
 
             let minPrice = importRef.categoryMap.minimumPrice ? importRef.categoryMap.minimumPrice : 0;
@@ -439,17 +439,18 @@ module.exports = ({ strapi }) => ({
 
     filterScrappedProducts(product, stockLevelFilter, minPrice, maxPrice) {
         try {
-            let isPassingFilteres = true
 
-            if (!stockLevelFilter.includes(product.stockLevel)) {
-                isPassingFilteres = false
+            let isPassingFilters = true
+
+            if (!stockLevelFilter.includes(product.stock_level)) {
+                isPassingFilters = false
             }
 
             if (Number.isNaN(product.wholesale) || product.wholesale < minPrice || product.wholesale > maxPrice) {
-                isPassingFilteres = false
+                isPassingFilters = false
             }
 
-            return isPassingFilteres
+            return isPassingFilters
         } catch (error) {
             console.log(error)
         }

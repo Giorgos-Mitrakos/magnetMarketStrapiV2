@@ -1,0 +1,33 @@
+{
+  "kind": "collectionType",
+  "collectionName": "brandexclmaps",
+  "info": {
+    "singularName": "brandexclmap",
+    "pluralName": "brandexclmaps",
+    "displayName": "brandexclmaps"
+  },
+  "options": {
+    "draftAndPublish": false,
+    "comment": ""
+  },
+  "pluginOptions": {
+    "content-manager": {
+      "visible": false
+    },
+    "content-type-builder": {
+      "visible": false
+    }
+  },
+  "attributes": {
+    "brand_name": {
+      "type": "string",
+      "required": true
+    },
+    "related_import": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::import-products.importxml",
+      "inversedBy": "brand_excl_map"
+    }
+  }
+}

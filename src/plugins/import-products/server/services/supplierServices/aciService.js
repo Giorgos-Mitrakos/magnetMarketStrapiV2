@@ -298,7 +298,7 @@ module.exports = ({ strapi }) => ({
           .createFields(importRef.mapFields.stock_level, stockName)
 
         if (importRef.categoryMap.stock_map.length > 0) {
-          let catIndex = importRef.categoryMap.stock_map.findIndex(x => x.name.trim() === availability.trim())
+          let catIndex = importRef.categoryMap.stock_map.findIndex(x => x.name_in_xml.trim() === availability.trim())
           if (catIndex !== -1) {
             return true
           }

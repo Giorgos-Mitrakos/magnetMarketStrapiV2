@@ -95,7 +95,10 @@
         "MediumStock",
         "LowStock",
         "Backorder",
-        "OutOfStock"
+        "IsExpected",
+        "AskForPrice",
+        "OutOfStock",
+        "Discontinued"
       ],
       "default": "InStock",
       "required": true
@@ -233,6 +236,12 @@
       "type": "integer",
       "min": 0,
       "max": 100
+    },
+    "is_archived": {
+      "type": "boolean"
+    },
+    "redirect_to_url": {
+      "type": "string"
     }
   }
 }

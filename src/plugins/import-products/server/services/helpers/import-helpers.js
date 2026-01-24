@@ -20,8 +20,8 @@ module.exports = ({ strapi }) => ({
                 populate: {
                     importedFile: true,
                     stock_map: {
-                        fields: ['name'],
-                        sort: 'name:asc',
+                        fields: ['name_in_xml', 'translate_to', 'allow_import'],
+                        sort: 'name_in_xml:asc',
                     },
                 },
             })
@@ -38,8 +38,8 @@ module.exports = ({ strapi }) => ({
                 populate: {
                     importedFile: true,
                     stock_map: {
-                        fields: ['name'],
-                        sort: 'name:asc',
+                        fields: ['name_in_xml', 'translate_to', 'allow_import'],
+                        sort: 'name_in_xml:asc',
                     },
                 },
             })
@@ -56,8 +56,8 @@ module.exports = ({ strapi }) => ({
                 populate: {
                     importedFile: true,
                     stock_map: {
-                        fields: ['name'],
-                        sort: 'name:asc',
+                        fields: ['name_in_xml', 'translate_to', 'allow_import'],
+                        sort: 'name_in_xml:asc',
                     },
                 },
             })
@@ -74,8 +74,8 @@ module.exports = ({ strapi }) => ({
                 populate: {
                     importedFile: true,
                     stock_map: {
-                        fields: ['name'],
-                        sort: 'name:asc',
+                        fields: ['name_in_xml', 'translate_to', 'allow_import'],
+                        sort: 'name_in_xml:asc',
                     },
                 },
             })
@@ -112,6 +112,16 @@ module.exports = ({ strapi }) => ({
 
         importRef.suppliers = await strapi.entityService.findMany('plugin::import-products.importxml', {
             fields: ['name', 'shipping'],
+        });
+
+        importRef.stock_map = await strapi.db.query('plugin::import-products.stockmap').findMany({
+            where: { related_import: entry.id },
+            select: ['name_in_xml', 'translate_to', 'allow_import']
+        });
+
+        importRef.brand_excl_map = await strapi.db.query('plugin::import-products.brandexclmap').findMany({
+            where: { related_import: entry.id },
+            select: ['brand_name']
         });
 
         return importRef
@@ -178,10 +188,12 @@ module.exports = ({ strapi }) => ({
                 .service('supplierHelpers')
                 .createPriceProgress(product)
 
-            const supplierInfo = [strapi
+            const supplierInfoData = strapi
                 .plugin('import-products')
                 .service('supplierHelpers')
-                .createSupplierInfoData(product, price_progress_data)]
+                .createSupplierInfoData(product, price_progress_data, importRef.stock_map);
+
+            const supplierInfo = [supplierInfoData];
 
             const productPrices = await strapi
                 .plugin('import-products')
@@ -192,6 +204,16 @@ module.exports = ({ strapi }) => ({
             product.category = categoryInfo.id;
             product.price = parseFloat(productPrices.generalPrice.price).toFixed(2);
             product.is_fixed_price = productPrices.generalPrice.isFixed;
+
+            product.status = strapi
+                .plugin('import-products')
+                .service('productStatusHelper')
+                .calculateProductStatus(
+                    0,
+                    supplierInfo,
+                    product,
+                    importRef.brand_excl_map
+                );
 
             let platforms = [
                 productPrices.skroutzPrice,
@@ -205,7 +227,7 @@ module.exports = ({ strapi }) => ({
                 price: parseFloat(productPrices.generalPrice.price).toFixed(2),
                 is_fixed_price: product.is_fixed_price,
                 publishedAt: new Date(),
-                status: 'InStock',
+                status: product.status,
                 related_import: product.entry.id,
                 supplierInfo: supplierInfo,
                 prod_chars: product.prod_chars,
@@ -251,7 +273,7 @@ module.exports = ({ strapi }) => ({
             }
 
             if (product.brand) {
-                data.brand = product.brand
+                data.brand = product.brand.id
             }
 
             if (product.length && product.width && product.height) {
@@ -320,7 +342,8 @@ module.exports = ({ strapi }) => ({
                     name: data.name,
                     supplierInfo: data.supplierInfo,
                     related_import: [product.entry],
-                    brand: product.brand,
+                    brand: data.brand,
+                    brandName: product.brandName,
                     category: categoryInfo,
                     platforms: data.platforms,
                     prod_chars: data.prod_chars
@@ -359,10 +382,10 @@ module.exports = ({ strapi }) => ({
             this.updateProductChars(importRef, entryCheck, product, data, dbChange);
 
             // Handle supplier availability notifications
-            await this.handleAvailabilityNotifications(entryCheck, product);
+            await this.handleAvailabilityNotifications(entryCheck, product, data);
 
             // Update product metadata
-            this.updateProductMetadata(entryCheck, product, categoryInfo, data, dbChange);
+            await this.updateProductMetadata(entryCheck, product, categoryInfo, data, dbChange);
 
             // ενημερώνω τυχών αλλαγές στις τιμές του προμηθευτή
             strapi
@@ -419,7 +442,33 @@ module.exports = ({ strapi }) => ({
                 // }
             }
 
+            // ✅ Χρησιμοποιούμε το brandName από το product αν υπάρχει,
+            // αλλιώς το entryCheck.brand (που είναι ID)
+            const productForStatus = {
+                ...product,
+                brandName: product.brandName || entryCheck.brand?.name || entryCheck.brand
+            };
+
+            const supplierInfoForStatus = data.supplierInfo || entryCheck.supplierInfo;
+            const inventoryForStatus = data.inventory !== undefined ? data.inventory : entryCheck.inventory;
+
+            const calculatedStatus = strapi
+                .plugin('import-products')
+                .service('productStatusHelper')
+                .calculateProductStatus(
+                    inventoryForStatus,
+                    supplierInfoForStatus,
+                    productForStatus, // ✅ Περνάμε το object με brandName
+                    importRef.brand_excl_map
+                );
+
+            if (calculatedStatus !== entryCheck.status) {
+                data.status = calculatedStatus;
+                dbChange.typeOfChange = 'updated';
+            }
+
             if (Object.keys(data).length !== 0) {
+
                 const updated = await strapi.entityService.update('api::product.product', entryCheck.id, {
                     data
                 });
@@ -490,7 +539,8 @@ module.exports = ({ strapi }) => ({
                         // fields: ['supplierInfo', 'name'],
                         populate: {
                             supplierInfo: true,
-                            related_import: true
+                            related_import: true,
+                            brand: true
                         },
                     })
 
@@ -514,18 +564,40 @@ module.exports = ({ strapi }) => ({
                     // Ελέγχω αν δεν υπάρχει διαθέσιμο σε κανένα προμηθευτή
                     const isAllSuppliersOutOfStock = supplierInfo.every(supplier => supplier.in_stock === false)
 
-                    // Αν υπάρχει ακόμα διαθέσιμο σε κάποιον τότε ενημερώνω τη βάση
-                    // με τη διαθεσιμότητα του προϊόντος στους προμηθευτές
-                    // αλλίως ενημερώνω τη βάση με τη διαθεσιμότητα του προϊόντος στους προμηθευτές
-                    // προσθέτω ημερομηνία διαγραφής (δεν υπάρχει διαθέσιμο σε κανένα προμηθευτή)
-                    // και ελέγχω αν υπάρχει στην αποθήκη μας, αν όχι τότε κάνω το προϊόν draft
-                    if (!isAllSuppliersOutOfStock) {
-                        data.supplierInfo = supplierInfo
-                    }
-                    else {
-                        data.supplierInfo = supplierInfo
+                    data.supplierInfo = supplierInfo;
+
+                    // ✅ Δημιουργούμε product object με brandName
+                    const productForStatus = {
+                        ...product,
+                        brandName: checkProduct.brand?.name || checkProduct.brand
+                    };
+
+                    // ✅ ΝΕΑ ΛΟΓΙΚΗ: Υπολογισμός status
+                    if (isAllSuppliersOutOfStock) {
+                        // Κανένας supplier δεν έχει - ορίζουμε deletedAt
                         data.deletedAt = new Date();
-                        if (!checkProduct.inventory || checkProduct.inventory === 0) { data.publishedAt = null }
+
+                        // Υπολογίζουμε status βάσει inventory
+                        data.status = strapi
+                            .plugin('import-products')
+                            .service('productStatusHelper')
+                            .calculateProductStatus(
+                                checkProduct.inventory || 0,
+                                supplierInfo,
+                                productForStatus,
+                                importRef.brand_excl_map
+                            );
+                    } else {
+                        // Κάποιος supplier έχει ακόμα - υπολογίζουμε status
+                        data.status = strapi
+                            .plugin('import-products')
+                            .service('productStatusHelper')
+                            .calculateProductStatus(
+                                checkProduct.inventory || 0,
+                                supplierInfo,
+                                productForStatus,
+                                importRef.brand_excl_map
+                            );
                     }
 
                     // Ενημερώνω τη βάση με τις νέες τιμές του προϊόντος 
@@ -610,44 +682,47 @@ module.exports = ({ strapi }) => ({
     },
 
     async handleAvailabilityNotifications(entryCheck, product) {
-        // Αναζητώ τον προμηθευτή
         let supplierInfo = entryCheck.supplierInfo;
         let supplierInfoIndex = supplierInfo.findIndex(o => o.name === product.entry.name)
 
-        // Αν υπάρχει ο προμηθευτής και το προϊόν ήταν μη διαθέσιμο από αυτόν και παράλληλα είναι ενεργοποιημένη 
-        // η επιλογή να ενημερώνω ότι είναι πλέον διαθέσιμο τότε στέλνω email ενημέρωσης
-        // Αν πρόκειται για νέο προθηθευτή του προϊόντος και είναι ενεργοποιήμένη η επιλογή ενημέρωσης διαθεσιμότητας
-        // πάλι στέλνω email ενημέρωσης
-        if (supplierInfoIndex !== -1) {
-            if (supplierInfo[supplierInfoIndex].in_stock === false && entryCheck.notice_if_available) {
-                const emailVariables = {
-                    product: {
-                        name: entryCheck.name,
-                        id: entryCheck.id,
-                        supplier: product.entry.name,
-                        supplierProductId: product.supplierCode
-                    },
-                }
-                await strapi.service('api::order.order').sendConfirmOrderEmail({ templateReferenceId: 10, to: ['giorgos_mitrakos@yahoo.com', "info@magnetmarket.gr", "kkoulogiannis@gmail.com"], emailVariables, subject: "Ενημέρωση διαθεσιμότητας!" })
+        // Έλεγχος αν πρέπει να σταλεί email
+        let shouldNotify = false;
 
+        if (supplierInfoIndex !== -1) {
+            // Υπάρχων supplier επέστρεψε σε stock
+            if (supplierInfo[supplierInfoIndex].in_stock === false && entryCheck.notice_if_available) {
+                shouldNotify = true;
+            }
+        } else {
+            // Νέος supplier με stock
+            if (entryCheck.notice_if_available) {
+                shouldNotify = true;
             }
         }
-        else {
-            if (entryCheck.notice_if_available) {
-                const emailVariables = {
-                    product: {
-                        name: entryCheck.name,
-                        id: entryCheck.id,
-                        supplier: product.entry.name,
-                        supplierProductId: product.supplierCode
-                    },
-                }
-                await strapi.service('api::order.order').sendConfirmOrderEmail({ templateReferenceId: 10, to: ['giorgos_mitrakos@yahoo.com', "info@magnetmarket.gr", "kkoulogiannis@gmail.com"], emailVariables, subject: "Ενημέρωση διαθεσιμότητας!" })
+
+        if (shouldNotify) {
+            const emailVariables = {
+                product: {
+                    name: entryCheck.name,
+                    id: entryCheck.id,
+                    supplier: product.entry.name,
+                    supplierProductId: product.supplierCode
+                },
             }
+
+            await strapi.service('api::order.order').sendConfirmOrderEmail({
+                templateReferenceId: 10,
+                to: ['giorgos_mitrakos@yahoo.com', "info@magnetmarket.gr", "kkoulogiannis@gmail.com"],
+                emailVariables,
+                subject: "Ενημέρωση διαθεσιμότητας!"
+            });
+
+            // ✅ Ενημέρωσε το data object απευθείας
+            data.notice_if_available = false;
         }
     },
 
-    updateProductMetadata(entryCheck, product, categoryInfo, data, dbChange) {
+    async updateProductMetadata(entryCheck, product, categoryInfo, data, dbChange) {
         try {
             // Αν το προϊόν δεν είναι σε κάποια κατηγορία ή αν είναι σε διαφορετική 
             // από ότι βρήκα στο μαπάρισμα του προμηθευτή ενημερώνω την κατηγορία.
@@ -695,6 +770,7 @@ module.exports = ({ strapi }) => ({
             //Εδώ κάνω έλεγχο Κατασκευαστή
             // Update brand if different
             if (product.brand) {
+
                 if (!entryCheck.brand || entryCheck.brand.id !== product.brand.id) {
                     data.brand = product.brand.id;
                     dbChange.typeOfChange = 'updated';
@@ -802,12 +878,33 @@ module.exports = ({ strapi }) => ({
                     // και ελέγχω αν υπάρχει στην αποθήκη μας, αν όχι τότε κάνω το προϊόν draft
                     if (isAllSuppliersOutOfStock) {
                         data.deletedAt = new Date();
-                        data.publishedAt = null
-                        // if (!checkProduct.inventory || checkProduct.inventory !== 0) { data.publishedAt = null }
+                        // Υπολογίζουμε status βάσει inventory
+                        data.status = strapi
+                            .plugin('import-products')
+                            .service('productStatusHelper')
+                            .calculateProductStatus(
+                                checkProduct.inventory || 0,
+                                data.supplierInfo,
+                                product,
+                                importRef.brand_excl_map
+                            );
+                    }
+                    else {
+                        // Κάποιος supplier έχει ακόμα - υπολογίζουμε status
+                        data.status = strapi
+                            .plugin('import-products')
+                            .service('productStatusHelper')
+                            .calculateProductStatus(
+                                checkProduct.inventory || 0,
+                                data.supplierInfo,
+                                product,
+                                importRef.brand_excl_map
+                            );
                     }
                 }
                 else {
                     await strapi.entityService.delete('api::product.product', product.id);
+                    continue; // Skip το update
                 }
 
                 if (Object.keys(data).length !== 0) {
@@ -817,6 +914,7 @@ module.exports = ({ strapi }) => ({
                 }
             }
             else {
+                // Αν δεν έχει supplierInfo, διέγραψε το προϊόν
                 await strapi.entityService.delete('api::product.product', product.id);
             }
         }

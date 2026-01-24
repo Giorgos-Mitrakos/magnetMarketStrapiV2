@@ -52,6 +52,21 @@
       "default": true,
       "description": "Is product in stock with this supplier"
     },
+    "stock_level": {
+      "type": "string"
+    },
+    "translated_status": {
+      "type": "enumeration",
+      "enum": [
+        "InStock",
+        "MediumStock",
+        "LowStock",
+        "IsExpected",
+        "Backorder",
+        "OutOfStock"
+      ],
+      "description": "Translated status from stockmap"
+    },
     "price_progress": {
       "displayName": "Price Progress",
       "type": "component",

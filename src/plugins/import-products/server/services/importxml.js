@@ -7,8 +7,8 @@ module.exports = ({ strapi }) => ({
                 populate: {
                     importedFile: true,
                     stock_map: {
-                        fields: ['name'],
-                        sort: 'name:asc',
+                        fields: ['name_in_xml', 'translate_to', 'allow_import'],
+                        sort: 'name_in_xml:asc',
                     },
                 },
             })
@@ -50,7 +50,7 @@ module.exports = ({ strapi }) => ({
         try {
             const entry = await strapi.entityService.findOne('plugin::import-products.importxml', id,
                 {
-                    fields: ['name', 'isWhitelistSelected', 'minimumPrice', 'maximumPrice'],
+                    fields: ['name', 'isWhitelistSelected', 'minimumPrice', 'maximumPrice', 'has_quantity', 'min_quantity'],
                     sort: 'name:asc',
                     populate: {
                         categories_map:
@@ -83,8 +83,12 @@ module.exports = ({ strapi }) => ({
                             sort: 'name:asc',
                         },
                         stock_map: {
-                            fields: ['name'],
-                            sort: 'name:asc',
+                            fields: ['name_in_xml', 'translate_to', 'allow_import'],
+                            sort: 'name_in_xml:asc',
+                        },
+                        brand_excl_map: {
+                            fields: ['brand_name'],
+                            sort: 'brand_name:asc',
                         },
                         whitelist_map: {
                             fields: ['name'],
@@ -151,12 +155,22 @@ module.exports = ({ strapi }) => ({
         await strapi.plugin('import-products')
             .service('blacklistService')
             .saveBlacklist({ id, categoryMapping, oldcategoryMapping })
+        await strapi.plugin('import-products')
+            .service('brandsToExclude')
+            .saveBrandsToExclude({ id, categoryMapping, oldcategoryMapping })
+
+        await strapi.entityService.update('plugin::import-products.importxml', id, {
+            data: {
+                has_quantity: categoryMapping.has_quantity,
+                min_quantity: categoryMapping.min_quantity,
+            },
+        });
     },
 
     async getImportMapping(entry) {
         try {
             const categoryMap = await strapi.entityService.findOne('plugin::import-products.importxml', entry.id, {
-                fields: ['isWhitelistSelected', 'minimumPrice', 'maximumPrice'],
+                fields: ['isWhitelistSelected', 'minimumPrice', 'maximumPrice', 'has_quantity', 'min_quantity'],
                 populate: {
                     char_name_map: {
                         fields: ['name', 'value'],
@@ -181,7 +195,7 @@ module.exports = ({ strapi }) => ({
                         },
                     },
                     stock_map: {
-                        fields: ['name'],
+                        fields: ['name_in_xml', 'translate_to', 'allow_import'],
                     },
                     whitelist_map: {
                         fields: ['name'],

@@ -1014,6 +1014,7 @@ export interface ApiPlatformPlatform extends Schema.CollectionType {
       'manyToMany',
       'api::category.category'
     >;
+    export_statuses: Attribute.Component<'platforms.export-status', true>;
     merchantFeeCatalogue: Attribute.Media<'files'>;
     name: Attribute.String & Attribute.Required;
     only_in_house_inventory: Attribute.Boolean;
@@ -1122,6 +1123,7 @@ export interface ApiProductProduct extends Schema.CollectionType {
     height: Attribute.Decimal & Attribute.DefaultTo<0>;
     image: Attribute.Media<'images'>;
     inventory: Attribute.Integer & Attribute.DefaultTo<0>;
+    is_archived: Attribute.Boolean;
     is_bargain: Attribute.Boolean & Attribute.DefaultTo<false>;
     is_fixed_price: Attribute.Boolean & Attribute.DefaultTo<false>;
     is_hot: Attribute.Boolean & Attribute.DefaultTo<false>;
@@ -1161,6 +1163,7 @@ export interface ApiProductProduct extends Schema.CollectionType {
     prod_chars: Attribute.Component<'products.chars', true>;
     publishedAt: Attribute.DateTime;
     purchace_history: Attribute.Component<'products.purchace-history', true>;
+    redirect_to_url: Attribute.String;
     related_import: Attribute.Relation<
       'api::product.product',
       'manyToMany',
@@ -1196,7 +1199,16 @@ export interface ApiProductProduct extends Schema.CollectionType {
     sku: Attribute.String & Attribute.Unique;
     slug: Attribute.UID<'api::product.product', 'name'> & Attribute.Required;
     status: Attribute.Enumeration<
-      ['InStock', 'MediumStock', 'LowStock', 'Backorder', 'OutOfStock']
+      [
+        'InStock',
+        'MediumStock',
+        'LowStock',
+        'Backorder',
+        'IsExpected',
+        'AskForPrice',
+        'OutOfStock',
+        'Discontinued'
+      ]
     > &
       Attribute.Required &
       Attribute.DefaultTo<'InStock'>;
@@ -2365,6 +2377,50 @@ export interface PluginImportProductsBlacklistmap
   };
 }
 
+export interface PluginImportProductsBrandexclmap
+  extends Schema.CollectionType {
+  collectionName: 'brandexclmaps';
+  info: {
+    displayName: 'brandexclmaps';
+    pluralName: 'brandexclmaps';
+    singularName: 'brandexclmap';
+  };
+  options: {
+    comment: '';
+    draftAndPublish: false;
+  };
+  pluginOptions: {
+    'content-manager': {
+      visible: false;
+    };
+    'content-type-builder': {
+      visible: false;
+    };
+  };
+  attributes: {
+    brand_name: Attribute.String & Attribute.Required;
+    createdAt: Attribute.DateTime;
+    createdBy: Attribute.Relation<
+      'plugin::import-products.brandexclmap',
+      'oneToOne',
+      'admin::user'
+    > &
+      Attribute.Private;
+    related_import: Attribute.Relation<
+      'plugin::import-products.brandexclmap',
+      'manyToOne',
+      'plugin::import-products.importxml'
+    >;
+    updatedAt: Attribute.DateTime;
+    updatedBy: Attribute.Relation<
+      'plugin::import-products.brandexclmap',
+      'oneToOne',
+      'admin::user'
+    > &
+      Attribute.Private;
+  };
+}
+
 export interface PluginImportProductsCategorymap extends Schema.CollectionType {
   collectionName: 'categorymaps';
   info: {
@@ -2537,6 +2593,11 @@ export interface PluginImportProductsImportxml extends Schema.CollectionType {
       'oneToMany',
       'plugin::import-products.blacklistmap'
     >;
+    brand_excl_map: Attribute.Relation<
+      'plugin::import-products.importxml',
+      'oneToMany',
+      'plugin::import-products.brandexclmap'
+    >;
     categories_map: Attribute.Relation<
       'plugin::import-products.importxml',
       'oneToMany',
@@ -2559,6 +2620,7 @@ export interface PluginImportProductsImportxml extends Schema.CollectionType {
       'admin::user'
     > &
       Attribute.Private;
+    has_quantity: Attribute.Boolean & Attribute.DefaultTo<false>;
     importedFile: Attribute.Media<'files'>;
     importedURL: Attribute.Text;
     isActive: Attribute.Boolean & Attribute.DefaultTo<true>;
@@ -2572,6 +2634,14 @@ export interface PluginImportProductsImportxml extends Schema.CollectionType {
         number
       > &
       Attribute.DefaultTo<0>;
+    min_quantity: Attribute.Integer &
+      Attribute.SetMinMax<
+        {
+          max: 100;
+          min: 0;
+        },
+        number
+      >;
     minimumPrice: Attribute.Decimal &
       Attribute.SetMinMax<
         {
@@ -2651,6 +2721,7 @@ export interface PluginImportProductsStockmap extends Schema.CollectionType {
     };
   };
   attributes: {
+    allow_import: Attribute.Boolean & Attribute.DefaultTo<false>;
     createdAt: Attribute.DateTime;
     createdBy: Attribute.Relation<
       'plugin::import-products.stockmap',
@@ -2658,12 +2729,26 @@ export interface PluginImportProductsStockmap extends Schema.CollectionType {
       'admin::user'
     > &
       Attribute.Private;
-    name: Attribute.String & Attribute.Required;
+    name_in_xml: Attribute.String & Attribute.Required;
     related_import: Attribute.Relation<
       'plugin::import-products.stockmap',
       'manyToOne',
       'plugin::import-products.importxml'
     >;
+    translate_to: Attribute.Enumeration<
+      [
+        'InStock',
+        'MediumStock',
+        'LowStock',
+        'Backorder',
+        'IsExpected',
+        'AskForPrice',
+        'OutOfStock',
+        'Discontinued'
+      ]
+    > &
+      Attribute.Required &
+      Attribute.DefaultTo<'InStock'>;
     updatedAt: Attribute.DateTime;
     updatedBy: Attribute.Relation<
       'plugin::import-products.stockmap',
@@ -3117,6 +3202,7 @@ declare module '@strapi/types' {
       'plugin::email-designer.email-template': PluginEmailDesignerEmailTemplate;
       'plugin::i18n.locale': PluginI18NLocale;
       'plugin::import-products.blacklistmap': PluginImportProductsBlacklistmap;
+      'plugin::import-products.brandexclmap': PluginImportProductsBrandexclmap;
       'plugin::import-products.categorymap': PluginImportProductsCategorymap;
       'plugin::import-products.charnamemap': PluginImportProductsCharnamemap;
       'plugin::import-products.charvaluemap': PluginImportProductsCharvaluemap;

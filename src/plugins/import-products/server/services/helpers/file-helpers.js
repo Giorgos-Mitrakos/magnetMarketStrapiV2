@@ -64,7 +64,7 @@ module.exports = ({ strapi }) => ({
 
                     imageIDS.imgUrls.push(imgUrl);
                 } catch (err) {
-                    console.error("Image processing error:", err, "File:", tmpPath);
+                    console.error("Image processing error:", err, "File:", tmpPath), "productName:", productName;
                     try {
                         if (fs.existsSync(tmpPath)) {
                             fs.unlinkSync(tmpPath);

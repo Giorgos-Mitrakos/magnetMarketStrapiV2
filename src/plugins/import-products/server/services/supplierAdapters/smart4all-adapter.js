@@ -112,7 +112,7 @@ module.exports = ({ strapi }) => {
                         if (!availability) return false;
 
                         if (categoryMap.stock_map.length > 0) {
-                            const catIndex = categoryMap.stock_map.findIndex(x => x.name.trim() === availability.trim());
+                            const catIndex = categoryMap.stock_map.findIndex(x => x.name_in_xml.trim() === availability.trim());
                             if (catIndex === -1) return false;
                         }
 
@@ -133,8 +133,8 @@ module.exports = ({ strapi }) => {
                         if (!productPrice) return false;
 
                         const minPrice = categoryMap.minimumPrice ? parseFloat(categoryMap.minimumPrice) : 0;
-                        const maxPrice = categoryMap.maximumPrice && categoryMap.maximumPrice > 0 
-                            ? parseFloat(categoryMap.maximumPrice) 
+                        const maxPrice = categoryMap.maximumPrice && categoryMap.maximumPrice > 0
+                            ? parseFloat(categoryMap.maximumPrice)
                             : 100000;
 
                         const price = parseFloat(productPrice);
@@ -221,11 +221,11 @@ module.exports = ({ strapi }) => {
                 }
             });
 
-            const stockFilterFields = importRef.categoryMap.stock_map.map(x => x.name.trim());
+            const stockFilterFields = importRef.categoryMap.stock_map.map(x => x.name_in_xml.trim());
 
             // ✅ Filter Excel products by stock and EAN
             const productsInExcel = excel.filter(x => {
-                if (!x["Availability"] || x["Availability"].trim() === "" || 
+                if (!x["Availability"] || x["Availability"].trim() === "" ||
                     !stockFilterFields.includes(x["Availability"].trim())) {
                     return false;
                 }
@@ -250,7 +250,7 @@ module.exports = ({ strapi }) => {
                     if (!product.supplierCode) continue;
 
                     // ✅ Find product in Excel
-                    const findProductInExcel = productsInExcel.find(x => 
+                    const findProductInExcel = productsInExcel.find(x =>
                         x["Κωδικός S4ALL"]?.trim() === product.supplierCode.trim()
                     );
 
@@ -295,7 +295,7 @@ module.exports = ({ strapi }) => {
                 .trim() || "";
 
             // ✅ Parse characteristics and weight/dimensions
-            
+
             // Smart4all sends dimensions in mm, convert to cm
             if (product.length) {
                 product.length = parseInt(parseFloat(product.length) / 10);

@@ -119,42 +119,129 @@ module.exports = ({ strapi }) => ({
                 }
             }
 
-            function filterStock(stockName) {
-                let availability = strapi
+            function filterStock(productData) {
+                // 1. Get stock_level (string status από XML)
+                let stockLevel = strapi
                     .plugin('import-products')
                     .service('productHelpers')
-                    .createFields(importParams.stock_level, stockName)
+                    .createFields(importParams.stock_level, productData);
 
-                if (!availability)
-                    return false
+                // 2. Get quantity (numeric stock από XML)
+                let quantity = importParams.quantity ? strapi
+                    .plugin('import-products')
+                    .service('productHelpers')
+                    .createFields(importParams.quantity, productData)
+                    : null;
 
-                if (importParams.isGreater) {
-                    if (categoryMap.stock_map.length > 0) {
-                        if (parseInt(categoryMap.stock_map[0].name) <= parseInt(availability)) {
-                            return true
-                        }
-                        else {
-                            return false
-                        }
-                    }
-                    else {
-                        return true
+                // Normalize to proper types
+                const hasStockLevel = stockLevel !== null && stockLevel !== undefined && String(stockLevel).trim() !== '';
+                const hasQuantity = quantity !== null && quantity !== undefined;
+
+                if (!hasStockLevel && !hasQuantity) {
+                    return false;
+                }
+
+                let quantityCheck = null;
+                let stockLevelCheck = null;
+                let isOverrideStatus = false; // Flag για IsExpected ή Backorder
+
+                // ════════════════════════════════════════════════════════════
+                // CHECK 1: QUANTITY (numeric)
+                // ════════════════════════════════════════════════════════════
+                if (hasQuantity && categoryMap.has_quantity) {
+                    const minQuantity = categoryMap.min_quantity || 0;
+                    const parsedQuantity = parseQuantityValue(quantity);
+
+                    if (!isNaN(parsedQuantity)) {
+                        quantityCheck = parsedQuantity >= minQuantity;
                     }
                 }
+
+                // ════════════════════════════════════════════════════════════
+                // CHECK 2: STOCK_LEVEL (string via stockmap)
+                // ════════════════════════════════════════════════════════════
+                if (hasStockLevel && categoryMap.stock_map && categoryMap.stock_map.length > 0) {
+                    const stockMapEntry = categoryMap.stock_map.find(x =>
+                        x.name_in_xml.trim().toLowerCase() === String(stockLevel).trim().toLowerCase()
+                    );
+
+                    if (stockMapEntry) {
+                        stockLevelCheck = stockMapEntry.allow_import === true;
+
+                        // ✅ ΕΛΕΓΧΟΣ ΓΙΑ OVERRIDE (IsExpected ή Backorder)
+                        // Χρησιμοποιούμε λίστα για να είναι καθαρός ο κώδικας
+                        const statusesToOverride = ['IsExpected', 'Backorder'];
+                        if (statusesToOverride.includes(stockMapEntry.translate_to)) {
+                            isOverrideStatus = true;
+                        }
+                    } else {
+                        stockLevelCheck = false;
+                    }
+                }
+
+                // ════════════════════════════════════════════════════════════
+                // COMBINE LOGIC (Priorities)
+                // ════════════════════════════════════════════════════════════
+
+                // 🌟 ΠΡΟΤΕΡΑΙΟΤΗΤΑ 0: Override για ειδικά Status
+                // Αν το status είναι IsExpected ή Backorder ΚΑΙ επιτρέπουμε το import,
+                // τότε παρακάμπτουμε κάθε έλεγχο ποσότητας.
+                if (isOverrideStatus && stockLevelCheck) {
+                    return true;
+                }
+
+                // ΠΡΟΤΕΡΑΙΟΤΗΤΑ 1: Έχω επιλέξει has_quantity
+                if (categoryMap.has_quantity) {
+
+                    // Α: Έχει ΚΑΙ quantity ΚΑΙ stock_level -> ΣΥΝΔΥΑΣΜΟΣ (AND)
+                    if (quantityCheck !== null && stockLevelCheck !== null) {
+                        return quantityCheck && stockLevelCheck;
+                    }
+
+                    // Β: Έχει ΜΟΝΟ quantity
+                    if (quantityCheck !== null) {
+                        return quantityCheck;
+                    }
+
+                    // Γ: Fallback αν έχει μόνο stock_level
+                    if (stockLevelCheck !== null) {
+                        return stockLevelCheck;
+                    }
+                }
+                // ΠΡΟΤΕΡΑΙΟΤΗΤΑ 2: ΔΕΝ έχω επιλέξει has_quantity
                 else {
-                    if (categoryMap.stock_map.length > 0) {
-                        let catIndex = categoryMap.stock_map.findIndex(x => x.name.trim() === availability.trim())
-                        if (catIndex !== -1) {
-                            return true
-                        }
-                        else {
-                            return false
-                        }
-                    }
-                    else {
-                        return true
+                    // Φιλτράρισμα ΜΟΝΟ με το stock_level
+                    if (stockLevelCheck !== null) {
+                        return stockLevelCheck;
                     }
                 }
+
+                return false;
+            }
+
+            /**
+         * Helper: Parse quantity value (handles numbers, ranges, strings)
+         * @param {any} quantity 
+         * @returns {number}
+         */
+            function parseQuantityValue(quantity) {
+                if (typeof quantity === 'number') {
+                    return quantity;
+                }
+
+                const str = String(quantity).trim();
+
+                // Check for range (π.χ. "1-3" → μέσος όρος 2)
+                const rangeMatch = str.match(/^(\d+)\s*[-–—]\s*(\d+)$/);
+                if (rangeMatch) {
+                    const min = parseInt(rangeMatch[1]);
+                    const max = parseInt(rangeMatch[2]);
+                    return Math.floor((min + max) / 2);
+                }
+
+                // Simple integer
+                const parsed = parseInt(str);
+                return !isNaN(parsed) ? parsed : 0;
             }
 
             function filterCategories(cat) {
@@ -360,7 +447,8 @@ module.exports = ({ strapi }) => ({
                 },
                 mpn: this.createFields(mapFields.mpn, dt),
                 barcode: this.createFields(mapFields.barcode, dt),
-                stockLevel: this.createFields(mapFields.stock_level, dt),
+                stock_level: this.createFields(mapFields.stock_level, dt),
+                quantity: this.createFields(mapFields.quantity, dt),
                 wholesale: this.createFields(mapFields.wholesale, dt),
                 retail_price: this.createFields(mapFields.retail_price, dt),
                 recycle_tax: this.createFields(mapFields.recycle_tax, dt),
@@ -399,11 +487,14 @@ module.exports = ({ strapi }) => ({
                 }
             }
 
-            const brand = this.createFields(mapFields.brand, dt)
-            if (brand) {
-                const { brandId } = await this.brandIdCheck(brand, product.name);
-                product.brand = { id: await brandId }
+            const productBrandName = this.createFields(mapFields.brand, dt)
+            if (productBrandName) {
+                const { brandId, brandName } = await this.brandIdCheck(productBrandName, product.name);
+                if (brandId) {
+                    product.brand = { id: brandId, name: brandName } // ✅ Για αποθήκευση στη DB
+                }
             }
+
             const attributes = this.createFields(mapFields.attributes, dt)
 
             if (attributes) {
@@ -420,7 +511,6 @@ module.exports = ({ strapi }) => ({
     async createScrapedProductFields(entry, scrapedProduct, importRef) {
         try {
             const { mpn, barcode, weight } = this.findIdentifiersFromChars(scrapedProduct.prod_chars)
-
 
             const product = {
                 entry,
@@ -445,7 +535,7 @@ module.exports = ({ strapi }) => ({
                 model: scrapedProduct.model?.trim() || null,
 
                 // Stock & pricing
-                stockLevel: scrapedProduct.stockLevel?.trim() || '',
+                stock_level: scrapedProduct.stock_level?.trim() || '',
                 wholesale: scrapedProduct.wholesale ? String(scrapedProduct.wholesale).trim() : null,
                 retail_price: scrapedProduct.retail_price ? String(scrapedProduct.retail_price).trim() : null,
                 initial_wholesale: scrapedProduct.initial_wholesale ? String(scrapedProduct.initial_wholesale).trim() : null,
@@ -482,13 +572,13 @@ module.exports = ({ strapi }) => ({
                     : scrapedProduct.brand.name;
 
                 if (brandValue) {
-                    const { brandId } = await strapi
+                    const { brandId, brandName } = await strapi
                         .plugin('import-products')
                         .service('productHelpers')
                         .brandIdCheck(brandValue, product.name);
 
                     if (brandId) {
-                        product.brand = { id: brandId };
+                        product.brand = { id: brandId, name: brandName }; // ✅ Για αποθήκευση στη DB
                     }
                 }
             }
@@ -729,42 +819,48 @@ module.exports = ({ strapi }) => ({
         }
     },
 
-    async checkProductAndBrand(mpn, name, barcode, brand, model) {
-        try {
-            const { entryCheck } = await this.checkIfProductExists(mpn, barcode, name, model);
+    // async checkProductAndBrand(mpn, name, barcode, brand, model) {
+    //     try {
+    //         const { entryCheck } = await this.checkIfProductExists(mpn, barcode, name, model);
 
-            const { brandId } = await this.brandIdCheck(brand, name);
+    //         const { brandId } = await this.brandIdCheck(brand, name);
 
-            return { entryCheck, brandId }
+    //         return { entryCheck, brandId }
 
 
-        } catch (error) {
-            console.error(error)
-        }
+    //     } catch (error) {
+    //         console.error(error)
+    //     }
 
-    },
+    // },
 
     /**
- * Safe brandIdCheck - improved version
- * Should replace the existing one in productHelpers.js
- */
-    async brandIdCheck(brand, name) {
+     * Safe brandIdCheck - improved version
+     * Should replace the existing one in productHelpers.js
+     */
+    async brandIdCheck(brandName, name) {
         try {
-            if (!brand || brand === 'undefined' || brand.trim() === '') {
+            if (!brandName || brandName === 'undefined' || brandName.trim() === '') {
                 // Try to find brand from product name
                 const cacheService = strapi.plugin('import-products').service('cacheService');
                 const foundBrand = cacheService.findBrandInProductName(name);
-                return { brandId: foundBrand?.id || null };
+                return {
+                    brandId: foundBrand?.id || null,
+                    brandName: foundBrand?.name || null
+                };
             }
 
-            const brandTrimmed = brand.trim();
+            const brandTrimmed = brandName.trim();
 
             // ✅ 1. Check cache first (ALWAYS!)
             const cacheService = strapi.plugin('import-products').service('cacheService');
             let brandFromCache = cacheService.getBrandByName(brandTrimmed);
 
             if (brandFromCache) {
-                return { brandId: brandFromCache.id };
+                return {
+                    brandId: brandFromCache.id,
+                    brandName: brandFromCache.name
+                };
             }
 
             // ✅ 2. Query database to check if brand exists
@@ -773,7 +869,13 @@ module.exports = ({ strapi }) => ({
                 where: {
                     $or: [
                         { name: { $eqi: brandTrimmed } },
-                        { slug: { $eq: this.createSlug(brandTrimmed, null) } }
+                        {
+                            slug: {
+                                $eq: strapi.plugin('import-products')
+                                    .service('importHelpers')
+                                    .createSlug(brandTrimmed, null)
+                            }
+                        }
                     ]
                 },
                 select: ['id', 'name', 'slug']
@@ -786,11 +888,16 @@ module.exports = ({ strapi }) => ({
                 // ✅ Add to cache for future use
                 cacheService.cache.brands.set(brandTrimmed.toLowerCase(), existingBrand);
                 cacheService.cache.brands.set(existingBrand.slug, existingBrand);
-                return { brandId: existingBrand.id };
+                return {
+                    brandId: existingBrand.id,
+                    brandName: existingBrand.name
+                };
             }
 
             // ✅ 3. Create new brand only if it doesn't exist
-            const brandSlug = this.createSlug(brandTrimmed, null);
+            const brandSlug = strapi.plugin('import-products')
+                .service('importHelpers')
+                .createSlug(brandTrimmed, null);
 
             try {
                 const newBrand = await strapi.entityService.create('api::brand.brand', {
@@ -804,9 +911,11 @@ module.exports = ({ strapi }) => ({
                 // ✅ Add to cache
                 cacheService.cache.brands.set(brandTrimmed.toLowerCase(), newBrand);
                 cacheService.cache.brands.set(brandSlug, newBrand);
-
-                // console.log(`✅ Created new brand: ${brandTrimmed}`);
-                return { brandId: newBrand.id };
+                
+                return {
+                    brandId: newBrand.id,
+                    brandName: newBrand.name
+                };
 
             } catch (createError) {
                 // ✅ Handle "already exists" error from race condition
@@ -830,12 +939,18 @@ module.exports = ({ strapi }) => ({
                 }
 
                 console.error(`Error creating brand ${brandTrimmed}:`, createError.message);
-                return { brandId: null };
+                return {
+                    brandId: null,
+                    brandName: null
+                };
             }
 
         } catch (error) {
-            console.error('Error in brandIdCheck:', error.message);
-            return { brandId: null };
+            console.error('Error in brandIdCheck:', error.message, brandName);
+            return {
+                brandId: null,
+                brandName: null
+            };
         }
     },
 
@@ -895,38 +1010,38 @@ module.exports = ({ strapi }) => ({
     },
 
     updateProductWeight(entryCheck, product, categoryInfo, data, dbChange) {
-    try {
-        const productWeight = product.weight && product.weight > 0 ? parseInt(product.weight) : null;
-        const avgWeight = categoryInfo?.average_weight ? parseInt(categoryInfo.average_weight) : null;
-        const currentWeight = entryCheck.weight ? parseInt(entryCheck.weight) : 0;
-        
-        // Αν έχουμε νέο βάρος από το scraping
-        if (productWeight !== null) {
-            // Προτεραιότητα: product weight > average weight
-            const newWeight = productWeight || avgWeight;
-            
-            // Update μόνο αν το νέο βάρος είναι διαφορετικό από το τρέχον
-            if (newWeight > 0 && currentWeight !== newWeight) {
-                data.weight = newWeight;
+        try {
+            const productWeight = product.weight && product.weight > 0 ? parseInt(product.weight) : null;
+            const avgWeight = categoryInfo?.average_weight ? parseInt(categoryInfo.average_weight) : null;
+            const currentWeight = entryCheck.weight ? parseInt(entryCheck.weight) : 0;
+
+            // Αν έχουμε νέο βάρος από το scraping
+            if (productWeight !== null) {
+                // Προτεραιότητα: product weight > average weight
+                const newWeight = productWeight || avgWeight;
+
+                // Update μόνο αν το νέο βάρος είναι διαφορετικό από το τρέχον
+                if (newWeight > 0 && currentWeight !== newWeight) {
+                    data.weight = newWeight;
+                    dbChange.typeOfChange = 'updated';
+                }
+            }
+            // Αν ΔΕΝ έχουμε βάρος από scraping αλλά δεν υπάρχει καθόλου βάρος στη βάση
+            else if (currentWeight === 0 && avgWeight !== null) {
+                // Χρησιμοποίησε το average weight μόνο σαν fallback
+                data.weight = avgWeight;
                 dbChange.typeOfChange = 'updated';
             }
-        } 
-        // Αν ΔΕΝ έχουμε βάρος από scraping αλλά δεν υπάρχει καθόλου βάρος στη βάση
-        else if (currentWeight === 0 && avgWeight !== null) {
-            // Χρησιμοποίησε το average weight μόνο σαν fallback
-            data.weight = avgWeight;
-            dbChange.typeOfChange = 'updated';
-        }
-        // Αλλιώς κρατάμε το υπάρχον βάρος (δεν κάνουμε τίποτα)
-        
-    } catch (error) {
-        console.error('Error updating product weight:', error, 'Product:', entryCheck.id);
-        // Fallback: Βάλε default βάρος ΜΟΝΟ αν δεν υπάρχει καθόλου
-        if (!entryCheck.weight || entryCheck.weight === 0) {
-            data.weight = 1000;
-            dbChange.typeOfChange = 'updated';
+            // Αλλιώς κρατάμε το υπάρχον βάρος (δεν κάνουμε τίποτα)
+
+        } catch (error) {
+            console.error('Error updating product weight:', error, 'Product:', entryCheck.id);
+            // Fallback: Βάλε default βάρος ΜΟΝΟ αν δεν υπάρχει καθόλου
+            if (!entryCheck.weight || entryCheck.weight === 0) {
+                data.weight = 1000;
+                dbChange.typeOfChange = 'updated';
+            }
         }
     }
-}
 
 });
