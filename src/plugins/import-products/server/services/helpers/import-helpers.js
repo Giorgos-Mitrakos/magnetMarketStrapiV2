@@ -381,9 +381,6 @@ module.exports = ({ strapi }) => ({
             // Update product chars
             this.updateProductChars(importRef, entryCheck, product, data, dbChange);
 
-            // Handle supplier availability notifications
-            await this.handleAvailabilityNotifications(entryCheck, product, data);
-
             // Update product metadata
             await this.updateProductMetadata(entryCheck, product, categoryInfo, data, dbChange);
 
@@ -392,6 +389,10 @@ module.exports = ({ strapi }) => ({
                 .plugin('import-products')
                 .service('supplierHelpers')
                 .updateSupplierInfo(entryCheck, product, data, dbChange, importRef)
+
+            // Handle supplier availability notifications
+            await this.handleAvailabilityNotifications(entryCheck, product, data);
+
 
             const skroutz = entryCheck.platforms.find(x => x.platform === "Skroutz")
             const shopflix = entryCheck.platforms.find(x => x.platform === "Shopflix")
@@ -681,44 +682,85 @@ module.exports = ({ strapi }) => ({
         // if (findImport === -1) { data.related_import = [...relatedImportIds, product.entry.id] }
     },
 
-    async handleAvailabilityNotifications(entryCheck, product) {
-        let supplierInfo = entryCheck.supplierInfo;
-        let supplierInfoIndex = supplierInfo.findIndex(o => o.name === product.entry.name)
+    async handleAvailabilityNotifications(entryCheck, product, data) {
+        // Αν δεν υπάρχει το flag, skip
+        if (!entryCheck.notice_if_available) return;
 
-        // Έλεγχος αν πρέπει να σταλεί email
-        let shouldNotify = false;
+        // ✅ Τα statuses που θεωρούνται "διαθέσιμα"
+        const AVAILABLE_STATUSES = ['InStock', 'MediumStock', 'LowStock'];
 
-        if (supplierInfoIndex !== -1) {
-            // Υπάρχων supplier επέστρεψε σε stock
-            if (supplierInfo[supplierInfoIndex].in_stock === false && entryCheck.notice_if_available) {
-                shouldNotify = true;
-            }
-        } else {
-            // Νέος supplier με stock
-            if (entryCheck.notice_if_available) {
-                shouldNotify = true;
-            }
-        }
+        // ✅ Παίρνουμε τα OLD supplierInfo
+        const oldSupplierInfo = entryCheck.supplierInfo;
 
-        if (shouldNotify) {
-            const emailVariables = {
-                product: {
-                    name: entryCheck.name,
-                    id: entryCheck.id,
-                    supplier: product.entry.name,
-                    supplierProductId: product.supplierCode
-                },
-            }
+        // ✅ Παίρνουμε τα NEW supplierInfo (από το data αν υπάρχουν, αλλιώς τα παλιά)
+        const newSupplierInfo = data.supplierInfo || oldSupplierInfo;
 
+        // ✅ Έλεγχος: ΟΛΟΙ οι παλιοί suppliers ΔΕΝΔΝ ήταν σε available status
+        const allSuppliersWereUnavailable = oldSupplierInfo.every(s =>
+            !AVAILABLE_STATUSES.includes(s.translated_status)
+        );
+
+        if (!allSuppliersWereUnavailable) return; // Αν κάποιος ήδη είχε διαθέσιμο status, skip
+
+        // ✅ Βρες ποιος supplier ΑΚΡΙΒΩΣ επέστρεψε σε available status
+        const newlyAvailableSuppliers = newSupplierInfo.filter(newSupp => {
+            // Πρέπει να έχει ένα από τα available statuses
+            if (!AVAILABLE_STATUSES.includes(newSupp.translated_status)) return false;
+
+            const oldSupp = oldSupplierInfo.find(old => old.name === newSupp.name);
+
+            // True αν:
+            // 1. Δεν υπήρχε καθόλου (νέος supplier με available status)
+            // 2. Υπήρχε αλλά ΔΕΝ είχε available status (επέστρεψε σε available)
+            return !oldSupp || !AVAILABLE_STATUSES.includes(oldSupp.translated_status);
+        });
+
+        if (newlyAvailableSuppliers.length === 0) return; // Κανείς δεν επέστρεψε
+
+        // ✅ Στείλε email για τον πρώτο που επέστρεψε
+        const supplierThatCameBack = newlyAvailableSuppliers[0];
+
+        const emailVariables = {
+            product: {
+                name: entryCheck.name,
+                id: entryCheck.id,
+                currentInventory: entryCheck.inventory || 0,
+                currentStatus: entryCheck.status,
+                supplier: supplierThatCameBack.name || 'Άγνωστος',
+                supplierStatus: supplierThatCameBack.translated_status, // ✅ Προσθήκη του status
+                supplierStockLevel: supplierThatCameBack.stock_level || '-', // ✅ Το ακριβές stock level
+                supplierProductId: supplierThatCameBack.supplierProductId ||
+                    supplierThatCameBack.supplier_mpn ||
+                    supplierThatCameBack.mpn ||
+                    supplierThatCameBack.barcode ||
+                    product.supplierCode ||
+                    '-',
+                supplierPrice: supplierThatCameBack.wholesale ||
+                    supplierThatCameBack.price ||
+                    '-',
+                supplierRetailPrice: supplierThatCameBack.retail_price || '-',
+                totalSuppliersReturned: newlyAvailableSuppliers.length,
+                allSuppliers: newlyAvailableSuppliers.map(s => `${s.name} (${s.translated_status})`).join(', ')
+            },
+        };
+
+        try {
             await strapi.service('api::order.order').sendConfirmOrderEmail({
                 templateReferenceId: 10,
                 to: ['giorgos_mitrakos@yahoo.com', "info@magnetmarket.gr", "kkoulogiannis@gmail.com"],
                 emailVariables,
-                subject: "Ενημέρωση διαθεσιμότητας!"
+                subject: "⚠️ Προμηθευτής ξανά διαθέσιμος!"
             });
 
-            // ✅ Ενημέρωσε το data object απευθείας
+            // ✅ Reset το flag
             data.notice_if_available = false;
+
+            strapi.log.info(
+                `[Import] ✅ Supplier availability notification sent for product: ${entryCheck.name} (${entryCheck.id})` +
+                ` - Supplier(s): ${emailVariables.product.allSuppliers}`
+            );
+        } catch (error) {
+            strapi.log.error(`[Import] ❌ Failed to send notification for product ${entryCheck.id}:`, error);
         }
     },
 

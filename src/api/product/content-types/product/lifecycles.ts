@@ -72,9 +72,7 @@ export default {
 
     async beforeUpdate(event) {
         const { data, where } = event.params;
-
         const entry = await strapi.entityService.findOne('api::product.product', where.id);
-
         // ════════════════════════════════════════════════════════════
         // ✅ ΥΠΑΡΧΟΥΣΑ ΛΟΓΙΚΗ: need_verify flag
         // ════════════════════════════════════════════════════════════
@@ -83,7 +81,6 @@ export default {
         } else if (entry.publishedAt) {
             data.need_verify = false;
         }
-
         // ════════════════════════════════════════════════════════════
         // 🆕 ΛΟΓΙΚΗ: CLEAR deletedAt & archived WHEN BACK
         // ════════════════════════════════════════════════════════════
@@ -92,7 +89,7 @@ export default {
         //
         // ΣΗΜΕΙΩΣΗ: Το deletedAt καθαρίζεται στο XML sync όταν το προϊόν
         // επιστρέφει, οπότε εδώ απλά παρακολουθούμε για το is_archived flag
-        
+
         if (entry.is_archived && entry.deletedAt === null) {
             data.is_archived = false;
             strapi.log.info(`[Lifecycle] Product ${entry.id} back in stock - cleared is_archived`);

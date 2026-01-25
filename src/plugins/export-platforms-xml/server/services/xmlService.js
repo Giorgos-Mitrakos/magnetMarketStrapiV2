@@ -88,86 +88,57 @@ module.exports = ({ strapi }) => ({
 
     async processCategoryProducts(category, suppliers, platformData, platformName, allowedStatuses) {
         const BATCH_SIZE = 50;
-        let offset = 0;
         const categoryEntries = [];
 
         // Δημιούργησε το category path μία φορά
         const categoryPath = platformName === 'shopflix'
-            ? category.name  // Μόνο το όνομα για Shopflix
-            : await this.createCategoryPath(category); // Full path για τα άλλα
+            ? category.name
+            : await this.createCategoryPath(category);
 
+        // ✅ Query 1: Προϊόντα με inventory >= 1 (ανεξάρτητα status)
+        let offset = 0;
         while (true) {
-            // Δημιούργησε τα base filters
-            const baseFilters = {
+            const inStockFilters = {
                 $and: [
                     { publishedAt: { $notNull: true } },
                     { category: { id: { $eq: category.id } } },
-                    { status: { $in: allowedStatuses } }
+                    { inventory: { $gte: 1 } }
                 ]
             };
 
-            // Αν το platform έχει only_in_house_inventory = true, πρόσθεσε επιπλέον φίλτρα
             if (platformData.only_in_house_inventory) {
-                baseFilters.$and.push(
-                    { inventory: { $gte: 1 } },
-                    { is_in_house: { $eq: true } }
-                );
+                inStockFilters.$and.push({ is_in_house: { $eq: true } });
             }
 
-            // Φόρτωσε products σε batches - χρησιμοποιούμε entityService για relations
-            const products = await strapi.entityService.findMany('api::product.product', {
-                filters: baseFilters,
+            const inStockProducts = await strapi.entityService.findMany('api::product.product', {
+                filters: inStockFilters,
                 fields: [
                     'id', 'name', 'slug', 'price', 'sale_price', 'is_sale',
                     'mpn', 'sku', 'barcode', 'description', 'weight',
                     'inventory', 'is_in_house', 'status'
                 ],
                 populate: {
-                    image: {
-                        fields: ['url']
-                    },
-                    additionalImages: {
-                        fields: ['url']
-                    },
-                    brand: {
-                        fields: ['name']
-                    },
-                    supplierInfo: {
-                        fields: ['name', 'in_stock', 'wholesale', 'recycle_tax']
-                    },
-                    platforms: {
-                        fields: ['platform', 'price']
-                    }
+                    image: { fields: ['url'] },
+                    additionalImages: { fields: ['url'] },
+                    brand: { fields: ['name'] },
+                    supplierInfo: { fields: ['name', 'in_stock', 'wholesale', 'recycle_tax'] },
+                    platforms: { fields: ['platform', 'price'] }
                 },
                 start: offset,
                 limit: BATCH_SIZE,
             });
 
-            if (products.length === 0) break;
+            if (inStockProducts.length === 0) break;
 
-            // Επεξεργασία κάθε product
-            for (const product of products) {
-                // Αν το flag είναι ενεργό, όλα τα products είναι ήδη in_house με inventory
-                // άρα μπορούμε να χρησιμοποιήσουμε απλοποιημένη λογική
-                let availability, price, cheaperAvailableSupplier = null;
-
-                if (platformData.only_in_house_inventory) {
-                    // Simplified logic - όλα είναι in stock και in_house
-                    availability = this.getInHouseAvailability(platformName);
-                    price = this.getPlatformPrice(product, platformData);
-                    cheaperAvailableSupplier = null;
-                } else {
-                    // Existing complex logic
-                    const result = this.createAvailabilityAndPrice(
-                        product,
-                        suppliers,
-                        platformData,
-                        category
-                    );
-                    availability = result.availability;
-                    price = result.price;
-                    cheaperAvailableSupplier = result.cheaperAvailableSupplier;
-                }
+            // Process in-stock products
+            for (const product of inStockProducts) {
+                const { availability, price, cheaperAvailableSupplier } = platformData.only_in_house_inventory
+                    ? {
+                        availability: this.getInHouseAvailability(platformName),
+                        price: this.getPlatformPrice(product, platformData),
+                        cheaperAvailableSupplier: null
+                    }
+                    : this.createAvailabilityAndPrice(product, suppliers, platformData, category);
 
                 if (!price) continue;
 
@@ -180,12 +151,66 @@ module.exports = ({ strapi }) => ({
                     cheaperAvailableSupplier,
                 );
 
-                if (entry) {
-                    categoryEntries.push(entry);
-                }
+                if (entry) categoryEntries.push(entry);
             }
 
             offset += BATCH_SIZE;
+        }
+
+        // ✅ Query 2: Προϊόντα με inventory = 0 ΚΑΙ status από τα allowedStatuses του platform
+        if (!platformData.only_in_house_inventory) {
+            offset = 0;
+            while (true) {
+                const outOfStockFilters = {
+                    $and: [
+                        { publishedAt: { $notNull: true } },
+                        { category: { id: { $eq: category.id } } },
+                        { inventory: { $lte: 0 } },
+                        { status: { $in: allowedStatuses } }  // ✅ Από το platform configuration
+                    ]
+                };
+
+                const outOfStockProducts = await strapi.entityService.findMany('api::product.product', {
+                    filters: outOfStockFilters,
+                    fields: [
+                        'id', 'name', 'slug', 'price', 'sale_price', 'is_sale',
+                        'mpn', 'sku', 'barcode', 'description', 'weight',
+                        'inventory', 'is_in_house', 'status'
+                    ],
+                    populate: {
+                        image: { fields: ['url'] },
+                        additionalImages: { fields: ['url'] },
+                        brand: { fields: ['name'] },
+                        supplierInfo: { fields: ['name', 'in_stock', 'wholesale', 'recycle_tax'] },
+                        platforms: { fields: ['platform', 'price'] }
+                    },
+                    start: offset,
+                    limit: BATCH_SIZE,
+                });
+
+                if (outOfStockProducts.length === 0) break;
+
+                // Process out-of-stock products
+                for (const product of outOfStockProducts) {
+                    const { availability, price, cheaperAvailableSupplier } =
+                        this.createAvailabilityAndPrice(product, suppliers, platformData, category);
+
+                    if (!price) continue;
+
+                    const entry = this.createProductEntry(
+                        product,
+                        availability,
+                        price,
+                        categoryPath,
+                        platformData.name,
+                        cheaperAvailableSupplier,
+                    );
+
+                    if (entry) categoryEntries.push(entry);
+                }
+
+                offset += BATCH_SIZE;
+            }
         }
 
         return categoryEntries;
