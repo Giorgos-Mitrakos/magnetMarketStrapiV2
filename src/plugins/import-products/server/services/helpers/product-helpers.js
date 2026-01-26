@@ -166,6 +166,7 @@ module.exports = ({ strapi }) => ({
                     );
 
                     if (stockMapEntry) {
+                        
                         stockLevelCheck = stockMapEntry.allow_import === true;
 
                         // ✅ ΕΛΕΓΧΟΣ ΓΙΑ OVERRIDE (IsExpected ή Backorder)
@@ -911,7 +912,7 @@ module.exports = ({ strapi }) => ({
                 // ✅ Add to cache
                 cacheService.cache.brands.set(brandTrimmed.toLowerCase(), newBrand);
                 cacheService.cache.brands.set(brandSlug, newBrand);
-                
+
                 return {
                     brandId: newBrand.id,
                     brandName: newBrand.name

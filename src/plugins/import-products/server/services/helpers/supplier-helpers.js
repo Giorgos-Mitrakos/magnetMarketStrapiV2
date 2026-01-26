@@ -59,12 +59,6 @@ module.exports = ({ strapi }) => ({
             const inStock = (quantity !== null && quantity > 0) ||
                 (stockLevel !== null && !notAvailableStatuses.includes(translatedStatus));
 
-            if (product.barcode === "5205089129047") {
-                console.log("translatedStatus:", translatedStatus,
-                    "inStock:", inStock
-                )
-            }
-
             return {
                 name: product.entry.name,
                 in_stock: inStock,

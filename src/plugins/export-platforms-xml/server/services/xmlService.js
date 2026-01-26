@@ -504,7 +504,7 @@ module.exports = ({ strapi }) => ({
         if (platformName === "skroutz") {
             const availability = product.is_in_house
                 ? "Άμεσα διαθέσιμο"
-                : "Διαθέσιμο από 4-10 ημέρες";
+                : "Διαθέσιμο από 4-6 ημέρες";
             return {
                 availability,
                 price: platformPrice,
@@ -744,7 +744,7 @@ module.exports = ({ strapi }) => ({
         const inventory = product.inventory || 0;
 
         // 1. InStock με inventory > 0
-        if (status === 'InStock' && inventory > 0) {
+        if (product.is_in_house && inventory > 0) {
             return 'Σε απόθεμα';
         }
 
