@@ -11,6 +11,11 @@ module.exports = ({ strapi }) => ({
      * @param {Array} characteristics - Array of {name, value} objects
      * @returns {Object|null} {length, width, height} in mm or null
      */
+    /**
+ * Extract dimensions from product characteristics
+ * @param {Array} characteristics - Array of {name, value} objects
+ * @returns {Object|null} {length, width, height} in mm or null
+ */
     extractFromCharacteristics(characteristics) {
         if (!characteristics || !Array.isArray(characteristics)) return null;
 
@@ -34,23 +39,25 @@ module.exports = ({ strapi }) => ({
 
         if (!dimChar?.value) return null;
 
-        return this.parseDimensionsValue(dimChar.value);
+        // Pass the characteristic name to help detect units
+        return this.parseDimensionsValue(dimChar.value, dimChar.name);
     },
 
     /**
      * Parse dimensions value from string
-     * Handles formats: "100x200x300mm", "10x20x30cm", "100 x 200 x 300", etc.
      * @param {string} value - Dimensions value as string
+     * @param {string} characteristicName - Optional name of the characteristic
      * @returns {Object|null} {length, width, height} in mm or null
      */
-    parseDimensionsValue(value) {
+    parseDimensionsValue(value, characteristicName = '') {
         if (!value) return null;
 
         const valueStr = String(value).toLowerCase().trim();
+        const nameStr = String(characteristicName).toLowerCase().trim();
 
-        // Check if millimeters or centimeters
-        const isMillimeters = valueStr.includes('mm');
-        const isCentimeters = valueStr.includes('cm') && !valueStr.includes('mm');
+        // Check if millimeters or centimeters in BOTH value and name
+        const isMillimeters = valueStr.includes('mm') || nameStr.includes('mm');
+        const isCentimeters = (valueStr.includes('cm') || nameStr.includes('cm')) && !isMillimeters;
 
         // Extract numbers (handles decimals with . or ,)
         const matches = valueStr.match(/\d+(?:[.,]\d+)?/g);
@@ -212,11 +219,42 @@ module.exports = ({ strapi }) => ({
     },
 
     /**
+ * Check if product category should skip dimensions for shipping
+ * @param {Object} product - Product object
+ * @returns {boolean} True if should skip dimensions
+ */
+    shouldSkipDimensions(product) {
+        const skipKeywords = [
+            'Τύπος Τσάντας',
+        ];
+
+        // Check product name
+        const productName = (product.name || '').toLowerCase();
+
+        // Check product attributes (like "Τύπος Τσάντας")
+        const attributes = product.product_attributes || {};
+        const attributesStr = JSON.stringify(attributes).toLowerCase();
+
+        // Check category
+        const categoryName = (product.category?.name || '').toLowerCase();
+
+        const searchText = `${productName} ${attributesStr} ${categoryName}`;
+
+        return skipKeywords.some(keyword => searchText.includes(keyword));
+    },
+
+    /**
      * Main extraction method - tries all methods
      * @param {Object} options - Extraction options
      * @returns {Object|null} {length, width, height} in mm or null
      */
-    extract({ characteristics, rawData, mapFields, supplier }) {
+    extract({ characteristics, rawData, mapFields, supplier,product  }) {
+        // Check if we should skip dimensions for this product type
+        if (product && this.shouldSkipDimensions(product)) {
+            console.log(`Skipping dimensions for product: ${product.name} (soft/flexible item)`);
+            return null;
+        }
+
         let dimensions = null;
 
         // 1. Try from characteristics

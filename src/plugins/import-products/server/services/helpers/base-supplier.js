@@ -195,7 +195,8 @@ module.exports = ({ strapi }) => {
                     characteristics: product.prod_chars,
                     rawData: rawData,
                     mapFields: importRef.mapFields,
-                    supplier: this.name
+                    supplier: this.name,
+                    product: product
                 });
 
                 if (dimensions && dimensionsParser.validate(dimensions)) {
