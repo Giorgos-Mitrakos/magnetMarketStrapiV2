@@ -250,14 +250,14 @@ module.exports = ({ strapi }) => ({
             needsUpdate = true;
         }
 
+        // ✅ ΔΙΟΡΘΩΜΕΝΗ ΛΟΓΙΚΗ: Ορίζουμε ποια status θεωρούνται "in stock"
+        const availableStatuses = ["InStock", "MediumStock", "LowStock"];
 
-        // Simple in_stock logic
-        const notAvailableStatuses = ["Discontinued", "OutOfStock"];
-        const inStockFromXml = (newQuantity !== null && newQuantity > 0) ||
-            (newStockLevel !== null && !notAvailableStatuses.includes(supplier.translated_status));
+        const inStockFromXml =
+            (newQuantity !== null && newQuantity > 0) ||
+            (supplier.translated_status && availableStatuses.includes(supplier.translated_status));
 
         // In Stock Logic
-        // const inStockFromXml = (newQuantity !== null && newQuantity > 0) || (newStockLevel !== null);
         if (supplier.in_stock !== inStockFromXml) {
             supplier.in_stock = inStockFromXml;
             needsUpdate = true;
@@ -267,7 +267,6 @@ module.exports = ({ strapi }) => ({
             delete supplier.old_translated_status; // Καθαρισμός
             supplierInfo[index] = supplier;
             data.supplierInfo = supplierInfo;
-
             if (dbChange.typeOfChange === 'Skipped') {
                 dbChange.typeOfChange = 'updated';
             }
