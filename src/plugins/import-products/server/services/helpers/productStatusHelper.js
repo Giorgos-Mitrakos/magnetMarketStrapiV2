@@ -49,6 +49,11 @@ module.exports = {
      */
     calculateProductStatus(inventory, supplierInfo, product, brandExclList = []) {
         try {
+            // ✅ ΠΡΟΤΕΡΑΙΟΤΗΤΑ 1: Αν το προϊόν είναι Discontinued, μένει Discontinued
+            if (product.status === "Discontinued") {
+                return "Discontinued";
+            }
+
             let finalStatus = 'OutOfStock';
 
             // 1. Υπολογισμός αρχικού status βάσει αποθέματος
@@ -58,12 +63,14 @@ module.exports = {
                 let bestStatus = 'OutOfStock';
                 for (const supplier of supplierInfo) {
                     if (!supplier.in_stock) continue;
+
                     let currentSupplierStatus = 'InStock';
                     if (supplier.translated_status) {
                         currentSupplierStatus = supplier.translated_status;
                     } else if (supplier.quantity && typeof supplier.quantity === 'number') {
                         currentSupplierStatus = this.calculateStatusFromQuantity(supplier.quantity);
                     }
+
                     if (this.compareStatus(currentSupplierStatus, bestStatus) > 0) {
                         bestStatus = currentSupplierStatus;
                     }
@@ -89,10 +96,12 @@ module.exports = {
                     isBlacklisted = brandFilter.includes(product.brand.name.toLowerCase().trim());
                 }
             }
-            // ✅ Τελευταία επιλογή: έλεγχος στο όνομα του προϊόντος
+            // ✅ Τελευταία επιλογή: έλεγχος στο όνομα του προϊόντος (με word boundaries)
             else if (product.name) {
-                const nameLower = product.name.toLowerCase();
-                isBlacklisted = brandFilter.some(brand => nameLower.includes(brand));
+                isBlacklisted = brandFilter.some(brand => {
+                    const regex = new RegExp(`\\b${brand}\\b`, 'i');
+                    return regex.test(product.name);
+                });
             }
 
             // 3. Τελική μετατροπή σε AskForPrice αν χρειάζεται
@@ -100,11 +109,8 @@ module.exports = {
                 return 'AskForPrice';
             }
 
-            if (finalStatus == 'OutOfStock' && product.status === "Discontinued") {
-                return "Discontinued"
-            }
-
             return finalStatus;
+
         } catch (error) {
             console.error('Error in calculateProductStatus:', error);
             return 'OutOfStock'; // Safe fallback

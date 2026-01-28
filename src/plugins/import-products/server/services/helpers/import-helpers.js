@@ -235,6 +235,10 @@ module.exports = ({ strapi }) => ({
                 platforms: platforms
             }
 
+            data.deletedAt = (product.status === 'OutOfStock' || product.status === 'Discontinued')
+                ? new Date()
+                : null;
+
             //********  ΑΥτό να μπει στο αρχείο της νοβατρον για να συμπληρώνει  τα mm του φακού  *********
             // if (product.entry.name.toLowerCase() === "novatron" && product.short_description) {
             //     let result = product.short_description.match(/[0-9].[0-9]mm/g)
@@ -468,6 +472,27 @@ module.exports = ({ strapi }) => ({
                 dbChange.typeOfChange = 'updated';
             }
 
+            // ✅ ΚΡΙΣΙΜΟ: Χειρισμός deletedAt με βάση το τελικό status
+            const finalStatus = data.status !== undefined ? data.status : entryCheck.status;
+
+            if (finalStatus === 'OutOfStock' || finalStatus === 'Discontinued') {
+                // Αν το προϊόν είναι OutOfStock ή Discontinued και δεν έχει deletedAt, βάλε ημερομηνία
+                if (!entryCheck.deletedAt) {
+                    data.deletedAt = new Date();
+                    if (dbChange.typeOfChange === 'Skipped') {
+                        dbChange.typeOfChange = 'updated';
+                    }
+                }
+            } else {
+                // Αν το προϊόν ΔΕΝ είναι OutOfStock/Discontinued και έχει deletedAt, καθάρισέ το
+                if (entryCheck.deletedAt) {
+                    data.deletedAt = null;
+                    if (dbChange.typeOfChange === 'Skipped') {
+                        dbChange.typeOfChange = 'updated';
+                    }
+                }
+            }
+
             if (Object.keys(data).length !== 0) {
 
                 const updated = await strapi.entityService.update('api::product.product', entryCheck.id, {
@@ -562,9 +587,6 @@ module.exports = ({ strapi }) => ({
                         supplierInfo[index].in_stock = false;
                     }
 
-                    // Ελέγχω αν δεν υπάρχει διαθέσιμο σε κανένα προμηθευτή
-                    const isAllSuppliersOutOfStock = supplierInfo.every(supplier => supplier.in_stock === false)
-
                     data.supplierInfo = supplierInfo;
 
                     // ✅ Δημιουργούμε product object με brandName
@@ -573,32 +595,28 @@ module.exports = ({ strapi }) => ({
                         brandName: checkProduct.brand?.name || checkProduct.brand
                     };
 
-                    // ✅ ΝΕΑ ΛΟΓΙΚΗ: Υπολογισμός status
-                    if (isAllSuppliersOutOfStock) {
-                        // Κανένας supplier δεν έχει - ορίζουμε deletedAt
-                        data.deletedAt = new Date();
+                    // ✅ Υπολογισμός status
+                    const calculatedStatus = strapi
+                        .plugin('import-products')
+                        .service('productStatusHelper')
+                        .calculateProductStatus(
+                            checkProduct.inventory || 0,
+                            supplierInfo,
+                            productForStatus,
+                            importRef.brand_excl_map
+                        );
 
-                        // Υπολογίζουμε status βάσει inventory
-                        data.status = strapi
-                            .plugin('import-products')
-                            .service('productStatusHelper')
-                            .calculateProductStatus(
-                                checkProduct.inventory || 0,
-                                supplierInfo,
-                                productForStatus,
-                                importRef.brand_excl_map
-                            );
+                    data.status = calculatedStatus;
+
+                    // ✅ Χειρισμός deletedAt με βάση το status
+                    if (calculatedStatus === 'OutOfStock' || calculatedStatus === 'Discontinued') {
+                        // Αν δεν έχει ήδη deletedAt, βάλε την τρέχουσα ημερομηνία
+                        if (!checkProduct.deletedAt) {
+                            data.deletedAt = new Date();
+                        }
                     } else {
-                        // Κάποιος supplier έχει ακόμα - υπολογίζουμε status
-                        data.status = strapi
-                            .plugin('import-products')
-                            .service('productStatusHelper')
-                            .calculateProductStatus(
-                                checkProduct.inventory || 0,
-                                supplierInfo,
-                                productForStatus,
-                                importRef.brand_excl_map
-                            );
+                        // Αν το status δεν είναι OutOfStock/Discontinued, καθάρισε το deletedAt
+                        data.deletedAt = null;
                     }
 
                     // Ενημερώνω τη βάση με τις νέες τιμές του προϊόντος 
