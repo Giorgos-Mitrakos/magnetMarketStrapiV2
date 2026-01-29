@@ -539,14 +539,7 @@ module.exports = ({ strapi }) => ({
                                         publishedAt: { $notNull: true, }
                                     },
                                     {
-                                        supplierInfo: {
-                                            $and: [
-                                                { name: entry.name },
-                                                {
-                                                    in_stock: true
-                                                }
-                                            ]
-                                        },
+                                        supplierInfo: { name: entry.name },
                                     },
                                 ]
                             },
@@ -559,10 +552,10 @@ module.exports = ({ strapi }) => ({
                 if (!importRef.related_entries.has(product.id)) {
 
                     const data = {}
+                    let needsUpdate = false; // ✅ ΠΡΟΣΘΗΚΗ: Flag για να ξέρουμε αν χρειάζεται update
 
                     // Βρίσκω το προϊόν
                     const checkProduct = await strapi.entityService.findOne('api::product.product', product.id, {
-                        // fields: ['supplierInfo', 'name'],
                         populate: {
                             supplierInfo: true,
                             related_import: true,
@@ -582,17 +575,44 @@ module.exports = ({ strapi }) => ({
                     if (index === -1) {
                         let relatedImports = checkProduct.related_import.filter(x => x.id !== entry.id)
                         data.related_import = relatedImports
+                        needsUpdate = true;
+                        // ✅ Αυξάνουμε το deleted γιατί ο supplier δεν έχει πια αυτό το προϊόν
+                        importRef.deleted += 1;
                     }
                     else {
-                        supplierInfo[index].in_stock = false;
+                        // ✅ Το προϊόν δεν βρέθηκε στο XML - καθαρίζουμε όλα τα supplier data
+                        let supplierChanged = false;
+
+                        if (supplierInfo[index].in_stock !== false) {
+                            supplierInfo[index].in_stock = false;
+                            supplierChanged = true;
+                            importRef.deleted += 1;
+                        }
+
+                        // ✅ ΠΡΟΣΘΗΚΗ: Καθαρισμός όλων των supplier fields
+                        const fieldsToClean = ['translated_status', 'stock_level', 'quantity'];
+                        for (const field of fieldsToClean) {
+                            if (supplierInfo[index][field] !== null && supplierInfo[index][field] !== undefined) {
+                                supplierInfo[index][field] = null;
+                                supplierChanged = true;
+                            }
+                        }
+
+                        if (supplierChanged) {
+                            needsUpdate = true;
+                        }
                     }
 
-                    data.supplierInfo = supplierInfo;
+                    // ✅ ΠΡΟΣΘΗΚΗ: Ενημερώνουμε supplierInfo μόνο αν χρειάζεται
+                    if (needsUpdate) {
+                        data.supplierInfo = supplierInfo;
+                    }
 
                     // ✅ Δημιουργούμε product object με brandName
                     const productForStatus = {
                         ...product,
-                        brandName: checkProduct.brand?.name || checkProduct.brand
+                        brandName: checkProduct.brand?.name || checkProduct.brand,
+                        status: checkProduct.status // ✅ Προσθήκη για Discontinued check
                     };
 
                     // ✅ Υπολογισμός status
@@ -606,25 +626,35 @@ module.exports = ({ strapi }) => ({
                             importRef.brand_excl_map
                         );
 
-                    data.status = calculatedStatus;
+                    // ✅ ΑΛΛΑΓΗ: Ενημερώνουμε status μόνο αν άλλαξε
+                    if (calculatedStatus !== checkProduct.status) {
+                        data.status = calculatedStatus;
+                        needsUpdate = true;
+                    }
 
                     // ✅ Χειρισμός deletedAt με βάση το status
-                    if (calculatedStatus === 'OutOfStock' || calculatedStatus === 'Discontinued') {
+                    const finalStatus = data.status !== undefined ? data.status : checkProduct.status;
+
+                    if (finalStatus === 'OutOfStock' || finalStatus === 'Discontinued') {
                         // Αν δεν έχει ήδη deletedAt, βάλε την τρέχουσα ημερομηνία
                         if (!checkProduct.deletedAt) {
                             data.deletedAt = new Date();
+                            needsUpdate = true;
                         }
                     } else {
                         // Αν το status δεν είναι OutOfStock/Discontinued, καθάρισε το deletedAt
-                        data.deletedAt = null;
+                        if (checkProduct.deletedAt) {
+                            data.deletedAt = null;
+                            needsUpdate = true;
+                        }
                     }
 
-                    // Ενημερώνω τη βάση με τις νέες τιμές του προϊόντος 
-                    // και αυξάνω τον αριθμό των διεγραμμένων προϊόντων για το report
-                    await strapi.entityService.update('api::product.product', product.id, {
-                        data: data,
-                    });
-                    importRef.deleted += 1;
+                    // ✅ ΑΛΛΑΓΗ: Ενημερώνουμε τη βάση ΜΟΝΟ αν χρειάζεται
+                    if (needsUpdate) {
+                        await strapi.entityService.update('api::product.product', product.id, {
+                            data: data,
+                        });
+                    }
                 }
             }
 
@@ -633,7 +663,7 @@ module.exports = ({ strapi }) => ({
                 {
                     data: {
                         lastRun: new Date(),
-                        report: `Created: ${importRef.created}, Updated: ${importRef.updated},Republished: ${importRef.republished} Skipped: ${importRef.skipped}, Deleted: ${importRef.deleted}`,
+                        report: `Created: ${importRef.created}, Updated: ${importRef.updated}, Republished: ${importRef.republished}, Skipped: ${importRef.skipped}, Deleted: ${importRef.deleted}`,
                     },
                 })
 
@@ -911,6 +941,21 @@ module.exports = ({ strapi }) => ({
 
     async deleteNonRelatedProducts() {
 
+        // ✅ ΠΡΟΣΘΗΚΗ: Φόρτωση brand exclusions
+        const suppliers = await strapi.entityService.findMany('plugin::import-products.importxml', {
+            filters: { isActive: true },
+            populate: {
+                brand_excl_map: { select: ['brand_name'] }
+            }
+        });
+
+        const brandExclList = [];
+        for (const supplier of suppliers) {
+            if (supplier.brand_excl_map && supplier.brand_excl_map.length > 0) {
+                brandExclList.push(...supplier.brand_excl_map);
+            }
+        }
+
         const nonRelatedProducts = await strapi.entityService.findMany('api::product.product', {
             populate: {
                 supplierInfo: true
@@ -939,6 +984,7 @@ module.exports = ({ strapi }) => ({
                     if (isAllSuppliersOutOfStock) {
                         data.deletedAt = new Date();
                         // Υπολογίζουμε status βάσει inventory
+                        // ✅ Χρήση του brandExclList:
                         data.status = strapi
                             .plugin('import-products')
                             .service('productStatusHelper')
@@ -946,11 +992,12 @@ module.exports = ({ strapi }) => ({
                                 checkProduct.inventory || 0,
                                 data.supplierInfo,
                                 product,
-                                importRef.brand_excl_map
+                                brandExclList  // ✅ Τώρα υπάρχει
                             );
                     }
                     else {
                         // Κάποιος supplier έχει ακόμα - υπολογίζουμε status
+                        // ✅ Χρήση του brandExclList:
                         data.status = strapi
                             .plugin('import-products')
                             .service('productStatusHelper')
@@ -958,7 +1005,7 @@ module.exports = ({ strapi }) => ({
                                 checkProduct.inventory || 0,
                                 data.supplierInfo,
                                 product,
-                                importRef.brand_excl_map
+                                brandExclList  // ✅ Τώρα υπάρχει
                             );
                     }
                 }

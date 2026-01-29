@@ -55,9 +55,16 @@ module.exports = ({ strapi }) => ({
             }
 
             // Simple in_stock logic
-            const notAvailableStatuses = ["Discontinued", "OutOfStock"];
-            const inStock = (quantity !== null && quantity > 0) ||
-                (stockLevel !== null && !notAvailableStatuses.includes(translatedStatus));
+            const availableStatuses = ["InStock", "MediumStock", "LowStock"];
+
+            let inStock;
+            if (translatedStatus) {
+                inStock = availableStatuses.includes(translatedStatus);
+            } else if (quantity !== null) {
+                inStock = quantity > 0;
+            } else {
+                inStock = false;
+            }
 
             return {
                 name: product.entry.name,
@@ -250,12 +257,21 @@ module.exports = ({ strapi }) => ({
             needsUpdate = true;
         }
 
-        // ✅ ΔΙΟΡΘΩΜΕΝΗ ΛΟΓΙΚΗ: Ορίζουμε ποια status θεωρούνται "in stock"
+        // ✅ ΛΟΓΙΚΗ 2: Προτεραιότητα στο translated_status, fallback στο quantity
         const availableStatuses = ["InStock", "MediumStock", "LowStock"];
 
-        const inStockFromXml =
-            (newQuantity !== null && newQuantity > 0) ||
-            (supplier.translated_status && availableStatuses.includes(supplier.translated_status));
+        let inStockFromXml;
+
+        if (supplier.translated_status) {
+            // Αν υπάρχει translated_status, αυτό κυριαρχεί
+            inStockFromXml = availableStatuses.includes(supplier.translated_status);
+        } else if (newQuantity !== null) {
+            // Αν δεν υπάρχει translated_status, χρησιμοποιούμε quantity
+            inStockFromXml = newQuantity > 0;
+        } else {
+            // Αν δεν υπάρχει τίποτα, θεωρούμε out of stock
+            inStockFromXml = false;
+        }
 
         // In Stock Logic
         if (supplier.in_stock !== inStockFromXml) {

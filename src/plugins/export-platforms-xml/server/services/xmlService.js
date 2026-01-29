@@ -794,16 +794,30 @@ module.exports = ({ strapi }) => ({
      */
     async checkIfThereIsSupplierInStock() {
         try {
-            console.log('Checking supplier stock status...');
+            console.log('🔍 Checking supplier stock status...');
 
             const BATCH_SIZE = 100;
             let offset = 0;
-            let totalUnpublished = 0;
+            let totalUpdated = 0;
+
+            const suppliers = await strapi.db.query('plugin::import-products.importxml').findMany({
+                where: { isActive: true },
+                populate: {
+                    brand_excl_map: { select: ['brand_name'] }
+                }
+            });
+
+            const brandExclList = [];
+            for (const supplier of suppliers) {
+                if (supplier.brand_excl_map && supplier.brand_excl_map.length > 0) {
+                    brandExclList.push(...supplier.brand_excl_map);
+                }
+            }
 
             while (true) {
-                // Φόρτωσε μόνο products χωρίς inventory
+                // Φόρτωσε products χωρίς inventory
                 const products = await strapi.db.query('api::product.product').findMany({
-                    select: ['id', 'inventory'],
+                    select: ['id', 'inventory', 'status'],
                     where: {
                         $and: [
                             { publishedAt: { $notNull: true } },
@@ -811,8 +825,9 @@ module.exports = ({ strapi }) => ({
                         ]
                     },
                     populate: {
-                        supplierInfo: {
-                            select: ['in_stock']
+                        supplierInfo: true,
+                        brand: {
+                            select: ['name']
                         }
                     },
                     offset,
@@ -821,32 +836,67 @@ module.exports = ({ strapi }) => ({
 
                 if (products.length === 0) break;
 
-                // Βρες products που πρέπει να γίνουν outofstock
-                const toOutOfStock = products
-                    .filter(p => p.supplierInfo.every(s => s.in_stock === false))
-                    .map(p => p.id);
+                // Επεξεργασία κάθε product
+                for (const product of products) {
+                    try {
+                        // ✅ Χρήση της calculateProductStatus λογικής
+                        const productForStatus = {
+                            ...product,
+                            brandName: product.brand?.name || product.brand,
+                            status: product.status // Για να διατηρηθεί το Discontinued
+                        };
 
-                // Bulk update
-                if (toOutOfStock.length > 0) {
-                    await strapi.db.query('api::product.product').updateMany({
-                        where: {
-                            id: { $in: toOutOfStock }
-                        },
-                        data: {
-                            status: 'OutOfStock',
-                            deletedAt: new Date()
+                        const calculatedStatus = strapi
+                            .plugin('import-products')
+                            .service('productStatusHelper')
+                            .calculateProductStatus(
+                                product.inventory || 0,
+                                product.supplierInfo,
+                                productForStatus,
+                                brandExclList
+                            );
+
+                        // Αν το status άλλαξε, κάνε update
+                        if (calculatedStatus !== product.status) {
+                            const updateData = {
+                                status: calculatedStatus
+                            };
+
+                            // ✅ Χειρισμός deletedAt
+                            if (calculatedStatus === 'OutOfStock' || calculatedStatus === 'Discontinued') {
+                                // Αν δεν έχει deletedAt, βάλε ημερομηνία
+                                updateData.deletedAt = new Date();
+                            } else {
+                                // Αν το status δεν είναι OutOfStock/Discontinued, καθάρισε το deletedAt
+                                updateData.deletedAt = null;
+                            }
+
+                            await strapi.db.query('api::product.product').update({
+                                where: { id: product.id },
+                                data: updateData
+                            });
+
+                            totalUpdated++;
+
+                            if (totalUpdated % 50 === 0) {
+                                console.log(`✅ Progress: ${totalUpdated} products updated...`);
+                            }
                         }
-                    });
 
-                    totalUnpublished += toOutOfStock.length;
+                    } catch (productError) {
+                        console.error(`❌ Error updating product ${product.id}:`, productError);
+                    }
                 }
 
                 offset += BATCH_SIZE;
+                console.log(`📦 Processed ${offset} products...`);
             }
 
+            console.log(`✅ Supplier stock check complete! Updated ${totalUpdated} products.`);
+
         } catch (error) {
-            console.error('Error in checkIfThereIsSupplierInStock:', error);
+            console.error('❌ Error in checkIfThereIsSupplierInStock:', error);
             throw error;
         }
-    }
+    },
 });

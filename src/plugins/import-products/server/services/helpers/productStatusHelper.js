@@ -60,22 +60,56 @@ module.exports = {
             if (inventory > 0) {
                 finalStatus = this.calculateStatusFromInventory(inventory);
             } else if (supplierInfo && supplierInfo.length > 0) {
-                let bestStatus = 'OutOfStock';
-                for (const supplier of supplierInfo) {
-                    if (!supplier.in_stock) continue;
 
+                // ✅ ΛΟΓΙΚΗ Β: Προτεραιότητα σε in_stock, αλλά fallback σε non-in_stock
+
+                // Πρώτη φάση: Ψάχνουμε τους in_stock suppliers
+                let bestInStockStatus = 'OutOfStock';
+                let foundInStock = false;
+
+                for (const supplier of supplierInfo) {
+                    if (!supplier.in_stock) continue; // Προς το παρόν αγνοούμε τους non-in_stock
+
+                    foundInStock = true;
                     let currentSupplierStatus = 'InStock';
+
                     if (supplier.translated_status) {
                         currentSupplierStatus = supplier.translated_status;
                     } else if (supplier.quantity && typeof supplier.quantity === 'number') {
                         currentSupplierStatus = this.calculateStatusFromQuantity(supplier.quantity);
                     }
 
-                    if (this.compareStatus(currentSupplierStatus, bestStatus) > 0) {
-                        bestStatus = currentSupplierStatus;
+                    if (this.compareStatus(currentSupplierStatus, bestInStockStatus) > 0) {
+                        bestInStockStatus = currentSupplierStatus;
                     }
                 }
-                finalStatus = bestStatus;
+
+                // Δεύτερη φάση: Αν ΔΕΝ βρήκαμε in_stock suppliers, 
+                // κοιτάμε τους non-in_stock για fallback status
+                if (!foundInStock) {
+                    let bestNonInStockStatus = 'OutOfStock';
+
+                    for (const supplier of supplierInfo) {
+                        // Τώρα ελέγχουμε μόνο τους non-in_stock
+                        if (supplier.in_stock) continue;
+
+                        let currentSupplierStatus = 'OutOfStock';
+
+                        if (supplier.translated_status) {
+                            currentSupplierStatus = supplier.translated_status;
+                        } else if (supplier.quantity && typeof supplier.quantity === 'number') {
+                            currentSupplierStatus = this.calculateStatusFromQuantity(supplier.quantity);
+                        }
+
+                        if (this.compareStatus(currentSupplierStatus, bestNonInStockStatus) > 0) {
+                            bestNonInStockStatus = currentSupplierStatus;
+                        }
+                    }
+
+                    finalStatus = bestNonInStockStatus;
+                } else {
+                    finalStatus = bestInStockStatus;
+                }
             }
 
             // 2. Έλεγχος αν το brand είναι Blacklisted
