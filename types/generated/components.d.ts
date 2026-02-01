@@ -306,7 +306,9 @@ export interface HomepageHotOrSale extends Schema.Component {
   };
   attributes: {
     title: Attribute.String;
-    type: Attribute.Enumeration<['hot', 'sale', 'new']>;
+    type: Attribute.Enumeration<
+      ['hot', 'sale', 'new', 'expected', 'backorder']
+    >;
   };
 }
 

@@ -580,7 +580,7 @@ module.exports = ({ strapi }) => ({
                         importRef.deleted += 1;
                     }
                     else {
-                        // ✅ Το προϊόν δεν βρέθηκε στο XML - καθαρίζουμε όλα τα supplier data
+                        /// Το προϊόν υπάρχει στη βάση αλλά ΟΧΙ στο τρέχον XML
                         let supplierChanged = false;
 
                         if (supplierInfo[index].in_stock !== false) {
@@ -589,11 +589,11 @@ module.exports = ({ strapi }) => ({
                             importRef.deleted += 1;
                         }
 
-                        // ✅ ΠΡΟΣΘΗΚΗ: Καθαρισμός όλων των supplier fields
+                        // ΚΑΘΑΡΙΣΜΟΣ: Πρέπει να μηδενιστούν όλα ώστε ο helper να δει OutOfStock
                         const fieldsToClean = ['translated_status', 'stock_level', 'quantity'];
                         for (const field of fieldsToClean) {
-                            if (supplierInfo[index][field] !== null && supplierInfo[index][field] !== undefined) {
-                                supplierInfo[index][field] = null;
+                            if (supplierInfo[index][field] !== null) {
+                                supplierInfo[index][field] = null; // Θέτουμε null για να μην επηρεάζει τον helper
                                 supplierChanged = true;
                             }
                         }

@@ -44,8 +44,6 @@ module.exports = ({ strapi }) => ({
 
             // ✅ Εξαγωγή των status values
             const allowedStatuses = platformData.export_statuses?.map(s => s.status) || [];
-            console.log(`Platform ${platform} - Allowed statuses:`, allowedStatuses);
-
             // Αν δεν έχει επιλεγμένα statuses, δεν εξάγουμε τίποτα
             if (allowedStatuses.length === 0) {
                 console.log(`No export statuses configured for platform ${platform}. Skipping XML generation.`);
@@ -165,7 +163,12 @@ module.exports = ({ strapi }) => ({
                     $and: [
                         { publishedAt: { $notNull: true } },
                         { category: { id: { $eq: category.id } } },
-                        { inventory: { $lte: 0 } },
+                        {
+                            $or: [
+                                { inventory: { $lte: 0 } },
+                                { inventory: { $null: true } } // ✅ Συμπερίληψη των null
+                            ]
+                        },
                         { status: { $in: allowedStatuses } }  // ✅ Από το platform configuration
                     ]
                 };
@@ -794,12 +797,12 @@ module.exports = ({ strapi }) => ({
      */
     async checkIfThereIsSupplierInStock() {
         try {
-            console.log('🔍 Checking supplier stock status...');
 
             const BATCH_SIZE = 100;
             let offset = 0;
             let totalUpdated = 0;
 
+            // Φόρτωσε active suppliers με brand exclusions
             const suppliers = await strapi.db.query('plugin::import-products.importxml').findMany({
                 where: { isActive: true },
                 populate: {
@@ -807,12 +810,18 @@ module.exports = ({ strapi }) => ({
                 }
             });
 
+            // Συγκέντρωση όλων των brand exclusions
             const brandExclList = [];
             for (const supplier of suppliers) {
                 if (supplier.brand_excl_map && supplier.brand_excl_map.length > 0) {
                     brandExclList.push(...supplier.brand_excl_map);
                 }
             }
+
+            // ✅ Αφαίρεση duplicates
+            const uniqueBrandExcl = Array.from(
+                new Map(brandExclList.map(b => [b.brand_name, b])).values()
+            );
 
             while (true) {
                 // Φόρτωσε products χωρίς inventory
@@ -839,11 +848,10 @@ module.exports = ({ strapi }) => ({
                 // Επεξεργασία κάθε product
                 for (const product of products) {
                     try {
-                        // ✅ Χρήση της calculateProductStatus λογικής
                         const productForStatus = {
                             ...product,
                             brandName: product.brand?.name || product.brand,
-                            status: product.status // Για να διατηρηθεί το Discontinued
+                            status: product.status
                         };
 
                         const calculatedStatus = strapi
@@ -853,7 +861,7 @@ module.exports = ({ strapi }) => ({
                                 product.inventory || 0,
                                 product.supplierInfo,
                                 productForStatus,
-                                brandExclList
+                                uniqueBrandExcl  // ✅ Unique brand exclusions
                             );
 
                         // Αν το status άλλαξε, κάνε update
@@ -864,10 +872,8 @@ module.exports = ({ strapi }) => ({
 
                             // ✅ Χειρισμός deletedAt
                             if (calculatedStatus === 'OutOfStock' || calculatedStatus === 'Discontinued') {
-                                // Αν δεν έχει deletedAt, βάλε ημερομηνία
                                 updateData.deletedAt = new Date();
                             } else {
-                                // Αν το status δεν είναι OutOfStock/Discontinued, καθάρισε το deletedAt
                                 updateData.deletedAt = null;
                             }
 
@@ -878,9 +884,6 @@ module.exports = ({ strapi }) => ({
 
                             totalUpdated++;
 
-                            if (totalUpdated % 50 === 0) {
-                                console.log(`✅ Progress: ${totalUpdated} products updated...`);
-                            }
                         }
 
                     } catch (productError) {
@@ -889,10 +892,7 @@ module.exports = ({ strapi }) => ({
                 }
 
                 offset += BATCH_SIZE;
-                console.log(`📦 Processed ${offset} products...`);
             }
-
-            console.log(`✅ Supplier stock check complete! Updated ${totalUpdated} products.`);
 
         } catch (error) {
             console.error('❌ Error in checkIfThereIsSupplierInStock:', error);

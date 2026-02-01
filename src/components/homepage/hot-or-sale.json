@@ -14,7 +14,9 @@
       "enum": [
         "hot",
         "sale",
-        "new"
+        "new",
+        "expected",
+        "backorder"
       ]
     }
   }

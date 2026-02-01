@@ -87,26 +87,27 @@ module.exports = {
                 // Δεύτερη φάση: Αν ΔΕΝ βρήκαμε in_stock suppliers, 
                 // κοιτάμε τους non-in_stock για fallback status
                 if (!foundInStock) {
-                    let bestNonInStockStatus = 'OutOfStock';
+                    // Ξεκινάμε με την παραδοχή ότι είναι εξαντλημένο
+                    let fallbackStatus = 'OutOfStock';
 
+                    // Ψάχνουμε αν κάποιος από τους μη διαθέσιμους έχει ειδικό status
                     for (const supplier of supplierInfo) {
-                        // Τώρα ελέγχουμε μόνο τους non-in_stock
-                        if (supplier.in_stock) continue;
+                        const sStatus = supplier.translated_status;
 
-                        let currentSupplierStatus = 'OutOfStock';
-
-                        if (supplier.translated_status) {
-                            currentSupplierStatus = supplier.translated_status;
-                        } else if (supplier.quantity && typeof supplier.quantity === 'number') {
-                            currentSupplierStatus = this.calculateStatusFromQuantity(supplier.quantity);
+                        // Αν βρούμε Backorder ή IsExpected, το κρατάμε ως fallbackStatus
+                        // Το Backorder θεωρείται "καλύτερο" από το IsExpected στην ιεραρχία
+                        if (sStatus === 'Backorder') {
+                            fallbackStatus = 'Backorder';
+                            break; // Το Backorder είναι το δυνατότερο "μη διαθέσιμο" status, σταματάμε εδώ
                         }
 
-                        if (this.compareStatus(currentSupplierStatus, bestNonInStockStatus) > 0) {
-                            bestNonInStockStatus = currentSupplierStatus;
+                        if (sStatus === 'IsExpected') {
+                            fallbackStatus = 'IsExpected';
+                            // Δεν κάνουμε break γιατί μπορεί ο επόμενος supplier να έχει Backorder
                         }
                     }
 
-                    finalStatus = bestNonInStockStatus;
+                    finalStatus = fallbackStatus;
                 } else {
                     finalStatus = bestInStockStatus;
                 }

@@ -72,7 +72,14 @@ export default {
 
     async beforeUpdate(event) {
         const { data, where } = event.params;
-        const entry = await strapi.entityService.findOne('api::product.product', where.id);
+        // Φέρνουμε το υπάρχον προϊόν από τη βάση
+        const entry = await strapi.entityService.findOne('api::product.product', where.id, {
+            populate: {
+                supplierInfo: true,
+                platforms: true
+            }
+        });
+        
         // ════════════════════════════════════════════════════════════
         // ✅ ΥΠΑΡΧΟΥΣΑ ΛΟΓΙΚΗ: need_verify flag
         // ════════════════════════════════════════════════════════════
@@ -81,16 +88,10 @@ export default {
         } else if (entry.publishedAt) {
             data.need_verify = false;
         }
-        
+
         // ════════════════════════════════════════════════════════════
         // 🆕 ΛΟΓΙΚΗ: CLEAR deletedAt & archived WHEN BACK
         // ════════════════════════════════════════════════════════════
-        // Αν το προϊόν republish (deletedAt καθαρίζεται)
-        // καθαρίζουμε και το is_archived
-        //
-        // ΣΗΜΕΙΩΣΗ: Το deletedAt καθαρίζεται στο XML sync όταν το προϊόν
-        // επιστρέφει, οπότε εδώ απλά παρακολουθούμε για το is_archived flag
-
         if (entry.is_archived && entry.deletedAt === null) {
             data.is_archived = false;
             strapi.log.info(`[Lifecycle] Product ${entry.id} back in stock - cleared is_archived`);
@@ -103,42 +104,61 @@ export default {
             return;
         }
 
-        const priceFieldsUpdated =
-            params.data.supplierInfo ||
-            params.data.price ||
-            params.data.sale_price ||
-            params.data.inventory;
+        // ════════════════════════════════════════════════════════════
+        // 🆕 TRIGGER: Αν άλλαξε το supplierInfo ΚΑΙ το status είναι in stock
+        // ════════════════════════════════════════════════════════════
+        const supplierInfoChanged = params.data.supplierInfo !== undefined;
 
-        if (priceFieldsUpdated) {
-            try {
-                setImmediate(async () => {
-                    try {
-                        const analyzer = strapi.plugin('bargain-detector')?.service('analyzer');
+        if (supplierInfoChanged) {
+            // Φέρνουμε το updated product για να ελέγξουμε το status
+            const updatedProduct = await strapi.entityService.findOne(
+                'api::product.product',
+                result.id,
+                { fields: ['status'] }
+            );
 
-                        if (!analyzer) {
-                            strapi.log.error('[Lifecycle] Bargain detector analyzer service not found');
-                            return;
+            const allowedStatuses = ['InStock', 'MediumStock', 'LowStock'];
+            const isInStock = allowedStatuses.includes(updatedProduct?.status);
+
+            if (isInStock) {
+                strapi.log.info(
+                    `[Lifecycle] SupplierInfo updated for product ${result.id} with status: ${updatedProduct.status}`
+                );
+
+                try {
+                    setImmediate(async () => {
+                        try {
+                            const analyzer = strapi.plugin('bargain-detector')?.service('analyzer');
+
+                            if (!analyzer) {
+                                strapi.log.error('[Lifecycle] Bargain detector analyzer service not found');
+                                return;
+                            }
+
+                            strapi.log.debug(`[Lifecycle] Queuing auto-analysis for product ${result.id}`);
+
+                            await analyzer.analyzeAndStore(result.id, {
+                                trigger: 'lifecycle',
+                                reason: 'supplier_info_update',
+                                source: 'product_update_hook'
+                            });
+
+                            strapi.log.info(`[Lifecycle] ✓ Auto-analyzed product ${result.id} after supplier info update`);
+
+                        } catch (error) {
+                            strapi.log.error(
+                                `[Lifecycle] Auto-analysis failed for product ${result.id}: ${error.message}`
+                            );
                         }
+                    });
 
-                        strapi.log.debug(`[Lifecycle] Queuing auto-analysis for product ${result.id}`);
-
-                        await analyzer.analyzeAndStore(result.id, {
-                            trigger: 'lifecycle',
-                            reason: 'price_or_inventory_update',
-                            source: 'product_update_hook'
-                        });
-
-                        strapi.log.info(`[Lifecycle] ✓ Auto-analyzed product ${result.id} after update`);
-
-                    } catch (error) {
-                        strapi.log.error(
-                            `[Lifecycle] Auto-analysis failed for product ${result.id}: ${error.message}`
-                        );
-                    }
-                });
-
-            } catch (error) {
-                strapi.log.error(`[Lifecycle] Failed to queue analysis: ${error.message}`);
+                } catch (error) {
+                    strapi.log.error(`[Lifecycle] Failed to queue analysis: ${error.message}`);
+                }
+            } else {
+                strapi.log.debug(
+                    `[Lifecycle] Skipping analysis for product ${result.id} - status is ${updatedProduct?.status}`
+                );
             }
         }
     },
