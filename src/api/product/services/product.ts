@@ -483,27 +483,54 @@ export default factories.createCoreService('api::product.product', ({ strapi }) 
         let filters = {}
         let sortedBy = { createdAt: "desc" }
 
+        // Ορισμός των αποδεκτών status για τα κανονικά προϊόντα
+        const availableStatuses = ["InStock", "MediumStock", "LowStock"];
+
         switch (type) {
             case 'hot':
                 filters = {
                     $and: [
                         { is_hot: { $eq: true } },
+                        { status: { $in: availableStatuses } }, // Μόνο διαθέσιμα
                         { publishedAt: { $notNull: true } }
                     ]
                 }
-                break
+                break;
             case 'new':
-                filters = { publishedAt: { $notNull: true } },
-                    sortedBy = { createdAt: "desc" }
-                break
+                filters = {
+                    $and: [
+                        { status: { $in: availableStatuses } }, // Μόνο διαθέσιμα
+                        { publishedAt: { $notNull: true } }
+                    ]
+                };
+                sortedBy = { createdAt: "desc" }
+                break;
             case 'sale':
                 filters = {
                     $and: [
                         { is_sale: { $eq: true } },
-                        { $not: { sale_price: { $eq: null } } },
-                        { publishedAt: { $notNull: true } }]
-                }
-                break
+                        { status: { $in: availableStatuses } }, // Μόνο διαθέσιμα
+                        { sale_price: { $notNull: true } },
+                        { publishedAt: { $notNull: true } }
+                    ]
+                };
+                break;
+            case 'expected': // Η νέα σου επιλογή
+                filters = {
+                    $and: [
+                        { status: { $eq: "IsExpected" } },
+                        { publishedAt: { $notNull: true } }
+                    ]
+                };
+                break;
+            case 'backorder': // Η νέα σου επιλογή
+                filters = {
+                    $and: [
+                        { status: { $eq: "Backorder" } },
+                        { publishedAt: { $notNull: true } }
+                    ]
+                };
+                break;
             default:
                 break
         }
