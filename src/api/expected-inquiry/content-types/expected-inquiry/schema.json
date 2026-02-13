@@ -1,0 +1,59 @@
+{
+  "kind": "collectionType",
+  "collectionName": "expected_inquiries",
+  "info": {
+    "singularName": "expected-inquiry",
+    "pluralName": "expected-inquiries",
+    "displayName": "Ερωτήματα Ημερομηνίας",
+    "description": "Ερωτήματα πελατών για ημερομηνίες αναμενόμενων προϊόντων"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "name": {
+      "type": "string",
+      "required": true
+    },
+    "email": {
+      "type": "email",
+      "required": true
+    },
+    "phone": {
+      "type": "string"
+    },
+    "message": {
+      "type": "string"
+    },
+    "product": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::product.product",
+      "inversedBy": "expected_inquiries"
+    },
+    "productName": {
+      "type": "string",
+      "required": true
+    },
+    "status": {
+      "type": "enumeration",
+      "enum": [
+        "pending",
+        "notified",
+        "cancelled"
+      ],
+      "default": "pending"
+    },
+    "inquiryType": {
+      "type": "enumeration",
+      "enum": [
+        "expected_date"
+      ],
+      "default": "expected_date"
+    },
+    "notifiedAt": {
+      "type": "datetime"
+    }
+  }
+}

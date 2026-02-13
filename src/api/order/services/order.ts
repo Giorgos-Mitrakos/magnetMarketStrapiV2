@@ -210,14 +210,23 @@ export default factories.createCoreService('api::order.order', ({ strapi }) => (
 
             // 3. Ελέγχω στη βάση αν όλα τα προϊόντα είναι διαθέσιμα
             const productIds = checkout.cart.map(x => Number(x.id))
+            type ProductStatus = "InStock" | "MediumStock" | "LowStock" | "Backorder" | "IsExpected" | "AskForPrice" | "OutOfStock" | "Discontinued";
+
+            const availableStatus: ProductStatus[] = [
+                "InStock",
+                "MediumStock",
+                "LowStock",
+                "Backorder",
+                "IsExpected"
+            ];
 
             const products: IProduct[] = await strapi.entityService.findMany('api::product.product', {
                 fields: ['id', 'name', 'price', 'sale_price', 'is_sale'],
-                filters: { id: { $in: productIds }, publishedAt: { $notNull: true } },
+                filters: { id: { $in: productIds }, status: { $in: availableStatus } },
             })
 
-            const publishedProductIds = products.map(p => p.id);
-            const missingProducts = productIds.filter(id => !publishedProductIds.includes(id));
+            const availableProductIds = products.map(p => p.id);
+            const missingProducts = productIds.filter(id => !availableProductIds.includes(id));
 
             if (missingProducts.length > 0) {
                 return {

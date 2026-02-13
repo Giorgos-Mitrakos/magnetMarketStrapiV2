@@ -718,4 +718,27 @@ export default factories.createCoreService('api::product.product', ({ strapi }) 
             { title: 'Κατηγορίες', filterBy: 'Κατηγορίες', filterValues: uniqueCategories }
         ];
     },
+
+    checkProductAvailabilityChange(oldData, newData) {
+        const availableStatuses = ['InStock', 'MediumStock', 'LowStock'];
+        const unavailableStatuses = ['OutOfStock', 'IsExpected', 'Discontinued', 'AskForPrice'];
+
+        const oldStatus = oldData.status || '';
+        const newStatus = newData.status || '';
+        const oldInventory = oldData.inventory || 0;
+        const newInventory = newData.inventory || 0;
+
+        // Είναι διαθέσιμο τώρα αλλά δεν ήταν πριν
+        const isNowAvailable = (
+            availableStatuses.includes(newStatus) ||
+            newInventory > 0
+        );
+
+        const wasUnavailable = (
+            unavailableStatuses.includes(oldStatus) &&
+            oldInventory <= 0
+        );
+
+        return wasUnavailable && isNowAvailable;
+    }
 }));

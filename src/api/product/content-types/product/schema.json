@@ -194,7 +194,9 @@
     },
     "notice_if_available": {
       "type": "boolean",
-      "default": false
+      "default": false,
+      "displayName": "Ειδοποίηση για Διαθεσιμότητα Προμηθευτή",
+      "description": "Ειδοποίηση όταν ο προμηθευτής έχει διαθέσιμο το προϊόν"
     },
     "coupons": {
       "type": "relation",
@@ -242,6 +244,24 @@
     },
     "redirect_to_url": {
       "type": "string"
+    },
+    "ask_for_price": {
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "api::ask-for-price.ask-for-price",
+      "mappedBy": "product"
+    },
+    "notify_me": {
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "api::notify-me.notify-me",
+      "mappedBy": "product"
+    },
+    "expected_inquiries": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::expected-inquiry.expected-inquiry",
+      "mappedBy": "product"
     }
   }
 }

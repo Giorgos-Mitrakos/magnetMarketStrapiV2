@@ -1,0 +1,68 @@
+{
+  "kind": "collectionType",
+  "collectionName": "ask_for_prices",
+  "info": {
+    "singularName": "ask-for-price",
+    "pluralName": "ask-for-prices",
+    "displayName": "ask-for-price"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "name": {
+      "type": "string",
+      "required": true,
+      "minLength": 2,
+      "maxLength": 100
+    },
+    "email": {
+      "type": "email",
+      "required": true
+    },
+    "phone": {
+      "type": "string",
+      "required": true,
+      "maxLength": 20,
+      "minLength": 10
+    },
+    "message": {
+      "type": "text",
+      "maxLength": 500
+    },
+    "status": {
+      "type": "enumeration",
+      "enum": [
+        "pending",
+        "contacted",
+        "completed",
+        "cancelled"
+      ],
+      "default": "pending",
+      "required": true
+    },
+    "product": {
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "api::product.product",
+      "inversedBy": "ask_for_price"
+    },
+    "productName": {
+      "type": "string",
+      "required": true
+    },
+    "productPrice": {
+      "type": "decimal"
+    },
+    "notes": {
+      "type": "string"
+    },
+    "contactedAt": {
+      "type": "datetime"
+    },
+    "completedAt": {
+      "type": "datetime"
+    }
+  }
+}

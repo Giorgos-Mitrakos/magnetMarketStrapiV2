@@ -166,7 +166,7 @@ module.exports = ({ strapi }) => ({
 
     // Helper methods for better organization
     handleExistingSupplier(supplierInfo, index, product, data, dbChange, isDotMedia, importRef) {
-        const currentSupplier = supplierInfo[index];
+        let currentSupplier = supplierInfo[index];
 
         const currentWholesale = strapi.plugin('import-products').service('priceHelpers').formatPrice(currentSupplier.wholesale);
         const productWholesalePrice = strapi.plugin('import-products').service('priceHelpers').formatPrice(product.wholesale);
@@ -223,14 +223,39 @@ module.exports = ({ strapi }) => ({
 
         priceProgress.push(newPriceProgress);
 
-        supplier = this.createSupplierInfoData(product, priceProgress, importRef.stock_map);
+        // ✅ ΜΗΝ δημιουργείς νέο object - ενημέρωσε το υπάρχον!
+        supplier.wholesale = strapi
+            .plugin('import-products')
+            .service('priceHelpers')
+            .formatPrice(product.wholesale);
 
         if (productRetailPrice && supplierRetailPrice !== productRetailPrice) {
             supplier.retail_price = productRetailPrice;
         }
 
-        supplierInfo[index] = supplier
+        // ✅ Ενημέρωσε και τα υπόλοιπα πεδία που χρειάζονται
+        supplier.supplierProductId = product.supplierCode;
+        supplier.supplierProductURL = product.link;
 
+        if (product.in_offer !== undefined) {
+            supplier.in_offer = product.in_offer;
+        }
+
+        if (product.initial_retail_price) {
+            supplier.initial_retail_price = strapi
+                .plugin('import-products')
+                .service('priceHelpers')
+                .formatPrice(product.initial_retail_price);
+        }
+
+        if (product.recycle_tax) {
+            supplier.recycle_tax = strapi
+                .plugin('import-products')
+                .service('priceHelpers')
+                .formatPrice(product.recycle_tax);
+        }
+
+        // ✅ ΔΕΝ χρειάζεται να ξανα-assign στο array - το object ενημερώθηκε by reference
         data.supplierInfo = supplierInfo;
         dbChange.typeOfChange = 'updated';
     },

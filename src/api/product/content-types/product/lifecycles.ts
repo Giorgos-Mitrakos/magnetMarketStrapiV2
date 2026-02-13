@@ -72,14 +72,16 @@ export default {
 
     async beforeUpdate(event) {
         const { data, where } = event.params;
+        event.state = event.state || {};
         // Φέρνουμε το υπάρχον προϊόν από τη βάση
         const entry = await strapi.entityService.findOne('api::product.product', where.id, {
             populate: {
                 supplierInfo: true,
-                platforms: true
+                platforms: true,
+                notify_me: true
             }
         });
-        
+
         // ════════════════════════════════════════════════════════════
         // ✅ ΥΠΑΡΧΟΥΣΑ ΛΟΓΙΚΗ: need_verify flag
         // ════════════════════════════════════════════════════════════
@@ -96,10 +98,20 @@ export default {
             data.is_archived = false;
             strapi.log.info(`[Lifecycle] Product ${entry.id} back in stock - cleared is_archived`);
         }
+
+        if (!entry) {
+            strapi.log.warn(`Product ${where.id} not found in beforeUpdate`);
+            return;
+        }
+
+        // Αποθήκευσε τα παλιά δεδομένα στο event.state
+        event.state = event.state || {};
+        event.state.oldProductData = entry;
     },
 
     async afterUpdate(event) {
-        const { result, params } = event;
+        const { result, params, state } = event;
+
         if (params.data.publishedAt === null) {
             return;
         }
@@ -107,7 +119,13 @@ export default {
         // ════════════════════════════════════════════════════════════
         // 🆕 TRIGGER: Αν άλλαξε το supplierInfo ΚΑΙ το status είναι in stock
         // ════════════════════════════════════════════════════════════
+        // 1. 🔄 TRIGGER: Αν άλλαξε το supplierInfo ΚΑΙ το status είναι in stock (για bargain detector)
         const supplierInfoChanged = params.data.supplierInfo !== undefined;
+
+        // 2. 📧 NOTIFICATION: Αν το προϊόν έγινε διαθέσιμο (για πελάτες - notify_me)
+        const productService = strapi.service('api::product.product');
+        const oldData = state?.oldProductData;
+        const productBecameAvailable = oldData && productService.checkProductAvailabilityChange(oldData, result);
 
         if (supplierInfoChanged) {
             // Φέρνουμε το updated product για να ελέγξουμε το status
@@ -161,5 +179,40 @@ export default {
                 );
             }
         }
+
+        // 🅱️ ΛΕΙΤΟΥΡΓΙΑ 2: ΕΙΔΟΠΟΙΗΣΗ ΠΕΛΑΤΩΝ (notify_me)
+        if (productBecameAvailable) {
+            strapi.log.info(`[Lifecycle] Product ${result.id} became available for customers, triggering notify_me...`);
+
+            // Προσθήκη καθυστέρησης για να εξασφαλιστεί η αποθήκευση
+            setTimeout(async () => {
+                try {
+                    const notifyService = strapi.service('api::notify-me.notify-me');
+
+                    if (!notifyService) {
+                        strapi.log.error('[Lifecycle] Notify-me service not found');
+                        return;
+                    }
+
+                    if (typeof notifyService.notifyProductAvailable !== 'function') {
+                        strapi.log.error('[Lifecycle] notifyProductAvailable method not found');
+                        return;
+                    }
+
+                    const notificationResult = await notifyService.notifyProductAvailable(result.id);
+
+                    if (notificationResult?.success !== false) {
+                        strapi.log.info(`[Lifecycle] ✓ Notified ${notificationResult?.notified || 0} customers for product ${result.id}`);
+
+                    }
+
+                } catch (error) {
+                    strapi.log.error(`[Lifecycle] Failed to notify customers for product ${result.id}:`, error);
+                }
+            }, 3000);
+        }
+
     },
+
+
 };

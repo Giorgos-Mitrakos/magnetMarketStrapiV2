@@ -395,6 +395,67 @@ export interface ApiAnnouncementAnnouncement extends Schema.SingleType {
   };
 }
 
+export interface ApiAskForPriceAskForPrice extends Schema.CollectionType {
+  collectionName: 'ask_for_prices';
+  info: {
+    displayName: 'ask-for-price';
+    pluralName: 'ask-for-prices';
+    singularName: 'ask-for-price';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    completedAt: Attribute.DateTime;
+    contactedAt: Attribute.DateTime;
+    createdAt: Attribute.DateTime;
+    createdBy: Attribute.Relation<
+      'api::ask-for-price.ask-for-price',
+      'oneToOne',
+      'admin::user'
+    > &
+      Attribute.Private;
+    email: Attribute.Email & Attribute.Required;
+    message: Attribute.Text &
+      Attribute.SetMinMaxLength<{
+        maxLength: 500;
+      }>;
+    name: Attribute.String &
+      Attribute.Required &
+      Attribute.SetMinMaxLength<{
+        maxLength: 100;
+        minLength: 2;
+      }>;
+    notes: Attribute.String;
+    phone: Attribute.String &
+      Attribute.Required &
+      Attribute.SetMinMaxLength<{
+        maxLength: 20;
+        minLength: 10;
+      }>;
+    product: Attribute.Relation<
+      'api::ask-for-price.ask-for-price',
+      'oneToOne',
+      'api::product.product'
+    >;
+    productName: Attribute.String & Attribute.Required;
+    productPrice: Attribute.Decimal;
+    publishedAt: Attribute.DateTime;
+    status: Attribute.Enumeration<
+      ['pending', 'contacted', 'completed', 'cancelled']
+    > &
+      Attribute.Required &
+      Attribute.DefaultTo<'pending'>;
+    updatedAt: Attribute.DateTime;
+    updatedBy: Attribute.Relation<
+      'api::ask-for-price.ask-for-price',
+      'oneToOne',
+      'admin::user'
+    > &
+      Attribute.Private;
+  };
+}
+
 export interface ApiBrandBrand extends Schema.CollectionType {
   collectionName: 'brands';
   info: {
@@ -695,6 +756,52 @@ export interface ApiCouponCoupon extends Schema.CollectionType {
   };
 }
 
+export interface ApiExpectedInquiryExpectedInquiry
+  extends Schema.CollectionType {
+  collectionName: 'expected_inquiries';
+  info: {
+    description: '\u0395\u03C1\u03C9\u03C4\u03AE\u03BC\u03B1\u03C4\u03B1 \u03C0\u03B5\u03BB\u03B1\u03C4\u03CE\u03BD \u03B3\u03B9\u03B1 \u03B7\u03BC\u03B5\u03C1\u03BF\u03BC\u03B7\u03BD\u03AF\u03B5\u03C2 \u03B1\u03BD\u03B1\u03BC\u03B5\u03BD\u03CC\u03BC\u03B5\u03BD\u03C9\u03BD \u03C0\u03C1\u03BF\u03CA\u03CC\u03BD\u03C4\u03C9\u03BD';
+    displayName: '\u0395\u03C1\u03C9\u03C4\u03AE\u03BC\u03B1\u03C4\u03B1 \u0397\u03BC\u03B5\u03C1\u03BF\u03BC\u03B7\u03BD\u03AF\u03B1\u03C2';
+    pluralName: 'expected-inquiries';
+    singularName: 'expected-inquiry';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    createdAt: Attribute.DateTime;
+    createdBy: Attribute.Relation<
+      'api::expected-inquiry.expected-inquiry',
+      'oneToOne',
+      'admin::user'
+    > &
+      Attribute.Private;
+    email: Attribute.Email & Attribute.Required;
+    inquiryType: Attribute.Enumeration<['expected_date']> &
+      Attribute.DefaultTo<'expected_date'>;
+    message: Attribute.String;
+    name: Attribute.String & Attribute.Required;
+    notifiedAt: Attribute.DateTime;
+    phone: Attribute.String;
+    product: Attribute.Relation<
+      'api::expected-inquiry.expected-inquiry',
+      'manyToOne',
+      'api::product.product'
+    >;
+    productName: Attribute.String & Attribute.Required;
+    publishedAt: Attribute.DateTime;
+    status: Attribute.Enumeration<['pending', 'notified', 'cancelled']> &
+      Attribute.DefaultTo<'pending'>;
+    updatedAt: Attribute.DateTime;
+    updatedBy: Attribute.Relation<
+      'api::expected-inquiry.expected-inquiry',
+      'oneToOne',
+      'admin::user'
+    > &
+      Attribute.Private;
+  };
+}
+
 export interface ApiFooterFooter extends Schema.SingleType {
   collectionName: 'footers';
   info: {
@@ -803,6 +910,46 @@ export interface ApiNewsletterNewsletter extends Schema.CollectionType {
     updatedAt: Attribute.DateTime;
     updatedBy: Attribute.Relation<
       'api::newsletter.newsletter',
+      'oneToOne',
+      'admin::user'
+    > &
+      Attribute.Private;
+  };
+}
+
+export interface ApiNotifyMeNotifyMe extends Schema.CollectionType {
+  collectionName: 'notify_mes';
+  info: {
+    displayName: 'notify-me';
+    pluralName: 'notify-mes';
+    singularName: 'notify-me';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    createdAt: Attribute.DateTime;
+    createdBy: Attribute.Relation<
+      'api::notify-me.notify-me',
+      'oneToOne',
+      'admin::user'
+    > &
+      Attribute.Private;
+    email: Attribute.Email & Attribute.Required;
+    notifiedAt: Attribute.DateTime;
+    product: Attribute.Relation<
+      'api::notify-me.notify-me',
+      'oneToOne',
+      'api::product.product'
+    >;
+    productName: Attribute.String & Attribute.Required;
+    publishedAt: Attribute.DateTime;
+    status: Attribute.Enumeration<['pending', 'notified', 'cancelled']> &
+      Attribute.Required &
+      Attribute.DefaultTo<'pending'>;
+    updatedAt: Attribute.DateTime;
+    updatedBy: Attribute.Relation<
+      'api::notify-me.notify-me',
       'oneToOne',
       'admin::user'
     > &
@@ -1090,6 +1237,11 @@ export interface ApiProductProduct extends Schema.CollectionType {
       'images' | 'files' | 'videos' | 'audios',
       true
     >;
+    ask_for_price: Attribute.Relation<
+      'api::product.product',
+      'oneToOne',
+      'api::ask-for-price.ask-for-price'
+    >;
     barcode: Attribute.String;
     brand: Attribute.Relation<
       'api::product.product',
@@ -1120,6 +1272,11 @@ export interface ApiProductProduct extends Schema.CollectionType {
       Attribute.Private;
     deletedAt: Attribute.DateTime;
     description: Attribute.Text;
+    expected_inquiries: Attribute.Relation<
+      'api::product.product',
+      'oneToMany',
+      'api::expected-inquiry.expected-inquiry'
+    >;
     height: Attribute.Decimal & Attribute.DefaultTo<0>;
     image: Attribute.Media<'images'>;
     inventory: Attribute.Integer & Attribute.DefaultTo<0>;
@@ -1138,6 +1295,11 @@ export interface ApiProductProduct extends Schema.CollectionType {
       Attribute.Private &
       Attribute.DefaultTo<false>;
     notice_if_available: Attribute.Boolean & Attribute.DefaultTo<false>;
+    notify_me: Attribute.Relation<
+      'api::product.product',
+      'oneToOne',
+      'api::notify-me.notify-me'
+    >;
     opportunities: Attribute.Relation<
       'api::product.product',
       'oneToMany',
@@ -3172,14 +3334,17 @@ declare module '@strapi/types' {
       'admin::transfer-token-permission': AdminTransferTokenPermission;
       'admin::user': AdminUser;
       'api::announcement.announcement': ApiAnnouncementAnnouncement;
+      'api::ask-for-price.ask-for-price': ApiAskForPriceAskForPrice;
       'api::brand.brand': ApiBrandBrand;
       'api::category.category': ApiCategoryCategory;
       'api::country.country': ApiCountryCountry;
       'api::coupon-usage.coupon-usage': ApiCouponUsageCouponUsage;
       'api::coupon.coupon': ApiCouponCoupon;
+      'api::expected-inquiry.expected-inquiry': ApiExpectedInquiryExpectedInquiry;
       'api::footer.footer': ApiFooterFooter;
       'api::homepage.homepage': ApiHomepageHomepage;
       'api::newsletter.newsletter': ApiNewsletterNewsletter;
+      'api::notify-me.notify-me': ApiNotifyMeNotifyMe;
       'api::order.order': ApiOrderOrder;
       'api::page.page': ApiPagePage;
       'api::payment.payment': ApiPaymentPayment;
