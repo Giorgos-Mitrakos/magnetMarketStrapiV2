@@ -12,6 +12,16 @@ export interface CategoriesBrandPercent extends Schema.Component {
       'api::brand.brand'
     >;
     percentage: Attribute.Decimal & Attribute.Required;
+    profit_margin: Attribute.Decimal &
+      Attribute.Required &
+      Attribute.SetMinMax<
+        {
+          max: 100;
+          min: 0;
+        },
+        number
+      > &
+      Attribute.DefaultTo<0>;
   };
 }
 
@@ -43,7 +53,45 @@ export interface CategoriesPercentage extends Schema.Component {
       Attribute.DefaultTo<0>;
     brand_perc: Attribute.Component<'categories.brand-percent', true>;
     name: Attribute.Enumeration<['general', 'skroutz', 'shopflix']>;
+    packaging_cost: Attribute.Decimal &
+      Attribute.Required &
+      Attribute.SetMinMax<
+        {
+          min: 0;
+        },
+        number
+      > &
+      Attribute.DefaultTo<0>;
     percentage: Attribute.Decimal;
+    platform_commission: Attribute.Decimal &
+      Attribute.Required &
+      Attribute.SetMinMax<
+        {
+          max: 100;
+          min: 0;
+        },
+        number
+      > &
+      Attribute.DefaultTo<0>;
+    platform_man_cost: Attribute.Decimal &
+      Attribute.Required &
+      Attribute.SetMinMax<
+        {
+          min: 0;
+        },
+        number
+      > &
+      Attribute.DefaultTo<0>;
+    profit_margin: Attribute.Decimal &
+      Attribute.Required &
+      Attribute.SetMinMax<
+        {
+          max: 100;
+          min: 0;
+        },
+        number
+      > &
+      Attribute.DefaultTo<0>;
   };
 }
 

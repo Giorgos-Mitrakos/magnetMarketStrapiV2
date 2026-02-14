@@ -28,6 +28,32 @@
         "skroutz",
         "shopflix"
       ]
+    },
+    "platform_commission": {
+      "type": "decimal",
+      "required": true,
+      "default": 0,
+      "min": 0,
+      "max": 100
+    },
+    "platform_man_cost": {
+      "type": "decimal",
+      "required": true,
+      "default": 0,
+      "min": 0
+    },
+    "profit_margin": {
+      "type": "decimal",
+      "required": true,
+      "default": 0,
+      "min": 0,
+      "max": 100
+    },
+    "packaging_cost": {
+      "type": "decimal",
+      "required": true,
+      "default": 0,
+      "min": 0
     }
   }
 }

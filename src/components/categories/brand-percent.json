@@ -13,6 +13,13 @@
     "percentage": {
       "type": "decimal",
       "required": true
+    },
+    "profit_margin": {
+      "type": "decimal",
+      "required": true,
+      "default": 0,
+      "min": 0,
+      "max": 100
     }
   }
 }
