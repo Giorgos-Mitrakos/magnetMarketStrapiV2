@@ -16,30 +16,27 @@ module.exports = ({ strapi }) => {
          * Main import flow - TEMPLATE METHOD PATTERN
          */
         async import() {
+            const startTime = Date.now();
+            let importRef = null;
+
             try {
                 console.log(`\n🚀 Starting import for ${this.name}`);
-                const startTime = Date.now();
 
-                // 1. Initialize
-                const importRef = await this.initialize();
+                importRef = await this.initialize();
 
-                // 2. Check if active
                 if (!this.isActive) {
                     await this.deleteProducts(importRef);
                     return { message: "ok", info: "Inactive supplier" };
                 }
 
-                // 3. Fetch data (προμηθευτή-specific)
                 const { products, message } = await this.fetchData(importRef);
 
                 if (message === 'Error' || !products || products.length === 0) {
                     return { message: message || "No products" };
                 }
 
-                // 4. Process products (custom per supplier)
                 const processedProducts = await this.preprocessProducts(products, importRef);
 
-                // 5. Categorize (create/update)
                 const { toCreate, toUpdate } = await strapi
                     .plugin('import-products')
                     .service('batchHelpers')
@@ -48,7 +45,6 @@ module.exports = ({ strapi }) => {
                 console.log(`   To create: ${toCreate.length}`);
                 console.log(`   To update: ${toUpdate.length}`);
 
-                // 6. Batch process
                 await strapi
                     .plugin('import-products')
                     .service('batchHelpers')
@@ -59,10 +55,8 @@ module.exports = ({ strapi }) => {
                     .service('batchHelpers')
                     .processUpdateBatch(toUpdate, importRef);
 
-                // 7. Cleanup
-                await this.cleanup(importRef);
+                await this.deleteProducts(importRef);
 
-                // 8. Report
                 const duration = ((Date.now() - startTime) / 1000 / 60).toFixed(2);
                 this.logReport(importRef, duration);
 
@@ -71,6 +65,13 @@ module.exports = ({ strapi }) => {
             } catch (error) {
                 console.error(`Error importing ${this.name}:`, error);
                 return { message: "error", error: error.message };
+
+            } finally {
+                // ✅ Πάντα καθαρίζουμε, ακόμα και σε error
+                strapi
+                    .plugin('import-products')
+                    .service('cacheService')
+                    .clear(this.name);
             }
         }
 

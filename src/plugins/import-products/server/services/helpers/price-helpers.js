@@ -211,153 +211,76 @@ module.exports = ({ strapi }) => ({
   },
 
   findProductPlatformPercentage(categoryInfo, brandId) {
-    // Initialize with default values from env
     const defaultPercentage = Number(process.env.GENERAL_CATEGORY_PERCENTAGE);
     const defaultAddToPrice = Number(process.env.GENERAL_SHIPPING_PRICE);
 
-    // Αρχικά αποθηκεύω τις default τιμές που έχω στο αρχείο env
+    // ── ΒΗΜΑ 1: Ξεκινάω με defaults ──────────────────────────────
     let percentages = {
-      general: {
-        platformCategoryPercentage: defaultPercentage,
-        addToPrice: defaultAddToPrice,
-      },
-      skroutz: {
-        platformCategoryPercentage: defaultPercentage,
-        addToPrice: defaultAddToPrice,
-      },
-      shopflix: {
-        platformCategoryPercentage: defaultPercentage,
-        addToPrice: defaultAddToPrice,
+      general: { platformCategoryPercentage: defaultPercentage, addToPrice: defaultAddToPrice },
+      skroutz: { platformCategoryPercentage: defaultPercentage, addToPrice: defaultAddToPrice },
+      shopflix: { platformCategoryPercentage: defaultPercentage, addToPrice: defaultAddToPrice }
+    };
+
+    // ── ΒΗΜΑ 2: Helper για να διαβάζω ένα platform ───────────────
+    const getDataForPlatform = (platformKey) => {
+      return categoryInfo.cat_percentage?.find(
+        x => x.name?.toLowerCase().trim() === platformKey
+      ) || null;
+    };
+
+    // ── ΒΗΜΑ 3: Φόρτωσε το general πρώτα ─────────────────────────
+    const generalData = getDataForPlatform('general');
+
+    if (generalData) {
+      // Βάλε το ποσοστό της κατηγορίας αν υπάρχει
+      if (generalData.percentage) {
+        percentages.general.platformCategoryPercentage = generalData.percentage;
+      }
+      if (generalData.add_to_price !== undefined) {
+        percentages.general.addToPrice = generalData.add_to_price || 0;
+      }
+
+      // Τσέκαρε αν υπάρχει brand-specific ποσοστό
+      if (generalData.brand_perc?.length > 0) {
+        const brandPerc = generalData.brand_perc.find(x => x.brand?.id === brandId);
+        if (brandPerc) {
+          // Brand βρέθηκε → χρησιμοποίησε το brand ποσοστό
+          percentages.general.platformCategoryPercentage = brandPerc.percentage;
+        }
+        // Brand ΔΕΝ βρέθηκε → μένει το ποσοστό κατηγορίας του general
       }
     }
+    // Αν δεν υπάρχει general → έχει ήδη τα defaults
 
-    // Helper function to process platform percentages
-    const processPlatform = (platformName) => {
-      const platformKey = platformName.toLowerCase().trim();
-      const platformData = categoryInfo.cat_percentage.find(x => x.name.toLowerCase().trim() === platformKey);
+    // ── ΒΗΜΑ 4: Φόρτωσε skroutz και shopflix ─────────────────────
+    ['skroutz', 'shopflix'].forEach(platformKey => {
+      const platformData = getDataForPlatform(platformKey);
 
-      if (!platformData) {
-        // If no platform-specific data, use general values (except for general platform itself)
-        if (platformKey !== 'general') {
-          percentages[platformKey].platformCategoryPercentage = percentages.general.platformCategoryPercentage;
-          percentages[platformKey].addToPrice = percentages.general.addToPrice;
-        }
+      if (!platformData || !platformData.percentage) {
+        // Platform δεν υπάρχει ή δεν έχει ποσοστό → πάρε τιμές από general
+        percentages[platformKey].platformCategoryPercentage = percentages.general.platformCategoryPercentage;
+        percentages[platformKey].addToPrice = percentages.general.addToPrice;
         return;
       }
 
-      // Update percentage if specified
-      if (platformData.percentage) {
-        percentages[platformKey].platformCategoryPercentage = platformData.percentage;
-      }
-
-      // Update addToPrice if specified
+      // Platform υπάρχει → βάλε τις δικές του τιμές
+      percentages[platformKey].platformCategoryPercentage = platformData.percentage;
       if (platformData.add_to_price !== undefined) {
         percentages[platformKey].addToPrice = platformData.add_to_price || 0;
       }
 
-      // Check for brand-specific percentage
+      // Τσέκαρε αν υπάρχει brand-specific ποσοστό για αυτό το platform
       if (platformData.brand_perc?.length > 0) {
-        const brandPercentage = platformData.brand_perc.find(x => x.brand?.id === brandId);
-        if (brandPercentage) {
-          percentages[platformKey].platformCategoryPercentage = brandPercentage.percentage;
-          if (platformKey === 'general') {
-            percentages[platformKey].brandPercentage = brandPercentage.percentage;
-          }
-        } else if (platformKey !== 'general' && percentages.general.brandPercentage) {
-          percentages[platformKey].platformCategoryPercentage = percentages.general.brandPercentage;
+        const brandPerc = platformData.brand_perc.find(x => x.brand?.id === brandId);
+        if (brandPerc) {
+          // Brand βρέθηκε → χρησιμοποίησε το brand ποσοστό
+          percentages[platformKey].platformCategoryPercentage = brandPerc.percentage;
         }
-      } else if (platformKey !== 'general' && percentages.general.brandPercentage) {
-        percentages[platformKey].platformCategoryPercentage = percentages.general.brandPercentage;
+        // Brand ΔΕΝ βρέθηκε → μένει το ποσοστό κατηγορίας του platform
       }
-    };
-
-    // Process each platform
-    processPlatform('general');
-    processPlatform('skroutz');
-    processPlatform('shopflix');
+    });
 
     return percentages;
-
-    // // Βρίσκω τα ποσοστά της κατηγορίας ανά πλατφόρμα
-    // const generalCategoryPercentage = categoryInfo.cat_percentage.find(x => x.name.toLowerCase().trim() === "general")
-    // const skroutzCategoryPercentage = categoryInfo.cat_percentage.find(x => x.name.toLowerCase().trim() === "skroutz")
-    // const shopflixCategoryPercentage = categoryInfo.cat_percentage.find(x => x.name.toLowerCase().trim() === "shopflix")
-
-    // if (generalCategoryPercentage) {
-    //   if (generalCategoryPercentage.percentage) {
-    //     percentages.general.platformCategoryPercentage = generalCategoryPercentage.percentage
-    //   }
-    //   percentages.general.addToPrice = generalCategoryPercentage.add_to_price ? generalCategoryPercentage.add_to_price : 0
-
-    //   // Αναζητώ αν υπάρχει ξεχωριστό ποσοστό λόγω κατασκευαστή στην κατηγορία 
-    //   if (generalCategoryPercentage.brand_perc && generalCategoryPercentage.brand_perc.length > 0) {
-    //     const brandPercentage = generalCategoryPercentage.brand_perc.find(x => x.brand?.id === brandId)
-    //     if (brandPercentage) {
-    //       percentages.general.platformCategoryPercentage = brandPercentage.percentage
-    //       percentages.general.brandPercentage = brandPercentage.percentage
-    //     }
-    //   }
-    // }
-
-    // // Αν υπάρχει ξεχωριστό ποσοστό στην πλατφόρα αποθηκεύω αυτές τις τιμές αλλιώς τα γενικά ποσοστά
-    // if (skroutzCategoryPercentage) {
-    //   if (skroutzCategoryPercentage.percentage) {
-    //     percentages.skroutz.platformCategoryPercentage = skroutzCategoryPercentage.percentage
-    //   }
-    //   else {
-    //     percentages.skroutz.platformCategoryPercentage = percentages.general.platformCategoryPercentage
-    //   }
-
-    //   percentages.skroutz.addToPrice = skroutzCategoryPercentage.add_to_price ? skroutzCategoryPercentage.add_to_price : 0
-
-    //   // Αναζητώ αν υπάρχει ξεχωριστό ποσοστό λόγω κατασκευαστή στην κατηγορία 
-    //   if (skroutzCategoryPercentage.brand_perc && skroutzCategoryPercentage.brand_perc.length > 0) {
-    //     const brandPercentage = skroutzCategoryPercentage.brand_perc.find(x => x.brand?.id === brandId)
-    //     if (brandPercentage) {
-    //       percentages.skroutz.platformCategoryPercentage = brandPercentage.percentage
-    //     }
-    //     else if (percentages.general.brandPercentage) {
-    //       percentages.skroutz.platformCategoryPercentage = percentages.general.brandPercentage
-    //     }
-    //   }
-    //   else if (percentages.general.brandPercentage) {
-    //     percentages.skroutz.platformCategoryPercentage = percentages.general.brandPercentage
-    //   }
-    // }
-    // else {
-    //   percentages.skroutz.platformCategoryPercentage = percentages.general.platformCategoryPercentage
-    //   percentages.skroutz.addToPrice = percentages.general.addToPrice
-    // }
-
-    // // Αν υπάρχει ξεχωριστό ποσοστό στην πλατφόρα αποθηκεύω αυτές τις τιμές αλλιώς τα γενικά ποσοστά
-    // if (shopflixCategoryPercentage) {
-    //   if (shopflixCategoryPercentage.percentage) {
-    //     percentages.shopflix.platformCategoryPercentage = shopflixCategoryPercentage.percentage
-    //   }
-    //   else {
-    //     percentages.shopflix.platformCategoryPercentage = percentages.general.platformCategoryPercentage
-    //   }
-
-    //   percentages.shopflix.addToPrice = shopflixCategoryPercentage.add_to_price ? shopflixCategoryPercentage.add_to_price : 0
-
-    //   if (shopflixCategoryPercentage.brand_perc && shopflixCategoryPercentage.brand_perc.length > 0) {
-    //     const brandPercentage = shopflixCategoryPercentage.brand_perc.find(x => x.brand?.id === brandId)
-    //     if (brandPercentage) {
-    //       percentages.shopflix.platformCategoryPercentage = brandPercentage.percentage
-    //     }
-    //     else if (percentages.general.brandPercentage) {
-    //       percentages.shopflix.platformCategoryPercentage = percentages.general.brandPercentage
-    //     }
-    //   }
-    //   else if (percentages.general.brandPercentage) {
-    //     percentages.shopflix.platformCategoryPercentage = percentages.general.brandPercentage
-    //   }
-    // }
-    // else {
-    //   percentages.shopflix.platformCategoryPercentage = percentages.general.platformCategoryPercentage
-    //   percentages.shopflix.addToPrice = percentages.general.addToPrice
-    // }
-    // return percentages
   },
 
   createPrices(existedProduct, prices, minPrices, suggestedPrice, skroutz, shopflix) {
@@ -681,4 +604,86 @@ module.exports = ({ strapi }) => ({
     if (value === null || value === undefined || isNaN(value)) return null;
     return Math.round(value * 100) / 100;
   },
+
+  /**
+   * Υπολογίζει την τελική τιμή για μια συγκεκριμένη πλατφόρμα
+   * 
+   * @param {Object} params
+   * @param {number} params.wholesalePrice - Χονδρική τιμή (χωρίς ΦΠΑ)
+   * @param {number} params.shippingCost - Κόστος μεταφορικών (χωρίς ΦΠΑ)
+   * @param {Object} params.platformConfig - Configuration από το category component
+   * @param {number} params.platformConfig.platform_commission - Προμήθεια πλατφόρμας (0-1, π.χ. 0.04)
+   * @param {number} params.platformConfig.management_cost - Κόστος διαχείρισης
+   * @param {number} params.platformConfig.profit_margin - Margin κέρδους (0-1, π.χ. 0.25)
+   * @returns {number} Η τελική τιμή
+   */
+  calculatePlatformPrice({ wholesalePrice, shippingCost, platformConfig }) {
+    // Παίρνουμε τα στοιχεία από το config
+    const managementCost = platformConfig.management_cost || 0;
+    const platformCommission = platformConfig.platform_commission || 0;
+    const profitMargin = platformConfig.profit_margin || 0;
+
+    // 1. Συνολικό κόστος (χωρίς ΦΠΑ)
+    const totalCost = wholesalePrice + shippingCost + managementCost;
+
+    // 2. Προσθέτουμε το margin κέρδους
+    const priceWithProfit = totalCost * (1 + profitMargin);
+
+    // 3. Προσθέτουμε το ΦΠΑ
+    const priceWithVAT = priceWithProfit * (1 + VAT);
+
+    // 4. Υπολογίζουμε την τελική τιμή με την προμήθεια της πλατφόρμας
+    const calculatedPrice = priceWithVAT / (1 - platformCommission);
+
+    // 5. Στρογγυλοποιούμε στο επόμενο δεκαδικό ψηφίο
+    const finalPrice = this.roundUpToFirstDecimal(calculatedPrice);
+
+    return Math.round(finalPrice * 100) / 100; // Διασφαλίζουμε 2 δεκαδικά
+  },
+
+  /**
+   * Βρίσκει το configuration για μια πλατφόρμα από μια κατηγορία
+   * Υποστηρίζει brand-specific pricing
+   * 
+   * @param {Object} category - Το category object με populated cat_percentage
+   * @param {string} platformName - Όνομα πλατφόρμας (π.χ. 'skroutz', 'shopflix', 'general')
+   * @param {number} brandId - Optional brand ID για brand-specific pricing
+   * @returns {Object|null} Configuration object ή null αν δεν βρεθεί
+   */
+  getPlatformConfig(category, platformName, brandId = null) {
+    if (!category.cat_percentage || !Array.isArray(category.cat_percentage)) {
+      return null;
+    }
+
+    // Βρίσκουμε το configuration για την πλατφόρμα
+    const platformConfig = category.cat_percentage.find(
+      config => config.name?.toLowerCase() === platformName.toLowerCase()
+    );
+
+    if (!platformConfig) {
+      return null;
+    }
+
+    // Αρχικοποίηση του configuration
+    let config = {
+      platform_commission: platformConfig.platform_commission || 0,
+      management_cost: platformConfig.management_cost || 0,
+      profit_margin: platformConfig.profit_margin || 0,
+      packaging_cost: platformConfig.packaging_cost || 0
+    };
+
+    // Αν ζητάμε brand-specific config
+    if (brandId && platformConfig.brand_perc && Array.isArray(platformConfig.brand_perc)) {
+      const brandConfig = platformConfig.brand_perc.find(
+        bp => bp.brand?.id === brandId
+      );
+
+      // Αν υπάρχει brand-specific profit margin, το χρησιμοποιούμε
+      if (brandConfig && brandConfig.profit_margin !== undefined) {
+        config.profit_margin = brandConfig.profit_margin;
+      }
+    }
+
+    return config;
+  }
 });

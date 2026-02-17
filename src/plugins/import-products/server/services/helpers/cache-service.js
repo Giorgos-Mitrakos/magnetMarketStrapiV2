@@ -22,6 +22,20 @@ module.exports = ({ strapi }) => ({
     async initialize(entry) {
         const supplierName = entry.name.toLowerCase();
 
+        // ✅ Αν ο supplier ήταν ήδη active (crash), πρώτα φύγε από active set
+        if (this.cache.activeSuppliers.has(supplierName)) {
+            console.warn(`⚠️  ${entry.name} already in activeSuppliers - previous run didn't cleanup.`);
+            this.cache.activeSuppliers.delete(supplierName); // Αφαίρεσε τον
+        }
+
+        // ✅ Αν κανένας δεν τρέχει, σβήσε το cache για fresh reload
+        if (this.cache.activeSuppliers.size === 0) {
+            console.log(`   No active suppliers - clearing stale cache before reload`);
+            this.cache.existingProducts.clear();
+            this.cache.categories.clear();
+            this.cache.brands.clear();
+        }
+
         // ✅ Add supplier to active set
         this.cache.activeSuppliers.add(supplierName);
 
