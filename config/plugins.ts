@@ -7,6 +7,10 @@ export default ({ env }) => ({
     enabled: true,
     resolve: './src/plugins/export-platforms-xml'
   },
+  'pricing-manager': {
+    enabled: true,
+    resolve: './src/plugins/pricing-manager'
+  },
   'platform-scrapper': {
     enabled: true,
     resolve: './src/plugins/platform-scrapper'
@@ -45,7 +49,7 @@ export default ({ env }) => ({
         },
         // authMethod: "SMTP"
         // ... any custom nodemailer options
-        
+
       },
       tls: {
         // secure: false,

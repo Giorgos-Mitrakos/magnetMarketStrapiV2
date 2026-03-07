@@ -2,41 +2,40 @@
 
 /**
  * SMART Cache Service - Supports concurrent imports without duplication
- * 
+ *
  * - Shared cache for all suppliers (no duplication)
  * - Reference counting: tracks how many suppliers are using cache
  * - Only clears when NO suppliers are active
+ * - Lean product cache: no prod_chars, no nested category data
  */
 module.exports = ({ strapi }) => ({
     cache: {
         categories: new Map(),
         brands: new Map(),
         existingProducts: new Map(),
-        activeSuppliers: new Set(), // ✅ Track which suppliers are currently importing
+        activeSuppliers: new Set(),
+        processingProducts: new Set(),
     },
 
     /**
      * Initialize cache for supplier
-     * Increments reference count
      */
     async initialize(entry) {
         const supplierName = entry.name.toLowerCase();
 
-        // ✅ Αν ο supplier ήταν ήδη active (crash), πρώτα φύγε από active set
         if (this.cache.activeSuppliers.has(supplierName)) {
             console.warn(`⚠️  ${entry.name} already in activeSuppliers - previous run didn't cleanup.`);
-            this.cache.activeSuppliers.delete(supplierName); // Αφαίρεσε τον
+            this.cache.activeSuppliers.delete(supplierName);
         }
 
-        // ✅ Αν κανένας δεν τρέχει, σβήσε το cache για fresh reload
         if (this.cache.activeSuppliers.size === 0) {
             console.log(`   No active suppliers - clearing stale cache before reload`);
-            this.cache.existingProducts.clear();
-            this.cache.categories.clear();
-            this.cache.brands.clear();
+            // ✅ Αντικατάσταση με new Map() αντί για .clear() για σωστό GC
+            this.cache.existingProducts = new Map();
+            this.cache.categories = new Map();
+            this.cache.brands = new Map();
         }
 
-        // ✅ Add supplier to active set
         this.cache.activeSuppliers.add(supplierName);
 
         console.log(`🔄 Initializing cache for ${entry.name}...`);
@@ -44,7 +43,6 @@ module.exports = ({ strapi }) => ({
 
         const start = Date.now();
 
-        // ✅ Load shared data only if cache is empty
         if (this.cache.categories.size === 0) {
             await this.cacheCategories();
         }
@@ -63,7 +61,7 @@ module.exports = ({ strapi }) => ({
 
     async cacheCategories() {
         const categories = await strapi.db.query('api::category.category').findMany({
-            select: ['id', 'slug', 'average_weight'],
+            select: ['id', 'slug', 'average_weight', 'customer_share_pct'],
             populate: {
                 supplierInfo: true,
                 cat_percentage: {
@@ -112,29 +110,35 @@ module.exports = ({ strapi }) => ({
                         { model: { $notNull: true } }
                     ]
                 },
+                // ✅ Μόνο τα πεδία που χρειάζονται για matching + update logic
+                select: [
+                    'id', 'mpn', 'barcode', 'model', 'name',
+                    'publishedAt', 'status', 'deletedAt', 'inventory',
+                    'slug', 'notice_if_available',
+                    'weight', 'length', 'width', 'height',
+                    'price', 'is_fixed_price'
+                ],
                 populate: {
                     supplierInfo: {
                         populate: {
                             price_progress: true,
                         }
                     },
-                    related_import: true,
-                    brand: true,
+                    // ✅ Μόνο id - για related_import check
+                    related_import: {
+                        select: ['id']
+                    },
+                    // ✅ Μόνο id + name - για brand comparison
+                    brand: {
+                        select: ['id', 'name']
+                    },
+                    // ✅ Μόνο id + slug - category comparison γίνεται με categoryInfo.id
+                    // Δεν χρειάζεται cat_percentage/brand_perc - αυτά είναι ήδη στο category cache
                     category: {
-                        populate: {
-                            cat_percentage: {
-                                populate: {
-                                    brand_perc: {
-                                        populate: {
-                                            brand: true
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                        select: ['id', 'slug']
                     },
                     platforms: true,
-                    prod_chars: true
+                    // ✅ prod_chars ΔΕΝ φορτώνονται - lazy load μόνο όταν χρειαστεί
                 },
                 limit: batchSize,
                 offset: offset
@@ -146,25 +150,7 @@ module.exports = ({ strapi }) => ({
             }
 
             for (const product of products) {
-                const norm = (str) => str?.trim().toLowerCase() || '';
-
-                const mpn = norm(product.mpn);
-                const barcode = norm(product.barcode);
-                const model = norm(product.model);
-
-                // Simple keys - exact matching only
-                if (mpn && barcode) {
-                    this.cache.existingProducts.set(`mpn+barcode:${mpn}:${barcode}`, product);
-                }
-                if (mpn) {
-                    this.cache.existingProducts.set(`mpn:${mpn}`, product);
-                }
-                if (barcode) {
-                    this.cache.existingProducts.set(`barcode:${barcode}`, product);
-                }
-                if (model) {
-                    this.cache.existingProducts.set(`model:${model}`, product);
-                }
+                this._indexProduct(product);
             }
 
             totalLoaded += products.length;
@@ -178,6 +164,35 @@ module.exports = ({ strapi }) => ({
         }
 
         console.log(`   Loaded ${totalLoaded} existing products`);
+    },
+
+    /**
+     * ✅ Shared indexing logic - χρησιμοποιείται από cacheExistingProducts & addProductToCache
+     */
+    _indexProduct(product) {
+        const norm = (str) => str?.trim().toLowerCase() || '';
+
+        const mpn = norm(product.mpn);
+        const barcode = norm(product.barcode);
+        const model = norm(product.model);
+
+        const cached = {
+            ...product,
+            brandName: product.brandName || product.brand?.name || null
+        };
+
+        if (mpn && barcode) {
+            this.cache.existingProducts.set(`mpn+barcode:${mpn}:${barcode}`, cached);
+        }
+        if (mpn) {
+            this.cache.existingProducts.set(`mpn:${mpn}`, cached);
+        }
+        if (barcode) {
+            this.cache.existingProducts.set(`barcode:${barcode}`, cached);
+        }
+        if (model) {
+            this.cache.existingProducts.set(`model:${model}`, cached);
+        }
     },
 
     getCategoryBySlug(slug) {
@@ -259,51 +274,98 @@ module.exports = ({ strapi }) => ({
     },
 
     addProductToCache(product) {
-        const norm = (str) => str?.trim().toLowerCase() || '';
+        this._indexProduct(product);
+    },
 
-        const mpn = norm(product.mpn);
-        const barcode = norm(product.barcode);
-        const model = norm(product.model);
-
-        // ✅ Βεβαιώσου ότι το cached product έχει brandName
-        const cachedProduct = {
-            ...product,
-            brandName: product.brandName || product.brand?.name || product.brand
-        };
-
-        if (mpn && barcode) {
-            this.cache.existingProducts.set(`mpn+barcode:${mpn}:${barcode}`, cachedProduct);
-        }
-        if (mpn) {
-            this.cache.existingProducts.set(`mpn:${mpn}`, cachedProduct);
-        }
-        if (barcode) {
-            this.cache.existingProducts.set(`barcode:${barcode}`, cachedProduct);
-        }
-        if (model) {
-            this.cache.existingProducts.set(`model:${model}`, cachedProduct);
+    /**
+     * ✅ Lazy load prod_chars για ένα προϊόν - μόνο όταν χρειαστεί
+     * Καλείται από updateProductChars όταν το cached product δεν έχει chars
+     */
+    async loadProductChars(productId) {
+        try {
+            const result = await strapi.db.query('api::product.product').findOne({
+                where: { id: productId },
+                populate: { prod_chars: true }
+            });
+            return result?.prod_chars || [];
+        } catch (error) {
+            console.error(`Error loading prod_chars for product ${productId}:`, error.message);
+            return [];
         }
     },
 
     /**
-     * Clear cache only when NO suppliers are active
-     * Called when supplier finishes importing
+     * ✅ Invalidate μεμονωμένο προϊόν από cache
+     * Καλείται μετά από χειροκίνητη αλλαγή στο Strapi admin
+     */
+    async invalidateProduct(productId) {
+        try {
+            // Βρες και αφαίρεσε όλα τα keys που αντιστοιχούν σε αυτό το id
+            const keysToDelete = [];
+            for (const [key, product] of this.cache.existingProducts) {
+                if (product.id === productId) {
+                    keysToDelete.push(key);
+                }
+            }
+            keysToDelete.forEach(key => this.cache.existingProducts.delete(key));
+
+            if (keysToDelete.length > 0) {
+                // Φόρτωσε το ενημερωμένο προϊόν από τη βάσηKs και ξανάβαλέ το στο cache
+                await this.refreshProduct(productId);
+                console.log(`🔄 Cache invalidated for product ${productId}`);
+            }
+        } catch (error) {
+            console.error(`Error invalidating product ${productId} from cache:`, error.message);
+        }
+    },
+
+    /**
+     * ✅ Reload ενός προϊόντος στο cache μετά από αλλαγή
+     */
+    async refreshProduct(productId) {
+        try {
+            const product = await strapi.db.query('api::product.product').findOne({
+                where: { id: productId },
+                select: [
+                    'id', 'mpn', 'barcode', 'model', 'name',
+                    'publishedAt', 'status', 'deletedAt', 'inventory',
+                    'slug', 'notice_if_available',
+                    'weight', 'length', 'width', 'height', 'price', 'is_fixed_price'
+                ],
+                populate: {
+                    supplierInfo: { populate: { price_progress: true } },
+                    related_import: { select: ['id'] },
+                    brand: { select: ['id', 'name'] },
+                    category: { select: ['id', 'slug'] },
+                    platforms: true,
+                }
+            });
+
+            if (product) {
+                this._indexProduct(product);
+            }
+        } catch (error) {
+            console.error(`Error refreshing product ${productId} in cache:`, error.message);
+        }
+    },
+
+    /**
+     * Clear cache - only when NO suppliers are active
      */
     clear(supplierName) {
         const supplierKey = supplierName.toLowerCase();
 
-        // ✅ Remove supplier from active set
         this.cache.activeSuppliers.delete(supplierKey);
 
         console.log(`🧹 ${supplierName} finished importing`);
         console.log(`   Active suppliers: ${this.cache.activeSuppliers.size > 0 ? Array.from(this.cache.activeSuppliers).join(', ') : 'none'}`);
 
-        // ✅ Only clear if NO suppliers are active
         if (this.cache.activeSuppliers.size === 0) {
             console.log(`🧹 No active suppliers - clearing cache`);
-            this.cache.categories.clear();
-            this.cache.brands.clear();
-            this.cache.existingProducts.clear();
+            // ✅ new Map() αντί για .clear() - το παλιό object γίνεται eligible for GC αμέσως
+            this.cache.categories = new Map();
+            this.cache.brands = new Map();
+            this.cache.existingProducts = new Map();
         } else {
             console.log(`⏸️  Keeping cache - ${this.cache.activeSuppliers.size} supplier(s) still active`);
         }
@@ -314,9 +376,9 @@ module.exports = ({ strapi }) => ({
      */
     forceClear() {
         console.log(`🧹 Force clearing cache`);
-        this.cache.categories.clear();
-        this.cache.brands.clear();
-        this.cache.existingProducts.clear();
-        this.cache.activeSuppliers.clear();
+        this.cache.categories = new Map();
+        this.cache.brands = new Map();
+        this.cache.existingProducts = new Map();
+        this.cache.activeSuppliers = new Set();
     }
 });

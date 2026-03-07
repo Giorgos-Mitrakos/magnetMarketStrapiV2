@@ -94,6 +94,13 @@
     },
     "description": {
       "type": "string"
+    },
+    "customer_share_pct": {
+      "type": "decimal",
+      "default": 60,
+      "required": true,
+      "min": 0,
+      "max": 100
     }
   }
 }

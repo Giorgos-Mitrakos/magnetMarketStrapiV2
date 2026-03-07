@@ -16,7 +16,6 @@ export interface CategoriesBrandPercent extends Schema.Component {
       Attribute.Required &
       Attribute.SetMinMax<
         {
-          max: 100;
           min: 0;
         },
         number
@@ -86,7 +85,6 @@ export interface CategoriesPercentage extends Schema.Component {
       Attribute.Required &
       Attribute.SetMinMax<
         {
-          max: 100;
           min: 0;
         },
         number

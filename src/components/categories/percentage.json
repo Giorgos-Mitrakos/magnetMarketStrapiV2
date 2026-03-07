@@ -46,8 +46,7 @@
       "type": "decimal",
       "required": true,
       "default": 0,
-      "min": 0,
-      "max": 100
+      "min": 0
     },
     "packaging_cost": {
       "type": "decimal",

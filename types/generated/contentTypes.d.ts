@@ -541,6 +541,16 @@ export interface ApiCategoryCategory extends Schema.CollectionType {
       'oneToMany',
       'api::category.category'
     >;
+    customer_share_pct: Attribute.Decimal &
+      Attribute.Required &
+      Attribute.SetMinMax<
+        {
+          max: 100;
+          min: 0;
+        },
+        number
+      > &
+      Attribute.DefaultTo<60>;
     description: Attribute.String;
     export_to_platforms: Attribute.Relation<
       'api::category.category',

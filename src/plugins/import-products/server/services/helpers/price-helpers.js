@@ -1,7 +1,10 @@
 'use strict';
 
 module.exports = ({ strapi }) => ({
-  parseFloatSafe(value) { return parseFloat(value) || 0 },
+  parseFloatSafe(value) {
+    const n = parseFloat(value);
+    return isNaN(n) ? 0 : n;
+  },
 
   async setPrice(existedProduct, supplierInfo, categoryInfo, product) {
     try {
@@ -14,8 +17,6 @@ module.exports = ({ strapi }) => ({
       // ΣΕΝΑΡΙΟ 1: ΝΕΟ ΠΡΟΪΟΝ (existedProduct = null)
       // ════════════════════════════════════════════════════════════
       if (!existedProduct) {
-        // Για νέο προϊόν, χρησιμοποιούμε ΟΛΟΥΣ τους suppliers (in_stock ή όχι)
-        // Λογική: Αν υπάρχει στο XML, μπορούμε να το παραγγείλουμε
         const availableSuppliers = supplierInfo;
 
         if (!availableSuppliers || availableSuppliers.length === 0) {
@@ -27,26 +28,22 @@ module.exports = ({ strapi }) => ({
           };
         }
 
-        // Βρες τον φθηνότερο προμηθευτή (ακόμα και αν είναι OutOfStock)
         let minSupplierInfo = availableSuppliers.reduce((prev, current) => {
           return (prev.wholesale < current.wholesale) ? prev : current;
         });
 
-        return await this.calculatePrices(minSupplierInfo, brandId, categoryId, recycleTax, taxRate, categoryInfo, product, null);
+        return await this.calculatePrices(minSupplierInfo, brandId, categoryId, taxRate, categoryInfo, product, null);
       }
 
       // ════════════════════════════════════════════════════════════
       // ΣΕΝΑΡΙΟ 2: ΥΠΑΡΧΟΝ ΠΡΟΪΟΝ (existedProduct exists)
       // ════════════════════════════════════════════════════════════
-
-      // Βρες τους διαθέσιμους προμηθευτές (in_stock=true)
       const availableSuppliers = supplierInfo.filter(x => x.in_stock === true);
 
       // ────────────────────────────────────────────────────────────
       // ΣΕΝΑΡΙΟ 2Α: ΔΕΝ ΥΠΑΡΧΕΙ ΚΑΝΕΝΑΣ ΔΙΑΘΕΣΙΜΟΣ
       // ────────────────────────────────────────────────────────────
       if (availableSuppliers.length === 0) {
-        // Κράτα την υπάρχουσα τιμή (δεν αλλάζει τίποτα)
         const skroutz = existedProduct.platforms.find(x => x.platform === "Skroutz");
         const shopflix = existedProduct.platforms.find(x => x.platform === "Shopflix");
 
@@ -71,17 +68,14 @@ module.exports = ({ strapi }) => ({
       // ────────────────────────────────────────────────────────────
       // ΣΕΝΑΡΙΟ 2Β: ΥΠΑΡΧΟΥΝ ΔΙΑΘΕΣΙΜΟΙ ΠΡΟΜΗΘΕΥΤΕΣ
       // ────────────────────────────────────────────────────────────
-      // Βρες τον φθηνότερο διαθέσιμο
       let minSupplierInfo = availableSuppliers.reduce((prev, current) => {
         return (prev.wholesale < current.wholesale) ? prev : current;
       });
 
-      // Υπολόγισε νέες τιμές με βάση τον φθηνότερο διαθέσιμο
       return await this.calculatePrices(
         minSupplierInfo,
         brandId,
         categoryId,
-        recycleTax,
         taxRate,
         categoryInfo,
         product,
@@ -97,7 +91,7 @@ module.exports = ({ strapi }) => ({
   // ════════════════════════════════════════════════════════════
   // HELPER: Υπολογισμός Τιμών
   // ════════════════════════════════════════════════════════════
-  async calculatePrices(minSupplierInfo, brandId, categoryId, recycleTax, taxRate, categoryInfo, product, existedProduct) {
+  async calculatePrices(minSupplierInfo, brandId, categoryId, taxRate, categoryInfo, product, existedProduct) {
     try {
       const supplier = await strapi.db.query('plugin::import-products.importxml').findOne({
         select: ['name', 'shipping', 'useRetailPrice'],
@@ -109,39 +103,81 @@ module.exports = ({ strapi }) => ({
         }
       });
 
-      let supplierShipping = this.parseFloatSafe(supplier?.shipping);
-      let percentages = this.findProductPlatformPercentage(categoryInfo, brandId);
+      let supplierShipping = this.parseFloatSafe(supplier?.shipping) || Number(process.env.GENERAL_SHIPPING_PRICE);
 
-      const calculatePlatformPrice = (platform) => {
-        const basePrice = this.parseFloatSafe(minSupplierInfo.wholesale) +
-          recycleTax +
-          this.parseFloatSafe(percentages[platform].addToPrice) +
-          supplierShipping;
+      // ── Platform configs από category ────────────────────────────────
+      const skroutzConfig = this.getPlatformConfig(categoryInfo, 'skroutz', brandId);
+      const shopflixConfig = this.getPlatformConfig(categoryInfo, 'shopflix', brandId);
+      const generalConfig = this.getPlatformConfig(categoryInfo, 'general', brandId);
 
-        return basePrice *
-          (taxRate / 100 + 1) *
-          (this.parseFloatSafe(percentages[platform].platformCategoryPercentage) / 100 + 1);
-      };
+      // ── customer_share_pct: πόσο % των savings πάει στον πελάτη ─────
+      const customerSharePct = categoryInfo.customer_share_pct
+        || Number(process.env.SITE_CUSTOMER_SHARE_PCT)
+        || 60;
+
+      // ── 1. Skroutz: υπολογισμός από wholesale ────────────────────────
+      const skroutzPrice = this.calculatePlatformPrice({
+        wholesalePrice: minSupplierInfo.wholesale,
+        recycleTax: minSupplierInfo.recycle_tax,
+        shippingCost: supplierShipping,
+        platformConfig: skroutzConfig
+      });
+
+      // ── 2. Shopflix: υπολογισμός από wholesale (δικό commission) ─────
+      const shopflixPrice = this.calculatePlatformPrice({
+        wholesalePrice: minSupplierInfo.wholesale,
+        recycleTax: minSupplierInfo.recycle_tax,
+        shippingCost: supplierShipping,
+        platformConfig: shopflixConfig
+      });
+
+      // ── 3. Site: υπολογισμός από skroutzPrice ────────────────────────
+      //
+      // Η "εξοικονόμηση" που μοιράζεται στον πελάτη είναι η διαφορά στο
+      // πραγματικό κόστος πωλητή μεταξύ skroutz και site:
+      //   saving = skroutzCommission×S + skroutzMgmt - siteCommission×P - siteMgmt
+      //
+      // Αλγεβρική λύση:
+      //   P = [S(1 - cs×share) + D×share] / (1 - cp×share)
+      //   όπου D = siteMgmt - skroutzMgmt (διαφορά management+packaging costs)
+      //
+      // Safety floor: κόστος + ΦΠΑ (μηδενικό κέρδος)
+      const minSitePrice = (
+        this.parseFloatSafe(minSupplierInfo.wholesale) +
+        this.parseFloatSafe(minSupplierInfo.recycle_tax) +
+        this.parseFloatSafe(supplierShipping) +
+        (generalConfig.management_cost || 0) +
+        (generalConfig.packaging_cost || 0) +
+        (generalConfig.add_to_price || 0)
+      ) * (1 + taxRate / 100);
+
+      const sitePrice = this.calculateOptimalSitePrice(
+        skroutzPrice,
+        skroutzConfig.platform_commission,
+        generalConfig.platform_commission,
+        minSitePrice,
+        customerSharePct,
+        // Διαφορά management costs — site vs skroutz
+        (generalConfig.management_cost + generalConfig.packaging_cost) -
+        (skroutzConfig.management_cost + skroutzConfig.packaging_cost)
+      );
 
       const minPrices = {
         wholesale: this.parseFloatSafe(minSupplierInfo.wholesale),
-        general: calculatePlatformPrice('general'),
-        skroutz: calculatePlatformPrice('skroutz'),
-        shopflix: calculatePlatformPrice('shopflix')
+        general: sitePrice,
+        skroutz: skroutzPrice,
+        shopflix: shopflixPrice
       };
 
-      // Handle special pricing rules
+      // ── Retail price logic (αναλλοίωτη) ──────────────────────────────
       if (!existedProduct) {
         return this.handleNewProductPricing(product, minPrices, supplier, categoryId);
       }
 
       const isBrandIncluded = supplier.useRetailPriceBrands.some(brand => brand.id === brandId);
-      const isCategoryIncluded = supplier.useRetailPriceCategories.some(category => category.id === categoryId);
+      const isCategoryIncluded = supplier.useRetailPriceCategories.some(cat => cat.id === categoryId);
       const retailPrice = this.parseFloatSafe(product.retail_price);
-      const isStringContained = this.containsRetailPriceName(
-        existedProduct.name.toLowerCase(),
-        supplier
-      );
+      const isStringContained = this.containsRetailPriceName(existedProduct.name.toLowerCase(), supplier);
 
       const skroutz = existedProduct.platforms.find(x => x.platform === "Skroutz");
       const shopflix = existedProduct.platforms.find(x => x.platform === "Shopflix");
@@ -158,154 +194,101 @@ module.exports = ({ strapi }) => ({
     }
   },
 
+  // ════════════════════════════════════════════════════════════
+  // ΝΕΟΣ ΥΠΟΛΟΓΙΣΜΟΣ SITE PRICE από Skroutz price
+  // Λύνει το circular reference αλγεβρικά:
+  // P = S - (skroutzCost - P × siteCostPct) × customerShare
+  // P × (1 - siteCostPct × customerShare) = S - skroutzCost × customerShare
+  // ════════════════════════════════════════════════════════════
+  // ════════════════════════════════════════════════════════════
+  // Μοιρασμός ΠΡΑΓΜΑΤΙΚΗΣ εξοικονόμησης μεταξύ πελάτη/πωλητή:
+  //
+  //   saving = (cs×S + skroutzMgmt) - (cp×P + siteMgmt)
+  //          = cs×S - cp×P - D    (D = siteMgmt - skroutzMgmt)
+  //
+  //   P = S - saving × share
+  //   P(1 - cp×share) = S(1 - cs×share) + D×share
+  //   P = [S(1 - cs×share) + D×share] / (1 - cp×share)
+  //
+  //   D = 0  → ταυτίζεται με παλιά φόρμουλα
+  //   D < 0  → site φθηνότερο (site κοστίζει λιγότερο, περισσότερο να μοιραστεί)
+  //   D > 0  → site ακριβότερο (site κοστίζει περισσότερο, λιγότερο να μοιραστεί)
+  // ════════════════════════════════════════════════════════════
+  calculateOptimalSitePrice(skroutzPrice, skroutzCommission, siteCommission, minSitePrice, customerSharePct, mgmtCostDiff = 0) {
+    const siteCostPct = siteCommission / 100;
+    const skroutzCostPct = skroutzCommission / 100;
+    const customerShare = customerSharePct / 100;
+
+    // D = siteMgmt - skroutzMgmt
+    const D = mgmtCostDiff;
+
+    const numerator = skroutzPrice * (1 - skroutzCostPct * customerShare) + D * customerShare;
+    const denominator = 1 - (siteCostPct * customerShare);
+    const rawSitePrice = numerator / denominator;
+
+    const sitePrice = this.roundUpToFirstDecimal(rawSitePrice);
+
+    if (sitePrice < minSitePrice) {
+      console.warn(`Site price ${sitePrice} below min cost ${minSitePrice} - using floor`);
+      return this.roundUpToFirstDecimal(minSitePrice);
+    }
+
+    return Math.round(sitePrice * 100) / 100;
+  },
+
+  applyPsychologicalEnding(price) {
+    // π.χ. 1580.78 → 1579.90
+    return Math.floor(price) + 0.90;
+  },
+
+  // ════════════════════════════════════════════════════════════
   // Helper function for finding if product name contains texts
+  // ════════════════════════════════════════════════════════════
   containsRetailPriceName(text, supplier) {
     if (!supplier?.useRetailPriceContainName || !Array.isArray(supplier.useRetailPriceContainName)) {
       return false;
     }
-
     return supplier.useRetailPriceContainName.some(entry => {
       if (!entry || !entry.text) return false;
       return text.toLowerCase().includes(entry.text.toLowerCase());
     });
   },
 
+  // ════════════════════════════════════════════════════════════
   // Helper function for new product pricing
+  // ════════════════════════════════════════════════════════════
   handleNewProductPricing(product, minPrices, supplier, categoryId) {
     const prices = {};
     const brandId = product.brand?.id;
 
-    // Check if the brand exists in the useRetailPriceBrands array
     const isBrandIncluded = supplier.useRetailPriceBrands.some(brand => brand.id === brandId);
-    const isCategoryIncluded = supplier.useRetailPriceCategories.some(category => category.id === categoryId);
+    const isCategoryIncluded = supplier.useRetailPriceCategories.some(cat => cat.id === categoryId);
     const retailPrice = this.parseFloatSafe(product.retail_price);
-    const isStringContained = this.containsRetailPriceName(product.name.toLocaleLowerCase(), supplier)
+    const isStringContained = this.containsRetailPriceName(product.name.toLocaleLowerCase(), supplier);
 
     if ((supplier.useRetailPrice || isBrandIncluded || isCategoryIncluded || isStringContained) && retailPrice !== 0) {
-
       return this.createPrices(null, prices, minPrices, retailPrice, null, null);
     }
-
-
-    // if (minSupplierInfo.name.toLowerCase() === "telehermes") {
-    //   return this.createPrices(null, prices, minPrices, retailPrice, null, null);
-    // }
-
-    // if (minSupplierInfo.name.toLowerCase() === "dotmedia") {
-    //   if (this.parseFloatSafe(minSupplierInfo.wholesale) > 0) {
-    //     return this.createPrices(null, prices, minPrices, retailPrice, null, null);
-    //   } else {
-    //     return {
-    //       generalPrice: { price: retailPrice.toFixed(2), isFixed: false },
-    //       skroutzPrice: { platform: "Skroutz", price: retailPrice.toFixed(2), is_fixed_price: false },
-    //       shopflixPrice: { platform: "Shopflix", price: retailPrice.toFixed(2), is_fixed_price: false }
-    //     };
-    //   }
-    // }
-
-    // if (minSupplierInfo.name.toLowerCase() === "novatron" && product.name.toLowerCase().includes("vigi")) {
-    //   return this.createPrices(null, prices, minPrices, retailPrice, null, null);
-    // }
 
     return this.createPrices(null, prices, minPrices, null, null, null);
   },
 
-  findProductPlatformPercentage(categoryInfo, brandId) {
-    const defaultPercentage = Number(process.env.GENERAL_CATEGORY_PERCENTAGE);
-    const defaultAddToPrice = Number(process.env.GENERAL_SHIPPING_PRICE);
-
-    // ── ΒΗΜΑ 1: Ξεκινάω με defaults ──────────────────────────────
-    let percentages = {
-      general: { platformCategoryPercentage: defaultPercentage, addToPrice: defaultAddToPrice },
-      skroutz: { platformCategoryPercentage: defaultPercentage, addToPrice: defaultAddToPrice },
-      shopflix: { platformCategoryPercentage: defaultPercentage, addToPrice: defaultAddToPrice }
-    };
-
-    // ── ΒΗΜΑ 2: Helper για να διαβάζω ένα platform ───────────────
-    const getDataForPlatform = (platformKey) => {
-      return categoryInfo.cat_percentage?.find(
-        x => x.name?.toLowerCase().trim() === platformKey
-      ) || null;
-    };
-
-    // ── ΒΗΜΑ 3: Φόρτωσε το general πρώτα ─────────────────────────
-    const generalData = getDataForPlatform('general');
-
-    if (generalData) {
-      // Βάλε το ποσοστό της κατηγορίας αν υπάρχει
-      if (generalData.percentage) {
-        percentages.general.platformCategoryPercentage = generalData.percentage;
-      }
-      if (generalData.add_to_price !== undefined) {
-        percentages.general.addToPrice = generalData.add_to_price || 0;
-      }
-
-      // Τσέκαρε αν υπάρχει brand-specific ποσοστό
-      if (generalData.brand_perc?.length > 0) {
-        const brandPerc = generalData.brand_perc.find(x => x.brand?.id === brandId);
-        if (brandPerc) {
-          // Brand βρέθηκε → χρησιμοποίησε το brand ποσοστό
-          percentages.general.platformCategoryPercentage = brandPerc.percentage;
-        }
-        // Brand ΔΕΝ βρέθηκε → μένει το ποσοστό κατηγορίας του general
-      }
-    }
-    // Αν δεν υπάρχει general → έχει ήδη τα defaults
-
-    // ── ΒΗΜΑ 4: Φόρτωσε skroutz και shopflix ─────────────────────
-    ['skroutz', 'shopflix'].forEach(platformKey => {
-      const platformData = getDataForPlatform(platformKey);
-
-      if (!platformData || !platformData.percentage) {
-        // Platform δεν υπάρχει ή δεν έχει ποσοστό → πάρε τιμές από general
-        percentages[platformKey].platformCategoryPercentage = percentages.general.platformCategoryPercentage;
-        percentages[platformKey].addToPrice = percentages.general.addToPrice;
-        return;
-      }
-
-      // Platform υπάρχει → βάλε τις δικές του τιμές
-      percentages[platformKey].platformCategoryPercentage = platformData.percentage;
-      if (platformData.add_to_price !== undefined) {
-        percentages[platformKey].addToPrice = platformData.add_to_price || 0;
-      }
-
-      // Τσέκαρε αν υπάρχει brand-specific ποσοστό για αυτό το platform
-      if (platformData.brand_perc?.length > 0) {
-        const brandPerc = platformData.brand_perc.find(x => x.brand?.id === brandId);
-        if (brandPerc) {
-          // Brand βρέθηκε → χρησιμοποίησε το brand ποσοστό
-          percentages[platformKey].platformCategoryPercentage = brandPerc.percentage;
-        }
-        // Brand ΔΕΝ βρέθηκε → μένει το ποσοστό κατηγορίας του platform
-      }
-    });
-
-    return percentages;
-  },
-
+  // ════════════════════════════════════════════════════════════
+  // createPrices — αναλλοίωτη λογική
+  // ════════════════════════════════════════════════════════════
   createPrices(existedProduct, prices, minPrices, suggestedPrice, skroutz, shopflix) {
     try {
       const hasInventory = existedProduct?.inventory > 0;
 
       if (existedProduct) {
         if (hasInventory) {
-          // Fixed prices when inventory exists
+          // Fixed prices when inventory exists — αναλλοίωτο
           prices.generalPrice = this.createPriceObject(
             parseFloat(existedProduct.price).toFixed(2),
             true
           );
-
-          prices.skroutzPrice = this.createPlatformPrice(
-            "Skroutz",
-            skroutz?.price || minPrices.skroutz,
-            true
-          );
-
-          prices.shopflixPrice = this.createPlatformPrice(
-            "Shopflix",
-            shopflix?.price || minPrices.shopflix,
-            true
-          );
+          prices.skroutzPrice = this.createPlatformPrice("Skroutz", skroutz?.price || minPrices.skroutz, true);
+          prices.shopflixPrice = this.createPlatformPrice("Shopflix", shopflix?.price || minPrices.shopflix, true);
         }
         else {
           // Dynamic pricing when no inventory
@@ -341,41 +324,26 @@ module.exports = ({ strapi }) => ({
         }
       }
       else {
-
         // New product pricing
-        prices.generalPrice = this.determineNewProductPrice(
-          suggestedPrice,
-          minPrices.general
-        );
-
-        prices.skroutzPrice = this.createPlatformPrice(
-          "Skroutz",
-          this.determineNewProductPrice(suggestedPrice, minPrices.skroutz)
-        );
-
-        prices.shopflixPrice = this.createPlatformPrice(
-          "Shopflix",
-          this.determineNewProductPrice(suggestedPrice, minPrices.shopflix)
-        );
-
+        prices.generalPrice = this.determineNewProductPrice(suggestedPrice, minPrices.general);
+        prices.skroutzPrice = this.createPlatformPrice("Skroutz", this.determineNewProductPrice(suggestedPrice, minPrices.skroutz));
+        prices.shopflixPrice = this.createPlatformPrice("Shopflix", this.determineNewProductPrice(suggestedPrice, minPrices.shopflix));
       }
 
-      return prices
-
+      return prices;
 
     } catch (error) {
-      console.log(error)
+      console.log(error);
     }
   },
 
   updatePrices(existed, is_fixed_price, min, suggested, wholesale) {
     try {
       const existedPrice = this.formatPrice(existed);
-      const minPrice = min && this.is_a_greaterthan_b(wholesale, 0) ? this.formatPrice(min) : null
+      const minPrice = min && this.is_a_greaterthan_b(wholesale, 0) ? this.formatPrice(min) : null;
       const suggestedPrice = this.formatPrice(suggested);
       const isFixed = Boolean(is_fixed_price);
 
-      // No suggested price available
       if (!suggestedPrice) {
         if (minPrice) {
           return this.determineMinPriceScenario(existedPrice, minPrice, isFixed);
@@ -383,7 +351,6 @@ module.exports = ({ strapi }) => ({
         return { price: existedPrice, isFixed: false };
       }
 
-      // Suggested price available
       if (minPrice) {
         if (this.is_a_greaterthan_b(suggestedPrice, minPrice)) {
           return this.handleSuggestedAboveMin(existedPrice, suggestedPrice, minPrice, isFixed);
@@ -391,38 +358,25 @@ module.exports = ({ strapi }) => ({
         return this.handleSuggestedBelowMin(existedPrice, minPrice, isFixed);
       }
 
-      // No min price, but suggested price exists
       return this.handleNoMinPrice(existedPrice, suggestedPrice, isFixed);
 
     } catch (error) {
-      console.log(error)
+      console.log(error);
     }
   },
 
   is_a_greaterthan_b(a, b) {
-    const first = typeof a === 'number' ? a : parseFloat(a)
-    const second = typeof b === 'number' ? b : parseFloat(b)
+    const first = typeof a === 'number' ? a : parseFloat(a);
+    const second = typeof b === 'number' ? b : parseFloat(b);
     return Math.round(first * 100) > Math.round(second * 100);
-    // if (Math.round(first * 100) > Math.round(second * 100)) { return true }
-    // else {
-    //   return false
-    // }
-
-
   },
 
   is_not_equal(a, b) {
-    const first = typeof a === 'number' ? a : parseFloat(a)
-    const second = typeof b === 'number' ? b : parseFloat(b)
-    if (Math.round(first * 100) !== Math.round(second * 100)) { return true }
-    else {
-      return false
-    }
+    const first = typeof a === 'number' ? a : parseFloat(a);
+    const second = typeof b === 'number' ? b : parseFloat(b);
+    return Math.round(first * 100) !== Math.round(second * 100);
   },
 
-  /**
-  * Helper to create a platform price object
-  */
   createPlatformPrice(platform, priceData, isFixed = false) {
     if (typeof priceData === 'object') {
       return {
@@ -438,9 +392,6 @@ module.exports = ({ strapi }) => ({
     };
   },
 
-  /**
-  * Helper to create a simple price object
-  */
   createPriceObject(price, isFixed) {
     return {
       price: parseFloat(price).toFixed(2),
@@ -448,9 +399,6 @@ module.exports = ({ strapi }) => ({
     };
   },
 
-  /**
-  * Determines price for new products
-  */
   determineNewProductPrice(suggestedPrice, minPrice) {
     const useSuggested = suggestedPrice && this.is_a_greaterthan_b(suggestedPrice, minPrice);
     return {
@@ -459,136 +407,76 @@ module.exports = ({ strapi }) => ({
     };
   },
 
-  /**
-  * Helper for min price scenarios
-  */
   determineMinPriceScenario(existedPrice, minPrice, isFixed) {
     if (existedPrice && this.is_a_greaterthan_b(existedPrice, minPrice)) {
-      return {
-        price: isFixed ? existedPrice : minPrice,
-        isFixed
-      };
+      return { price: isFixed ? existedPrice : minPrice, isFixed };
     }
     return { price: minPrice, isFixed: false };
   },
 
-  /**
-  * Helper when suggested price is above minimum
-  */
   handleSuggestedAboveMin(existedPrice, suggestedPrice, minPrice, isFixed) {
     if (existedPrice && this.is_a_greaterthan_b(existedPrice, suggestedPrice)) {
-      return {
-        price: isFixed ? existedPrice : suggestedPrice,
-        isFixed
-      };
+      return { price: isFixed ? existedPrice : suggestedPrice, isFixed };
     }
-
     if (existedPrice && this.is_a_greaterthan_b(existedPrice, minPrice)) {
-      return {
-        price: isFixed ? existedPrice : suggestedPrice,
-        isFixed
-      };
+      return { price: isFixed ? existedPrice : suggestedPrice, isFixed };
     }
-
     return { price: suggestedPrice, isFixed: false };
   },
 
-  /**
-   * Helper when suggested price is below minimum
-   */
   handleSuggestedBelowMin(existedPrice, minPrice, isFixed) {
     if (existedPrice && this.is_a_greaterthan_b(existedPrice, minPrice)) {
-      return {
-        price: isFixed ? existedPrice : minPrice,
-        isFixed
-      };
+      return { price: isFixed ? existedPrice : minPrice, isFixed };
     }
     return { price: minPrice, isFixed: false };
   },
 
-  /**
-   * Helper when no minimum price exists
-   */
   handleNoMinPrice(existedPrice, suggestedPrice, isFixed) {
     if (existedPrice && this.is_a_greaterthan_b(existedPrice, suggestedPrice)) {
-      return {
-        price: isFixed ? existedPrice : suggestedPrice,
-        isFixed
-      };
+      return { price: isFixed ? existedPrice : suggestedPrice, isFixed };
     }
     return { price: suggestedPrice, isFixed: false };
   },
-
-
-  // Formats a price to 2 decimal places
-  // @param {number|string} value - Price to format
-  // @returns {string|null} Formatted price or null if invalid
 
   formatPrice(value) {
     if (value === null || value === undefined) return null;
 
-    // Αν είναι ήδη number, επιστροφή
     if (typeof value === 'number') {
       return this.roundPrice(value);
     }
 
-    // Αν είναι string, normalize το format
     if (typeof value === 'string') {
-      let normalized = value.trim();
+      let normalized = value.trim().replace(/\s/g, '');
 
-      // Αφαίρεση whitespace
-      normalized = normalized.replace(/\s/g, '');
-
-      // Βρες την τελευταία τελεία ή κόμμα
       const lastDotIndex = normalized.lastIndexOf('.');
       const lastCommaIndex = normalized.lastIndexOf(',');
 
-      // Προσδιορισμός ποιο είναι το decimal separator
       if (lastDotIndex > -1 && lastCommaIndex > -1) {
-        // Και τα δύο υπάρχουν - το τελευταίο είναι το decimal separator
         if (lastDotIndex > lastCommaIndex) {
-          // Format: 1,274.25 (US format)
           normalized = normalized.replace(/,/g, '');
         } else {
-          // Format: 1.274,25 ή 3.450,00 (European format)
           normalized = normalized.replace(/\./g, '').replace(',', '.');
         }
       } else if (lastCommaIndex > -1) {
-        // Μόνο κόμμα - έλεγχος αν είναι thousands ή decimal
         const charsAfterComma = normalized.length - lastCommaIndex - 1;
-
-        // Αν έχει 2 ψηφία μετά το κόμμα, είναι decimal separator
-        // Αν έχει 3 ψηφία και δεν υπάρχει άλλο separator, είναι thousands
         if (charsAfterComma === 2 || charsAfterComma === 1) {
-          // Format: 105,00 ή 105,5 (decimal separator)
           normalized = normalized.replace(',', '.');
         } else if (charsAfterComma === 3) {
-          // Format: 1,000 (thousands separator)
           normalized = normalized.replace(/,/g, '');
         } else {
-          // Default: treat as decimal
           normalized = normalized.replace(',', '.');
         }
       } else if (lastDotIndex > -1) {
-        // Μόνο τελεία/τελείες
         const dotCount = (normalized.match(/\./g) || []).length;
-
         if (dotCount > 1) {
-          // Format: 4.113.00 (European με τελείες παντού)
-          // Αφαίρεση όλων των τελειών εκτός της τελευταίας
           const parts = normalized.split('.');
           const lastPart = parts.pop();
           normalized = parts.join('') + '.' + lastPart;
         } else {
-          // Μία τελεία - έλεγχος ψηφίων μετά
           const charsAfterDot = normalized.length - lastDotIndex - 1;
-
-          // Αν έχει 3 ψηφία μετά την τελεία, πιθανόν thousands separator
           if (charsAfterDot === 3 && lastDotIndex <= 1) {
-            // Format: 1.000
             normalized = normalized.replace('.', '');
           }
-          // Αλλιώς μένει ως έχει (π.χ. 6934.79)
         }
       }
 
@@ -599,91 +487,82 @@ module.exports = ({ strapi }) => ({
     return null;
   },
 
-  // Στην αρχή του module
   roundPrice(value) {
     if (value === null || value === undefined || isNaN(value)) return null;
     return Math.round(value * 100) / 100;
   },
 
-  /**
-   * Υπολογίζει την τελική τιμή για μια συγκεκριμένη πλατφόρμα
-   * 
-   * @param {Object} params
-   * @param {number} params.wholesalePrice - Χονδρική τιμή (χωρίς ΦΠΑ)
-   * @param {number} params.shippingCost - Κόστος μεταφορικών (χωρίς ΦΠΑ)
-   * @param {Object} params.platformConfig - Configuration από το category component
-   * @param {number} params.platformConfig.platform_commission - Προμήθεια πλατφόρμας (0-1, π.χ. 0.04)
-   * @param {number} params.platformConfig.management_cost - Κόστος διαχείρισης
-   * @param {number} params.platformConfig.profit_margin - Margin κέρδους (0-1, π.χ. 0.25)
-   * @returns {number} Η τελική τιμή
-   */
-  calculatePlatformPrice({ wholesalePrice, shippingCost, platformConfig }) {
-    // Παίρνουμε τα στοιχεία από το config
-    const managementCost = platformConfig.management_cost || 0;
-    const platformCommission = platformConfig.platform_commission || 0;
-    const profitMargin = platformConfig.profit_margin || 0;
+  // ════════════════════════════════════════════════════════════
+  // calculatePlatformPrice — αναλλοίωτος (Skroutz & Shopflix)
+  // ════════════════════════════════════════════════════════════
+  calculatePlatformPrice({ wholesalePrice, recycleTax, shippingCost, platformConfig }) {
+    const managementCost = platformConfig.management_cost ?? Number(process.env.GENERAL_CATEGORY_MANAGMENT) ?? 2;
+    const packagingCost = platformConfig.packaging_cost ?? Number(process.env.GENERAL_CATEGORY_PACKAGING) ?? 1;
+    const platformCommission = platformConfig.platform_commission ?? Number(process.env.GENERAL_CATEGORY_PERCENTAGE) ?? 20;
+    const profitMargin = platformConfig.profit_margin ?? Number(process.env.GENERAL_CATEGORY_PROFIT) ?? 10;
+    const guaranteedProfit = platformConfig.guaranteed_minimum_income ?? Number(process.env.GUARANTEED_MINMIMUM_INCOME) ?? 3;
 
-    // 1. Συνολικό κόστος (χωρίς ΦΠΑ)
-    const totalCost = wholesalePrice + shippingCost + managementCost;
-
-    // 2. Προσθέτουμε το margin κέρδους
-    const priceWithProfit = totalCost * (1 + profitMargin);
-
-    // 3. Προσθέτουμε το ΦΠΑ
-    const priceWithVAT = priceWithProfit * (1 + VAT);
-
-    // 4. Υπολογίζουμε την τελική τιμή με την προμήθεια της πλατφόρμας
-    const calculatedPrice = priceWithVAT / (1 - platformCommission);
-
-    // 5. Στρογγυλοποιούμε στο επόμενο δεκαδικό ψηφίο
+    const totalCost = this.parseFloatSafe(wholesalePrice) +
+      this.parseFloatSafe(recycleTax) +
+      this.parseFloatSafe(shippingCost) +
+      this.parseFloatSafe(managementCost) +
+      this.parseFloatSafe(packagingCost) +
+      this.parseFloatSafe(guaranteedProfit);
+    const priceWithProfit = totalCost * ((100 + profitMargin) / 100);
+    const priceWithVAT = priceWithProfit * ((100 + Number(process.env.GENERAL_TAX_RATE)) / 100);
+    const calculatedPrice = priceWithVAT / ((100 - platformCommission) / 100);
     const finalPrice = this.roundUpToFirstDecimal(calculatedPrice);
 
-    return Math.round(finalPrice * 100) / 100; // Διασφαλίζουμε 2 δεκαδικά
+    return Math.round(finalPrice * 100) / 100;
   },
 
-  /**
-   * Βρίσκει το configuration για μια πλατφόρμα από μια κατηγορία
-   * Υποστηρίζει brand-specific pricing
-   * 
-   * @param {Object} category - Το category object με populated cat_percentage
-   * @param {string} platformName - Όνομα πλατφόρμας (π.χ. 'skroutz', 'shopflix', 'general')
-   * @param {number} brandId - Optional brand ID για brand-specific pricing
-   * @returns {Object|null} Configuration object ή null αν δεν βρεθεί
-   */
+  // ════════════════════════════════════════════════════════════
+  // getPlatformConfig — αναλλοίωτη
+  // ════════════════════════════════════════════════════════════
   getPlatformConfig(category, platformName, brandId = null) {
     if (!category.cat_percentage || !Array.isArray(category.cat_percentage)) {
-      return null;
+      return {
+        platform_commission: Number(process.env.GENERAL_CATEGORY_PERCENTAGE) || 20,
+        management_cost: Number(process.env.GENERAL_CATEGORY_MANAGMENT) || 2,
+        profit_margin: Number(process.env.GENERAL_CATEGORY_PROFIT) || 10,
+        packaging_cost: Number(process.env.GENERAL_CATEGORY_PACKAGING) || 1,
+        guaranteed_minimum_income: Number(process.env.GUARANTEED_MINMIMUM_INCOME) || 3
+      };
     }
 
-    // Βρίσκουμε το configuration για την πλατφόρμα
     const platformConfig = category.cat_percentage.find(
       config => config.name?.toLowerCase() === platformName.toLowerCase()
     );
 
     if (!platformConfig) {
-      return null;
+      return {
+        platform_commission: Number(process.env.GENERAL_CATEGORY_PERCENTAGE) || 20,
+        management_cost: Number(process.env.GENERAL_CATEGORY_MANAGMENT) || 2,
+        profit_margin: Number(process.env.GENERAL_CATEGORY_PROFIT) || 10,
+        packaging_cost: Number(process.env.GENERAL_CATEGORY_PACKAGING) || 1,
+        guaranteed_minimum_income: Number(process.env.GUARANTEED_MINMIMUM_INCOME) || 3
+      };
     }
 
-    // Αρχικοποίηση του configuration
     let config = {
-      platform_commission: platformConfig.platform_commission || 0,
-      management_cost: platformConfig.management_cost || 0,
-      profit_margin: platformConfig.profit_margin || 0,
-      packaging_cost: platformConfig.packaging_cost || 0
+      platform_commission: platformConfig.platform_commission ?? Number(process.env.GENERAL_CATEGORY_PERCENTAGE) ?? 20,
+      management_cost: platformConfig.platform_man_cost ?? Number(process.env.GENERAL_CATEGORY_MANAGMENT) ?? 2,
+      profit_margin: platformConfig.profit_margin ?? Number(process.env.GENERAL_CATEGORY_PROFIT) ?? 10,
+      packaging_cost: platformConfig.packaging_cost ?? Number(process.env.GENERAL_CATEGORY_PACKAGING) ?? 1,
+      guaranteed_minimum_income: platformConfig.add_to_price ?? Number(process.env.GUARANTEED_MINMIMUM_INCOME) ?? 3,
     };
 
-    // Αν ζητάμε brand-specific config
     if (brandId && platformConfig.brand_perc && Array.isArray(platformConfig.brand_perc)) {
-      const brandConfig = platformConfig.brand_perc.find(
-        bp => bp.brand?.id === brandId
-      );
-
-      // Αν υπάρχει brand-specific profit margin, το χρησιμοποιούμε
+      const brandConfig = platformConfig.brand_perc.find(bp => bp.brand?.id === brandId);
       if (brandConfig && brandConfig.profit_margin !== undefined) {
         config.profit_margin = brandConfig.profit_margin;
       }
     }
 
     return config;
+  },
+
+  roundUpToFirstDecimal(price) {
+    return Math.ceil(price * 10) / 10;
   }
 });

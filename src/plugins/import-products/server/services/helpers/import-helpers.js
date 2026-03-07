@@ -495,13 +495,21 @@ module.exports = ({ strapi }) => ({
 
             if (Object.keys(data).length !== 0) {
 
-                const updated = await strapi.entityService.update('api::product.product', entryCheck.id, {
-                    data
-                });
+                const cacheService = strapi.plugin('import-products').service('cacheService');
+                // ✅ Σήμανε ότι αυτό το προϊόν αλλάζει από import
+                cacheService.cache.processingProducts.add(entryCheck.id);
 
-                if (!updated) {
-                    console.error('Failed to update product:', entryCheck.id);
-                    return { success: false, reason: 'update_failed' }
+                try {
+                    const updated = await strapi.entityService.update('api::product.product', entryCheck.id, { data });
+
+
+                    if (!updated) {
+                        console.error('Failed to update product:', entryCheck.id);
+                        return { success: false, reason: 'update_failed' }
+                    }
+                } finally {
+                    // ✅ Πάντα καθάριζε, ακόμα και σε error
+                    cacheService.cache.processingProducts.delete(entryCheck.id);
                 }
             }
 
@@ -698,36 +706,26 @@ module.exports = ({ strapi }) => ({
         }
     },
 
-    updateProductChars(importRef, entryCheck, product, data, dbChange) {
+    async updateProductChars(importRef, entryCheck, product, data, dbChange) {
 
-        if (entryCheck.prod_chars?.length === 0 && product.prod_chars?.length > 0) {
-            data.prod_chars = product.prod_chars
-            dbChange.typeOfChange = 'updated'
+        // ✅ Τα prod_chars δεν φορτώνονται πλέον στο cache για λόγους μνήμης.
+        // Κάνουμε lazy load ΜΟΝΟ όταν το νέο προϊόν έχει chars (αποφεύγουμε
+        // περιττό DB query για τα 90% των updates που δεν αλλάζουν chars).
+        if (product.prod_chars?.length === 0) return;
+
+        try {
+            const existingChars = await strapi
+                .plugin('import-products')
+                .service('cacheService')
+                .loadProductChars(entryCheck.id);
+
+            if (existingChars.length === 0 && product.prod_chars?.length > 0) {
+                data.prod_chars = product.prod_chars;
+                dbChange.typeOfChange = 'updated';
+            }
+        } catch (error) {
+            console.error('Error in lazy load of prod_chars:', error.message);
         }
-
-        // Προσθέτω το id του προϊόντος στη βάση ώστε αργότερα όταν γίνει η διαγραφή
-        // των προϊόντων να μην δαγραφεί.
-        // //////////////////////////////importRef.related_entries.push(entryCheck.id);
-
-        // // Για τις περιπτώσεις όπου ο προμηθευτής έχει σχετικά προϊόντα αποθηκεύω 
-        // // τα προϊόντα ώστε να τα συσχετίσω στη βάση
-        // if (product.relativeProducts?.length > 0) {
-        //     importRef.related_products.push({
-        //         productID: entryCheck.id,
-        //         relatedProducts: product.relativeProducts
-        //     });
-        // }
-
-        // // Βρίσκω τους προμηθευτές που έχουν το προϊόν 
-        // const relatedImport = entryCheck.related_import;
-        // const relatedImportIds = relatedImport.map(x => x.id)
-
-        // // Αναζητώ αν προμηθεύομαι ήδη το προϊόν απο τον συγκεκριμένο προμηθευτή
-        // const findImport = relatedImport.findIndex(x =>
-        //     x.id === product.entry.id)
-
-        // // Αν δεν υπάρχει ο προμηθευτής σε αυτο το προϊόν ενημερώνω τη συσχέτιση
-        // if (findImport === -1) { data.related_import = [...relatedImportIds, product.entry.id] }
     },
 
     async handleAvailabilityNotifications(entryCheck, product, data) {

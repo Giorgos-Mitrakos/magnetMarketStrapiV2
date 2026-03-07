@@ -112,6 +112,22 @@ export default {
     async afterUpdate(event) {
         const { result, params, state } = event;
 
+        // ✅ Cache invalidation - τρέχει πάντα, ανεξάρτητα από τις υπόλοιπες συνθήκες
+        try {
+            const cacheService = strapi
+                .plugin('import-products')
+                .service('cacheService');
+
+            // ✅ Αν αλλάζει από import, το cache ενημερώνεται ήδη εσωτερικά
+            if (cacheService.cache.processingProducts.has(result.id)) return;
+
+            // ✅ Χειροκίνητη αλλαγή από admin - ενημέρωσε το cache
+            await cacheService.invalidateProduct(result.id);
+        } catch (error) {
+            // Αν το cache δεν είναι initialized (δεν τρέχει import) - δεν πειράζει
+            strapi.log.debug(`Cache invalidation skipped for product ${result.id}: ${error.message}`);
+        }
+
         if (params.data.publishedAt === null) {
             return;
         }
