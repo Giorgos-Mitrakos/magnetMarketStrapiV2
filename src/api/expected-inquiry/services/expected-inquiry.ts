@@ -3,6 +3,7 @@
  */
 
 import { factories } from '@strapi/strapi';
+import { request } from 'http';
 
 export default factories.createCoreService('api::expected-inquiry.expected-inquiry', ({ strapi }) => ({
 
@@ -57,8 +58,8 @@ export default factories.createCoreService('api::expected-inquiry.expected-inqui
                     productName: entry.productName,
                     email: entry.email,
                     productId: productId,
-                    phone:phone,
-                    message:message,
+                    phone: phone,
+                    message: message,
                     submissionDate: new Date(entry.createdAt).toLocaleString('el-GR', {
                         timeZone: 'UTC',
                         year: 'numeric',
@@ -73,6 +74,8 @@ export default factories.createCoreService('api::expected-inquiry.expected-inqui
                 },
                 subject: "Επιβεβαίωση Ερωτήματος"
             });
+
+            await strapi.service('api::notify-me.notify-me').subscribe({ request: { body: { email, productId, productName } } })
 
             return ({
                 success: true,

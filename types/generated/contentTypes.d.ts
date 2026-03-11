@@ -930,6 +930,7 @@ export interface ApiNewsletterNewsletter extends Schema.CollectionType {
 export interface ApiNotifyMeNotifyMe extends Schema.CollectionType {
   collectionName: 'notify_mes';
   info: {
+    description: '';
     displayName: 'notify-me';
     pluralName: 'notify-mes';
     singularName: 'notify-me';
@@ -949,7 +950,7 @@ export interface ApiNotifyMeNotifyMe extends Schema.CollectionType {
     notifiedAt: Attribute.DateTime;
     product: Attribute.Relation<
       'api::notify-me.notify-me',
-      'oneToOne',
+      'manyToOne',
       'api::product.product'
     >;
     productName: Attribute.String & Attribute.Required;
@@ -1305,9 +1306,9 @@ export interface ApiProductProduct extends Schema.CollectionType {
       Attribute.Private &
       Attribute.DefaultTo<false>;
     notice_if_available: Attribute.Boolean & Attribute.DefaultTo<false>;
-    notify_me: Attribute.Relation<
+    notify_mes: Attribute.Relation<
       'api::product.product',
-      'oneToOne',
+      'oneToMany',
       'api::notify-me.notify-me'
     >;
     opportunities: Attribute.Relation<

@@ -17,14 +17,13 @@ module.exports = ({ strapi }) => ({
 
     async runimport(ctx) {
 
-        // if (ctx.request.body.entry.name === 'Logicom') {
-        //     ctx.body = await strapi
-        //         .plugin('import-products')
-        //         .service('parseService')
-        //         .parseLogicomXml(ctx.request.body);
-        // }
-        // else 
-        if (ctx.request.body.entry.name === 'Oktabit') {
+        if (ctx.request.body.entry.name === 'Logicom') {
+            ctx.body = await strapi
+                .plugin('import-products')
+                .service('logicomService')
+                .parseLogicomXml(ctx.request.body);
+        }
+        else if (ctx.request.body.entry.name === 'Oktabit') {
             ctx.body = await strapi
                 .plugin('import-products')
                 .service('oktabitService')

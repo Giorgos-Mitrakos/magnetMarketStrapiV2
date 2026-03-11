@@ -4,7 +4,8 @@
   "info": {
     "singularName": "notify-me",
     "pluralName": "notify-mes",
-    "displayName": "notify-me"
+    "displayName": "notify-me",
+    "description": ""
   },
   "options": {
     "draftAndPublish": true
@@ -17,9 +18,9 @@
     },
     "product": {
       "type": "relation",
-      "relation": "oneToOne",
+      "relation": "manyToOne",
       "target": "api::product.product",
-      "inversedBy": "notify_me"
+      "inversedBy": "notify_mes"
     },
     "productName": {
       "type": "string",

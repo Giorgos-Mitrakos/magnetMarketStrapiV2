@@ -29,6 +29,8 @@ const dotmediaService = require('./supplierServices/dotmediaService');
 const aciService = require('./supplierServices/aciService');
 const stefinetService = require('./supplierServices/stefinetService');
 const smart4allService = require('./supplierServices/smart4allService');
+const logicomService = require('./supplierServices/logicomService.js');
+
 const cacheService = require('./helpers/cache-service');
 const batchHelpers = require('./helpers/batch-helpers.js');
 
@@ -54,6 +56,7 @@ const smart4allAdapter = require('./supplierAdapters/smart4all-adapter.js');
 const questAdapter = require('./supplierAdapters/quest-adapter.js');
 const novatronAdapter = require('./supplierAdapters/novatron-adapter.js');
 const globalsatScrapAdapter = require('./supplierAdapters/globalsat-scrap-adapter.js');
+const logicomAdapter = require('./supplierAdapters/logicom-adapter.js');
 
 module.exports = {
   cacheService,
@@ -76,6 +79,7 @@ module.exports = {
   globalsatScrapAdapter,
   dotmediaAdapter,
   cpiAdapter,
+  logicomAdapter,
   oktabitAdapter,
   stefinetAdapter,
   westnetAdapter,
@@ -111,5 +115,6 @@ module.exports = {
   dotmediaService,
   aciService,
   stefinetService,
-  smart4allService
+  smart4allService,
+  logicomService
 };
