@@ -378,6 +378,23 @@ module.exports = ({ strapi }) => ({
                 product.subcategory = { title: subcategory };
                 product.sub2category = { title: sub2category };
 
+                // ✅ Brand block check (scraping)
+                if (product.brand) {
+                    const brandValue = typeof product.brand === 'string'
+                        ? product.brand
+                        : product.brand?.name;
+
+                    const isBlocked = strapi
+                        .plugin('import-products')
+                        .service('importHelpers')
+                        .isBrandBlocked(brandValue, importRef.brand_excl_map);
+
+                    if (isBlocked) {
+                        console.log(`🚫 Brand blocked, skipping: ${product.name} (${brandValue})`);
+                        continue;
+                    }
+                }
+
                 //filter product
                 if (!this.filterScrappedProducts(product, stockLevelFilter, minPrice, maxPrice)) {
                     continue

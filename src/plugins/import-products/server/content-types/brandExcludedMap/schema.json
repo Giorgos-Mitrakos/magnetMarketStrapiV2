@@ -23,6 +23,10 @@
       "type": "string",
       "required": true
     },
+    "allow_import": {
+      "type": "boolean",
+      "default": false
+    },
     "related_import": {
       "type": "relation",
       "relation": "manyToOne",

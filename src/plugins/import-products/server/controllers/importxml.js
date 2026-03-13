@@ -163,4 +163,34 @@ module.exports = ({ strapi }) => ({
             .service('charnameService')
             .updatespecs(ctx.request.body);
     },
+
+    async syncBrandBlocking(ctx) {
+    try {
+        const { entryId } = ctx.params;
+
+        const entry = await strapi.db.query('plugin::import-products.importxml').findOne({
+            where: { id: entryId },
+            select: ['id', 'name']
+        });
+
+        if (!entry) return ctx.notFound('Supplier not found');
+
+        const importHelpers = strapi.plugin('import-products').service('importHelpers');
+
+        // ✅ Τρέχει παράλληλα και τα δύο
+        const [blockResult, unblockResult] = await Promise.all([
+            importHelpers.unpublishBlockedBrandProducts(entry),
+            importHelpers.republishUnblockedBrandProducts(entry)
+        ]);
+
+        ctx.send({
+            message: `Sync complete for supplier: ${entry.name}`,
+            unpublished: blockResult.unpublished,
+            republished: unblockResult.republished
+        });
+
+    } catch (error) {
+        ctx.internalServerError(error.message);
+    }
+}
 });

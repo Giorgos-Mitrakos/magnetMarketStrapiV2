@@ -24,7 +24,7 @@ module.exports = ({ strapi }) => ({
             await this.deleteOldBrandsToExclude({ categoryMapping, oldcategoryMapping })
 
             for (let map of categoryMapping.brand_excl_map) {
-
+                console.log("map:", map)
                 const brandName = await strapi.entityService.findOne('plugin::import-products.brandexclmap', map.id,
                     {
                         fields: ['brand_name'],
@@ -35,6 +35,7 @@ module.exports = ({ strapi }) => ({
                     await strapi.entityService.update('plugin::import-products.brandexclmap', map.id, {
                         data: {
                             brand_name: map.brand_name,
+                            allow_import: map.allow_import
                         },
                     });
                 }
@@ -42,6 +43,7 @@ module.exports = ({ strapi }) => ({
                     await strapi.entityService.create('plugin::import-products.brandexclmap', {
                         data: {
                             brand_name: map.brand_name,
+                            allow_import: map.allow_import,
                             related_import: id,
                         },
                     });
@@ -49,7 +51,7 @@ module.exports = ({ strapi }) => ({
 
             }
         } catch (error) {
-
+            console.error(error)
         }
     },
 });

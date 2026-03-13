@@ -121,7 +121,7 @@ module.exports = ({ strapi }) => ({
 
         importRef.brand_excl_map = await strapi.db.query('plugin::import-products.brandexclmap').findMany({
             where: { related_import: entry.id },
-            select: ['brand_name']
+            select: ['brand_name','allow_import']
         });
 
         return importRef
@@ -175,6 +175,14 @@ module.exports = ({ strapi }) => ({
     async createEntry(product, importRef) {
         if (!product.name || (!product.mpn && !product.barcode))
             return
+
+        // ✅ Brand block check — μην δημιουργήσεις αν το brand είναι blocked
+        const newProductBrandName = product.brandName || product.brand?.name;
+        if (this.isBrandBlocked(newProductBrandName, importRef.brand_excl_map)) {
+            console.log(`🚫 Brand blocked, skipping create: ${product.name} (${newProductBrandName})`);
+            importRef.skipped += 1;
+            return { success: false, reason: 'brand_blocked' };
+        }
 
         try {
             //Βρίσκω τον κωδικό της κατηγορίας ώστε να συνδέσω το προϊόν με την κατηγορία
@@ -378,6 +386,22 @@ module.exports = ({ strapi }) => ({
                 .service('categoryHelpers')
                 .getCategory(importRef.categoryMap.categories_map,
                     product.name, product.category.title, product.subcategory?.title, product.sub2category?.title);
+
+            // ✅ Brand block check — unpublish αν το brand είναι blocked
+            const updateBrandName = product.brandName || product.brand?.name || entryCheck.brand?.name;
+            if (this.isBrandBlocked(updateBrandName, importRef.brand_excl_map)) {
+                if (entryCheck.publishedAt !== null) {
+                    await strapi.entityService.update('api::product.product', entryCheck.id, {
+                        data: { publishedAt: null }
+                    });
+                    console.log(`🚫 Brand blocked, unpublished: ${entryCheck.name} (${updateBrandName})`);
+                    importRef.updated += 1;
+                } else {
+                    importRef.skipped += 1;
+                }
+                // Επιστρέφουμε — δεν χρειάζεται άλλη επεξεργασία
+                return { success: true, changeType: entryCheck.publishedAt !== null ? 'updated' : 'Skipped' };
+            }
 
             // Update import references
             this.updateImportReferences(importRef, entryCheck, product, data);
@@ -665,6 +689,13 @@ module.exports = ({ strapi }) => ({
                     }
                 }
             }
+
+            // ✅ Sync brand blocking/unblocking στο τέλος κάθε import
+            await Promise.all([
+                this.unpublishBlockedBrandProducts(entry),
+                this.republishUnblockedBrandProducts(entry)
+            ]);
+
 
             // ενημερώνω το report για την ενημέρωση των προϊόντων
             await strapi.entityService.update('plugin::import-products.importxml', entry.id,
@@ -1025,5 +1056,186 @@ module.exports = ({ strapi }) => ({
         }
 
 
-    }
+    },
+
+    isBrandBlocked(brandName, brand_excl_map) {
+        if (!brandName || !brand_excl_map?.length) return false;
+        const entry = brand_excl_map.find(b =>
+            b.brand_name.toLowerCase().trim() === brandName.toLowerCase().trim()
+        );
+        return entry !== undefined && (entry.allow_import === false || entry.allow_import === undefined);
+    },
+
+    async unpublishBlockedBrandProducts(entry) {
+        try {
+            // ✅ Φόρτωσε όλα τα blocked brands για αυτόν τον supplier
+            const blockedBrands = await strapi.db.query('plugin::import-products.brandexclmap').findMany({
+                where: {
+                    related_import: entry.id,
+                    allow_import: false
+                },
+                select: ['brand_name']
+            });
+
+            if (!blockedBrands?.length) {
+                console.log(`[BrandBlock] No blocked brands for supplier: ${entry.name}`);
+                return { unpublished: 0 };
+            }
+
+            const blockedBrandNames = blockedBrands.map(b => b.brand_name.toLowerCase().trim());
+            console.log(`[BrandBlock] Checking brands: ${blockedBrandNames.join(', ')}`);
+
+            let unpublishedCount = 0;
+            let page = 1;
+            const pageSize = 100;
+
+            while (true) {
+                // ✅ Βρες published προϊόντα του supplier με blocked brand
+                const products = await strapi.entityService.findMany('api::product.product', {
+                    filters: {
+                        publishedAt: { $notNull: true },
+                        related_import: { id: entry.id },
+                        brand: {
+                            name: { $in: blockedBrands.map(b => b.brand_name) }
+                        }
+                    },
+                    populate: { brand: { fields: ['name'] } },
+                    fields: ['id', 'name', 'publishedAt'],
+                    pagination: { page, pageSize }
+                });
+
+                if (!products?.length) break;
+
+                for (const product of products) {
+                    const brandName = product.brand?.name?.toLowerCase().trim();
+
+                    if (!brandName || !blockedBrandNames.includes(brandName)) continue;
+
+                    try {
+                        await strapi.entityService.update('api::product.product', product.id, {
+                            data: {
+                                publishedAt: null,
+                                status: 'OutOfStock',
+                                deletedAt: new Date()
+                            }
+                        });
+
+                        unpublishedCount++;
+                        console.log(`🚫 [BrandBlock] Unpublished: ${product.name} (${product.brand?.name})`);
+                    } catch (error) {
+                        console.error(`[BrandBlock] Failed to unpublish product ${product.id}:`, error.message);
+                    }
+                }
+
+                // ✅ Αν επέστρεψε λιγότερα από pageSize, τελειώσαμε
+                if (products.length < pageSize) break;
+                page++;
+            }
+
+            console.log(`[BrandBlock] Done. Unpublished ${unpublishedCount} products for supplier: ${entry.name}`);
+            return { unpublished: unpublishedCount };
+
+        } catch (error) {
+            console.error('[BrandBlock] unpublishBlockedBrandProducts failed:', error.message);
+            return { unpublished: 0 };
+        }
+    },
+
+    async republishUnblockedBrandProducts(entry) {
+        try {
+            // ✅ Φόρτωσε τα brands που ΤΩΡΑ επιτρέπονται
+            const allowedBrands = await strapi.db.query('plugin::import-products.brandexclmap').findMany({
+                where: {
+                    related_import: entry.id,
+                    allow_import: true
+                },
+                select: ['brand_name']
+            });
+
+            if (!allowedBrands?.length) {
+                console.log(`[BrandUnblock] No newly allowed brands for supplier: ${entry.name}`);
+                return { republished: 0 };
+            }
+
+            const allowedBrandNames = allowedBrands.map(b => b.brand_name.toLowerCase().trim());
+            console.log(`[BrandUnblock] Checking brands: ${allowedBrandNames.join(', ')}`);
+
+            let republishedCount = 0;
+            let page = 1;
+            const pageSize = 100;
+
+            while (true) {
+                // ✅ Βρες UNPUBLISHED προϊόντα του supplier με allowed brand
+                const products = await strapi.entityService.findMany('api::product.product', {
+                    filters: {
+                        publishedAt: { $null: true },
+                        related_import: { id: entry.id },
+                        brand: {
+                            name: { $in: allowedBrands.map(b => b.brand_name) }
+                        }
+                    },
+                    populate: {
+                        brand: { fields: ['name'] },
+                        supplierInfo: true
+                    },
+                    fields: ['id', 'name', 'publishedAt', 'inventory'],
+                    pagination: { page, pageSize }
+                });
+
+                if (!products?.length) break;
+
+                for (const product of products) {
+                    const brandName = product.brand?.name?.toLowerCase().trim();
+                    if (!brandName || !allowedBrandNames.includes(brandName)) continue;
+
+                    try {
+                        // ✅ Υπολόγισε σωστό status βάσει supplierInfo
+                        const calculatedStatus = strapi
+                            .plugin('import-products')
+                            .service('productStatusHelper')
+                            .calculateProductStatus(
+                                product.inventory || 0,
+                                product.supplierInfo || [],
+                                product,
+                                [] // Δεν χρειάζεται brand excl check εδώ - μόλις το unblockάραμε
+                            );
+
+                        // ✅ Republish μόνο αν έχει διαθέσιμο supplier
+                        const hasAvailableSupplier = product.supplierInfo?.some(s => s.in_stock === true);
+
+                        await strapi.entityService.update('api::product.product', product.id, {
+                            data: {
+                                publishedAt: hasAvailableSupplier ? new Date() : null,
+                                status: calculatedStatus,
+                                // ✅ Καθάρισε deletedAt μόνο αν είναι διαθέσιμο
+                                deletedAt: (calculatedStatus === 'OutOfStock' || calculatedStatus === 'Discontinued')
+                                    ? new Date()
+                                    : null
+                            }
+                        });
+
+                        if (hasAvailableSupplier) {
+                            republishedCount++;
+                            console.log(`✅ [BrandUnblock] Republished: ${product.name} (${product.brand?.name}) → ${calculatedStatus}`);
+                        } else {
+                            console.log(`⏭️ [BrandUnblock] Skipped (no available supplier): ${product.name}`);
+                        }
+
+                    } catch (error) {
+                        console.error(`[BrandUnblock] Failed to republish product ${product.id}:`, error.message);
+                    }
+                }
+
+                if (products.length < pageSize) break;
+                page++;
+            }
+
+            console.log(`[BrandUnblock] Done. Republished ${republishedCount} products for supplier: ${entry.name}`);
+            return { republished: republishedCount };
+
+        } catch (error) {
+            console.error('[BrandUnblock] republishUnblockedBrandProducts failed:', error.message);
+            return { republished: 0 };
+        }
+    },
 });

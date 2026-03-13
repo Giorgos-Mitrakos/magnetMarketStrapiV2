@@ -382,7 +382,7 @@ export default {
                 .createXml('Skroutz');
         },
         options: {
-            rule: "1 * * * *",
+            rule: "25 * * * *",
         },
     },
 
@@ -424,7 +424,7 @@ export default {
                 .checkIfThereIsSupplierInStock();
         },
         options: {
-            rule: "53 * * * *",
+            rule: "41 * * * *",
         },
     },
 

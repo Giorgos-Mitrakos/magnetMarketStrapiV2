@@ -2,7 +2,7 @@
 
 module.exports = ({ strapi }) => ({
 
-    filterData(data, categoryMap, importParams, supplier = null) {
+    filterData(data, categoryMap, importParams, supplier = null, brand_excl_map = []) {
         try {
             const unique_product = []
             const not_unique_product = []
@@ -11,6 +11,7 @@ module.exports = ({ strapi }) => ({
                 .filter(filterStock)
                 .filter(filterPriceRange)
                 .filter(filterCategories)
+                .filter(filterBrand)
                 .filter(filterImage) // Now conditional based on supplier
                 .filter(filterUnique)
                 .filter(filterRemoveDup)
@@ -166,7 +167,7 @@ module.exports = ({ strapi }) => ({
                     );
 
                     if (stockMapEntry) {
-                        
+
                         stockLevelCheck = stockMapEntry.allow_import === true;
 
                         // ✅ ΕΛΕΓΧΟΣ ΓΙΑ OVERRIDE (IsExpected ή Backorder)
@@ -218,6 +219,24 @@ module.exports = ({ strapi }) => ({
                 }
 
                 return false;
+            }
+
+            function filterBrand(product) {
+                if (!brand_excl_map?.length) return true;
+
+                const brandName = strapi
+                    .plugin('import-products')
+                    .service('productHelpers')
+                    .createFields(importParams.brand, product);
+
+                if (!brandName) return true;
+
+                const entry = brand_excl_map.find(b =>
+                    b.brand_name.toLowerCase().trim() === brandName.toLowerCase().trim()
+                );
+
+                // Αν υπάρχει entry και allow_import = false → κόψε το
+                return !(entry && entry.allow_import === false);
             }
 
             /**

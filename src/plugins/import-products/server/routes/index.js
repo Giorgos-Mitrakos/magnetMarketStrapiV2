@@ -57,7 +57,7 @@ module.exports = [
       policies: [],
     },
   },
-  
+
   {
     method: 'POST',
     path: '/updatespecs',
@@ -67,4 +67,11 @@ module.exports = [
       policies: [],
     },
   },
+
+  {
+    method: 'POST',
+    path: '/sync-brand-blocking/:entryId',
+    handler: 'importxml.syncBrandBlocking',
+    config: { policies: [] }
+  }
 ];

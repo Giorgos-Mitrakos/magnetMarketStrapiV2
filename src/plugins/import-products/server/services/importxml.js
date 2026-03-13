@@ -87,7 +87,7 @@ module.exports = ({ strapi }) => ({
                             sort: 'name_in_xml:asc',
                         },
                         brand_excl_map: {
-                            fields: ['brand_name'],
+                            fields: ['brand_name','allow_import'],
                             sort: 'brand_name:asc',
                         },
                         whitelist_map: {

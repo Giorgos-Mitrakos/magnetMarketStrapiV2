@@ -2571,6 +2571,7 @@ export interface PluginImportProductsBrandexclmap
     };
   };
   attributes: {
+    allow_import: Attribute.Boolean & Attribute.DefaultTo<false>;
     brand_name: Attribute.String & Attribute.Required;
     createdAt: Attribute.DateTime;
     createdBy: Attribute.Relation<

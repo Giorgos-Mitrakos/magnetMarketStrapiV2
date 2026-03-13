@@ -13,16 +13,18 @@ import { Checkbox, SingleSelect, SingleSelectOption, NumberInput } from '@strapi
 const MappingBrand = ({ brandToExclude }) => {
     const [importMapping, setImportMapping] = useContext(MappingContext)
     const [brandName, setBrandName] = useState(brandToExclude.brand_name)
+    const [allow_import, setAllow_import] = useState(brandToExclude.allow_import)
 
     useEffect(() => {
         updateBrandMapping(brandToExclude.id)
 
-    }, [brandName])
+    }, [brandName, allow_import])
 
     const updateBrandMapping = (id) => {
         let new_map = importMapping.brand_excl_map.map((item) => {
             if (item.id === id) {
-                item.brand_name = brandName
+                item.brand_name = brandName,
+                    item.allow_import = allow_import
             }
             return item
         })
@@ -47,6 +49,12 @@ const MappingBrand = ({ brandToExclude }) => {
                         onChange={(e) => setBrandName(e.target.value)}
                     />
                 </Box>
+            </Td>
+            <Td>
+                <Checkbox
+                    checked={allow_import}
+                    onChange={() => setAllow_import(!allow_import)}
+                ></Checkbox>
             </Td>
             <Td>
                 <IconButton noBorder onClick={() => handleDeleteBrand()} label="Delete" icon={<Trash />} />
@@ -80,6 +88,9 @@ const MappingBrands = () => {
                     <Tr>
                         <Th>
                             <Typography variant="sigma">Brand to Exclude</Typography>
+                        </Th>
+                        <Th>
+                            <Typography variant="sigma">Allow Import</Typography>
                         </Th>
                         <Th>
                             <Typography variant="sigma">Ενέργεια</Typography>
