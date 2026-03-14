@@ -76,7 +76,8 @@ module.exports = ({ strapi }) => {
                         json.response.item,
                         importRef.categoryMap,
                         importRef.mapFields,
-                        this.name  // ✅ Pass supplier name for custom image filtering
+                        this.name,  // ✅ Pass supplier name for custom image filtering,
+                        importRef.brand_excl_map
                     );
 
                 return { products: availableProducts };

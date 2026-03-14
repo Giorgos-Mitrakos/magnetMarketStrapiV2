@@ -382,7 +382,7 @@ export default {
                 .createXml('Skroutz');
         },
         options: {
-            rule: "25 * * * *",
+            rule: "1 * * * *",
         },
     },
 

@@ -83,7 +83,8 @@ module.exports = ({ strapi }) => {
                         xml.mywebstore.products[0].product,
                         importRef.categoryMap,
                         importRef.mapFields,
-                        this.name  // ✅ Pass supplier name
+                        this.name,  // ✅ Pass supplier name,
+                        importRef.brand_excl_map
                     );
 
                 // Clear XML

@@ -372,31 +372,15 @@ module.exports = ({ strapi }) => ({
             }
 
             for (let product of products) {
+                console.log("product:", product, "importRef:", importRef)
                 // Set category info
                 product.entry = entry;
                 product.category = { title: category };
                 product.subcategory = { title: subcategory };
                 product.sub2category = { title: sub2category };
 
-                // ✅ Brand block check (scraping)
-                if (product.brand) {
-                    const brandValue = typeof product.brand === 'string'
-                        ? product.brand
-                        : product.brand?.name;
-
-                    const isBlocked = strapi
-                        .plugin('import-products')
-                        .service('importHelpers')
-                        .isBrandBlocked(brandValue, importRef.brand_excl_map);
-
-                    if (isBlocked) {
-                        console.log(`🚫 Brand blocked, skipping: ${product.name} (${brandValue})`);
-                        continue;
-                    }
-                }
-
                 //filter product
-                if (!this.filterScrappedProducts(product, stockLevelFilter, minPrice, maxPrice)) {
+                if (!this.filterScrappedProducts(product, stockLevelFilter, minPrice, maxPrice, importRef.brand_excl_map)) {
                     continue
                 }
 
@@ -454,10 +438,26 @@ module.exports = ({ strapi }) => ({
         }
     },
 
-    filterScrappedProducts(product, stockLevelFilter, minPrice, maxPrice) {
+    filterScrappedProducts(product, stockLevelFilter, minPrice, maxPrice, brand_excl_map = []) {
         try {
 
             let isPassingFilters = true
+
+            // ✅ Brand block check
+            if (product.brand && brand_excl_map?.length) {
+                const brandValue = typeof product.brand === 'string'
+                    ? product.brand
+                    : product.brand?.name;
+
+                if (strapi
+                    .plugin('import-products')
+                    .service('importHelpers')
+                    .isBrandBlocked(brandValue, brand_excl_map)) {
+                    console.log(`🚫 Brand blocked: ${product.name} (${brandValue})`);
+                    return false;
+                }
+            }
+
 
             if (!stockLevelFilter.includes(product.stock_level)) {
                 isPassingFilters = false

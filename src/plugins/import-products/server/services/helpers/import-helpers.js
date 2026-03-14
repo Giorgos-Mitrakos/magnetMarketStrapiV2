@@ -121,7 +121,7 @@ module.exports = ({ strapi }) => ({
 
         importRef.brand_excl_map = await strapi.db.query('plugin::import-products.brandexclmap').findMany({
             where: { related_import: entry.id },
-            select: ['brand_name','allow_import']
+            select: ['brand_name', 'allow_import']
         });
 
         return importRef
@@ -388,7 +388,24 @@ module.exports = ({ strapi }) => ({
                     product.name, product.category.title, product.subcategory?.title, product.sub2category?.title);
 
             // ✅ Brand block check — unpublish αν το brand είναι blocked
-            const updateBrandName = product.brandName || product.brand?.name || entryCheck.brand?.name;
+            let updateBrandName = product.brandName || product.brand?.name;
+
+            if (!updateBrandName && entryCheck.brand) {
+                // brand στο cache είναι ID ή object - handle και τα δύο
+                if (typeof entryCheck.brand === 'object') {
+                    updateBrandName = entryCheck.brand.name;
+                } else {
+                    // Είναι ID - κάνε lazy load μόνο αν έχεις brands στο brand_excl_map
+                    if (importRef.brand_excl_map?.length > 0) {
+                        const brandFromCache = strapi
+                            .plugin('import-products')
+                            .service('cacheService')
+                            .getBrandById(entryCheck.brand);
+                        updateBrandName = brandFromCache?.name;
+                    }
+                }
+            }
+
             if (this.isBrandBlocked(updateBrandName, importRef.brand_excl_map)) {
                 if (entryCheck.publishedAt !== null) {
                     await strapi.entityService.update('api::product.product', entryCheck.id, {
@@ -1063,7 +1080,7 @@ module.exports = ({ strapi }) => ({
         const entry = brand_excl_map.find(b =>
             b.brand_name.toLowerCase().trim() === brandName.toLowerCase().trim()
         );
-        return entry !== undefined && (entry.allow_import === false || entry.allow_import === undefined);
+        return entry !== undefined && entry.allow_import === false;
     },
 
     async unpublishBlockedBrandProducts(entry) {

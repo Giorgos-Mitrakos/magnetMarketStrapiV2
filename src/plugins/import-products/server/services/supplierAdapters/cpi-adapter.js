@@ -76,7 +76,8 @@ module.exports = ({ strapi }) => {
                         xml.STOREITEMS.CREATED[0].PRODUCT,
                         importRef.categoryMap,
                         importRef.mapFields,
-                        this.name
+                        this.name,
+                        importRef.brand_excl_map
                     );
 
                 return { products: availableProducts };
@@ -96,12 +97,12 @@ module.exports = ({ strapi }) => {
             product.wholesale = this.cleanPrice(
                 (product.wholesale || "0").replace('.', '')  // Remove thousands separator first
             );
-            
-            product.retail_price = product.retail_price 
+
+            product.retail_price = product.retail_price
                 ? this.cleanPrice(String(product.retail_price).replace('.', ''))
                 : "0";
-            
-            product.recycle_tax = product.recycle_tax 
+
+            product.recycle_tax = product.recycle_tax
                 ? this.cleanPrice(String(product.recycle_tax).replace('.', ''))
                 : "0";
 
@@ -118,7 +119,7 @@ module.exports = ({ strapi }) => {
                     .replace('kg', '')
                     .replace(',', '.')
                     .trim();
-                
+
                 const weightKg = parseFloat(weightStr);
                 if (!isNaN(weightKg) && weightKg > 0) {
                     product.weight = Math.round(weightKg * 1000); // Convert to grams
@@ -127,7 +128,7 @@ module.exports = ({ strapi }) => {
 
             // ✅ Parse characteristics from specifications.item
             // This is auto-handled by BaseSupplier.parseCharacteristics()
-            
+
             // ✅ Parse weight and dimensions from characteristics if not in raw fields
             if (!product.weight || !product.length) {
                 await this.parseWeightAndDimensions(product, rawData, importRef);

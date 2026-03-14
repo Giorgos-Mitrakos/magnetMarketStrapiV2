@@ -73,7 +73,8 @@ module.exports = ({ strapi }) => {
                         items,
                         importRef.categoryMap,
                         importRef.mapFields,
-                        this.name
+                        this.name,
+                        importRef.brand_excl_map
                     );
 
                 console.log(`Logicom available products: ${availableProducts[0]}`);

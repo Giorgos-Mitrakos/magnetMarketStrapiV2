@@ -73,7 +73,8 @@ module.exports = ({ strapi }) => {
                         data,
                         importRef.categoryMap,
                         importRef.mapFields,
-                        this.name
+                        this.name,
+                        importRef.brand_excl_map
                     );
 
                 return { products: availableProducts };
