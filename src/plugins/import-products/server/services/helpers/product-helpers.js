@@ -2,6 +2,7 @@
 
 module.exports = ({ strapi }) => ({
 
+    // ✅ brand_excl_map προστέθηκε ως 5ο argument
     filterData(data, categoryMap, importParams, supplier = null, brand_excl_map = []) {
         try {
             const unique_product = []
@@ -11,26 +12,42 @@ module.exports = ({ strapi }) => ({
                 .filter(filterStock)
                 .filter(filterPriceRange)
                 .filter(filterCategories)
-                .filter(filterBrand)
-                .filter(filterImage) // Now conditional based on supplier
+                .filter(filterBrand)       // ✅ Brand filter
+                .filter(filterImage)
                 .filter(filterUnique)
                 .filter(filterRemoveDup)
 
+            function filterBrand(product) {
+                if (!brand_excl_map?.length) return true;
+
+                const brandName = strapi
+                    .plugin('import-products')
+                    .service('productHelpers')
+                    .createFields(importParams.brand, product);
+
+                if (!brandName) return true;
+
+                const entry = brand_excl_map.find(b =>
+                    b.brand_name.toLowerCase().trim() === brandName.toLowerCase().trim()
+                );
+
+                // ✅ Κόβει ΜΟΝΟ αν allow_import είναι ρητά false
+                return !(entry && entry.allow_import === false);
+            }
+
             function filterImage(imageUrl) {
-                // ✅ Skip image validation for suppliers with custom image formats
                 const suppliersWithCustomImages = [
-                    'globalsat',  // Uses Image1Link-Image5Link
-                    'dotmedia',   // Uses ImageLink, ImageLink2, ImageLink3
-                    'novatron',   // Scraped images
-                    'quest'       // Scraped images
+                    'globalsat',
+                    'dotmedia',
+                    'novatron',
+                    'quest',
+                    'logicom'
                 ];
 
                 if (supplier && suppliersWithCustomImages.includes(supplier.toLowerCase())) {
-                    // For these suppliers, check if at least ONE image field exists
                     return hasCustomImageFields(imageUrl);
                 }
 
-                // Default behavior: check standard image fields
                 let image = strapi
                     .plugin('import-products')
                     .service('productHelpers')
@@ -52,14 +69,12 @@ module.exports = ({ strapi }) => ({
 
                 const supplierLower = supplier?.toLowerCase();
 
-                // Helper to extract value from array or string
                 const extractValue = (value) => {
                     if (!value) return null;
                     if (Array.isArray(value)) return value[0];
                     return value;
                 };
 
-                // Globalsat: Check Image1Link-Image5Link
                 if (supplierLower === 'globalsat') {
                     for (let i = 1; i <= 5; i++) {
                         const value = extractValue(product[`Image${i}Link`]);
@@ -68,7 +83,6 @@ module.exports = ({ strapi }) => ({
                     return false;
                 }
 
-                // DotMedia: Check ImageLink, ImageLink2, ImageLink3
                 if (supplierLower === 'dotmedia') {
                     const img1 = extractValue(product.ImageLink);
                     const img2 = extractValue(product.ImageLink2);
@@ -76,8 +90,10 @@ module.exports = ({ strapi }) => ({
                     return !!(img1 || img2 || img3);
                 }
 
-                // For scraped suppliers (Novatron, Quest), always return true
-                // Images will be validated during scraping
+                if (supplierLower === 'logicom') {
+                    return true;
+                }
+
                 if (supplierLower === 'novatron' || supplierLower === 'quest') {
                     return true;
                 }
@@ -96,8 +112,7 @@ module.exports = ({ strapi }) => ({
                 if (unique_product.includes(mpn)) {
                     not_unique_product.push(mpn)
                     return false
-                }
-                else {
+                } else {
                     unique_product.push(mpn)
                     return true
                 }
@@ -114,27 +129,23 @@ module.exports = ({ strapi }) => ({
 
                 if (not_unique_product.includes(mpn)) {
                     return false
-                }
-                else {
+                } else {
                     return true
                 }
             }
 
             function filterStock(productData) {
-                // 1. Get stock_level (string status από XML)
                 let stockLevel = strapi
                     .plugin('import-products')
                     .service('productHelpers')
                     .createFields(importParams.stock_level, productData);
 
-                // 2. Get quantity (numeric stock από XML)
                 let quantity = importParams.quantity ? strapi
                     .plugin('import-products')
                     .service('productHelpers')
                     .createFields(importParams.quantity, productData)
                     : null;
 
-                // Normalize to proper types
                 const hasStockLevel = stockLevel !== null && stockLevel !== undefined && String(stockLevel).trim() !== '';
                 const hasQuantity = quantity !== null && quantity !== undefined;
 
@@ -144,11 +155,8 @@ module.exports = ({ strapi }) => ({
 
                 let quantityCheck = null;
                 let stockLevelCheck = null;
-                let isOverrideStatus = false; // Flag για IsExpected ή Backorder
+                let isOverrideStatus = false;
 
-                // ════════════════════════════════════════════════════════════
-                // CHECK 1: QUANTITY (numeric)
-                // ════════════════════════════════════════════════════════════
                 if (hasQuantity && categoryMap.has_quantity) {
                     const minQuantity = categoryMap.min_quantity || 0;
                     const parsedQuantity = parseQuantityValue(quantity);
@@ -158,20 +166,14 @@ module.exports = ({ strapi }) => ({
                     }
                 }
 
-                // ════════════════════════════════════════════════════════════
-                // CHECK 2: STOCK_LEVEL (string via stockmap)
-                // ════════════════════════════════════════════════════════════
                 if (hasStockLevel && categoryMap.stock_map && categoryMap.stock_map.length > 0) {
                     const stockMapEntry = categoryMap.stock_map.find(x =>
                         x.name_in_xml.trim().toLowerCase() === String(stockLevel).trim().toLowerCase()
                     );
 
                     if (stockMapEntry) {
-
                         stockLevelCheck = stockMapEntry.allow_import === true;
 
-                        // ✅ ΕΛΕΓΧΟΣ ΓΙΑ OVERRIDE (IsExpected ή Backorder)
-                        // Χρησιμοποιούμε λίστα για να είναι καθαρός ο κώδικας
                         const statusesToOverride = ['IsExpected', 'Backorder'];
                         if (statusesToOverride.includes(stockMapEntry.translate_to)) {
                             isOverrideStatus = true;
@@ -181,38 +183,21 @@ module.exports = ({ strapi }) => ({
                     }
                 }
 
-                // ════════════════════════════════════════════════════════════
-                // COMBINE LOGIC (Priorities)
-                // ════════════════════════════════════════════════════════════
-
-                // 🌟 ΠΡΟΤΕΡΑΙΟΤΗΤΑ 0: Override για ειδικά Status
-                // Αν το status είναι IsExpected ή Backorder ΚΑΙ επιτρέπουμε το import,
-                // τότε παρακάμπτουμε κάθε έλεγχο ποσότητας.
                 if (isOverrideStatus && stockLevelCheck) {
                     return true;
                 }
 
-                // ΠΡΟΤΕΡΑΙΟΤΗΤΑ 1: Έχω επιλέξει has_quantity
                 if (categoryMap.has_quantity) {
-
-                    // Α: Έχει ΚΑΙ quantity ΚΑΙ stock_level -> ΣΥΝΔΥΑΣΜΟΣ (AND)
                     if (quantityCheck !== null && stockLevelCheck !== null) {
                         return quantityCheck && stockLevelCheck;
                     }
-
-                    // Β: Έχει ΜΟΝΟ quantity
                     if (quantityCheck !== null) {
                         return quantityCheck;
                     }
-
-                    // Γ: Fallback αν έχει μόνο stock_level
                     if (stockLevelCheck !== null) {
                         return stockLevelCheck;
                     }
-                }
-                // ΠΡΟΤΕΡΑΙΟΤΗΤΑ 2: ΔΕΝ έχω επιλέξει has_quantity
-                else {
-                    // Φιλτράρισμα ΜΟΝΟ με το stock_level
+                } else {
                     if (stockLevelCheck !== null) {
                         return stockLevelCheck;
                     }
@@ -221,29 +206,6 @@ module.exports = ({ strapi }) => ({
                 return false;
             }
 
-            function filterBrand(product) {
-                if (!brand_excl_map?.length) return true;
-
-                const brandName = strapi
-                    .plugin('import-products')
-                    .service('productHelpers')
-                    .createFields(importParams.brand, product);
-
-                if (!brandName) return true;
-
-                const entry = brand_excl_map.find(b =>
-                    b.brand_name.toLowerCase().trim() === brandName.toLowerCase().trim()
-                );
-
-                // Αν υπάρχει entry και allow_import = false → κόψε το
-                return !(entry && entry.allow_import === false);
-            }
-
-            /**
-         * Helper: Parse quantity value (handles numbers, ranges, strings)
-         * @param {any} quantity 
-         * @returns {number}
-         */
             function parseQuantityValue(quantity) {
                 if (typeof quantity === 'number') {
                     return quantity;
@@ -251,7 +213,6 @@ module.exports = ({ strapi }) => ({
 
                 const str = String(quantity).trim();
 
-                // Check for range (π.χ. "1-3" → μέσος όρος 2)
                 const rangeMatch = str.match(/^(\d+)\s*[-–—]\s*(\d+)$/);
                 if (rangeMatch) {
                     const min = parseInt(rangeMatch[1]);
@@ -259,7 +220,6 @@ module.exports = ({ strapi }) => ({
                     return Math.floor((min + max) / 2);
                 }
 
-                // Simple integer
                 const parsed = parseInt(str);
                 return !isNaN(parsed) ? parsed : 0;
             }
@@ -281,27 +241,22 @@ module.exports = ({ strapi }) => ({
                                         let sub2Index = categoryMap.whitelist_map[catIndex].subcategory[subIndex].subcategory.findIndex(x => x.name.trim() === sub2category)
                                         if (sub2Index !== -1) {
                                             return true
-                                        }
-                                        else {
+                                        } else {
                                             return false
                                         }
                                     }
-                                }
-                                else {
+                                } else {
                                     return false
                                 }
-                            }
-                            else {
+                            } else {
                                 return true
                             }
-                        }
-                        else {
+                        } else {
                             return false
                         }
                     }
                     return true
-                }
-                else {
+                } else {
                     if (categoryMap.blacklist_map.length > 0) {
                         let catIndex = categoryMap.blacklist_map.findIndex(x => x.name.trim() === category)
                         if (catIndex !== -1) {
@@ -312,21 +267,17 @@ module.exports = ({ strapi }) => ({
                                         let sub2Index = categoryMap.blacklist_map[catIndex].subcategory[subIndex].subcategory.findIndex(x => x.name.trim() === sub2category)
                                         if (sub2Index !== -1) {
                                             return false
-                                        }
-                                        else {
+                                        } else {
                                             return true
                                         }
                                     }
-                                }
-                                else {
+                                } else {
                                     return true
                                 }
-                            }
-                            else {
+                            } else {
                                 return false
                             }
-                        }
-                        else {
+                        } else {
                             return true
                         }
                     }
@@ -339,8 +290,7 @@ module.exports = ({ strapi }) => ({
                 let maxPrice;
                 if (categoryMap.maximumPrice && categoryMap.maximumPrice > 0) {
                     maxPrice = parseFloat(categoryMap.maximumPrice);
-                }
-                else {
+                } else {
                     maxPrice = 100000;
                 }
 
@@ -358,8 +308,7 @@ module.exports = ({ strapi }) => ({
 
                 if (parseFloat(productPrice).toFixed(2) >= minPrice && parseFloat(productPrice).toFixed(2) <= maxPrice) {
                     return true
-                }
-                else {
+                } else {
                     return false
                 }
             }
@@ -374,11 +323,8 @@ module.exports = ({ strapi }) => ({
 
     createFields(s, o) {
         try {
-
             if (!s)
                 return null
-            // s = s.replace(/\[(\w+)\]/g, '.$1'); // convert indexes to properties
-            // s = s.replace(/^\./, '');           // strip a leading dot
             var a = s.split('.');
             for (var i = 0, n = a.length; i < n; ++i) {
                 var k = a[i];
@@ -388,7 +334,6 @@ module.exports = ({ strapi }) => ({
                     o = o[k];
                     if (o === null)
                         return
-
                     if (o.length === 1)
                         o = o[0]
                 } else {
@@ -396,7 +341,6 @@ module.exports = ({ strapi }) => ({
                 }
             }
             return o;
-
         } catch (error) {
             console.log(error)
             return null
@@ -418,8 +362,7 @@ module.exports = ({ strapi }) => ({
                 category = tempCategory.split(splitter)[0].trim()
                 subcategory = tempCategory.split(splitter)[1] ? tempCategory.split(splitter)[1].trim() : null
                 sub2category = tempCategory.split(splitter)[2] ? tempCategory.split(splitter)[2].trim() : null
-            }
-            else {
+            } else {
                 category = strapi
                     .plugin('import-products')
                     .service('productHelpers')
@@ -456,15 +399,9 @@ module.exports = ({ strapi }) => ({
                 description: this.createFields(mapFields.description, dt)
                     ?.replace(/([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g, ''),
                 short_description: this.createFields(mapFields.short_description, dt),
-                category: {
-                    title: category
-                },
-                subcategory: {
-                    title: subcategory
-                },
-                sub2category: {
-                    title: sub2category
-                },
+                category: { title: category },
+                subcategory: { title: subcategory },
+                sub2category: { title: sub2category },
                 mpn: this.createFields(mapFields.mpn, dt),
                 barcode: this.createFields(mapFields.barcode, dt),
                 stock_level: this.createFields(mapFields.stock_level, dt),
@@ -493,16 +430,11 @@ module.exports = ({ strapi }) => ({
             if (additional_images) {
                 if (Array.isArray(additional_images)) {
                     for (let index = 0; index < additional_images.length; index++) {
-                        if (index > 5)
-                            break;
+                        if (index > 5) break;
                         const element = additional_images[index];
                         product.imagesSrc.push({ url: element.trim() })
                     }
-                    // additional_images.forEach(x => {
-                    //     product.imagesSrc.push({ url: x.trim() })
-                    // })
-                }
-                else {
+                } else {
                     product.imagesSrc.push({ url: additional_images.trim() })
                 }
             }
@@ -511,12 +443,11 @@ module.exports = ({ strapi }) => ({
             if (productBrandName) {
                 const { brandId, brandName } = await this.brandIdCheck(productBrandName, product.name);
                 if (brandId) {
-                    product.brand = { id: brandId, name: brandName } // ✅ Για αποθήκευση στη DB
+                    product.brand = { id: brandId, name: brandName }
                 }
             }
 
             const attributes = this.createFields(mapFields.attributes, dt)
-
             if (attributes) {
                 this.createAttributes(attributes, product, entry, importRef)
             }
@@ -543,18 +474,12 @@ module.exports = ({ strapi }) => ({
                         .trim()
                     : '',
                 short_description: scrapedProduct.short_description?.trim() || '',
-
-                // ✅ Categories already set from scraping
                 category: scrapedProduct.category,
                 subcategory: scrapedProduct.subcategory,
                 sub2category: scrapedProduct.sub2category,
-
-                // Identifiers                
                 mpn: scrapedProduct.mpn ? scrapedProduct.mpn : mpn?.trim() || null,
                 barcode: scrapedProduct.barcode ? scrapedProduct.barcode : barcode?.trim() || null,
                 model: scrapedProduct.model?.trim() || null,
-
-                // Stock & pricing
                 stock_level: scrapedProduct.stock_level?.trim() || '',
                 wholesale: scrapedProduct.wholesale ? String(scrapedProduct.wholesale).trim() : null,
                 retail_price: scrapedProduct.retail_price ? String(scrapedProduct.retail_price).trim() : null,
@@ -562,30 +487,19 @@ module.exports = ({ strapi }) => ({
                 recycle_tax: scrapedProduct.recycle_tax ? String(scrapedProduct.recycle_tax).trim() : null,
                 in_offer: scrapedProduct.in_offer || false,
                 discount: scrapedProduct.discount || 0,
-
-                // Dimensions & weight
                 weight: scrapedProduct.weight ? scrapedProduct.weight : weight || null,
                 width: scrapedProduct.width || null,
                 length: scrapedProduct.length || null,
                 height: scrapedProduct.height || null,
-
-                // Images & files
                 imagesSrc: scrapedProduct.imagesSrc || [],
                 additional_files: scrapedProduct.additional_files || null,
-
-                // Links & metadata
                 link: scrapedProduct.link?.trim() || null,
                 skoutz_url: scrapedProduct.skoutz_url?.trim() || null,
-
-                // Characteristics
                 prod_chars: scrapedProduct.prod_chars || [],
-
-                // Status
                 status: scrapedProduct.status || 'InStock',
                 relativeProducts: scrapedProduct.relativeProducts || []
             };
 
-            // ✅ Handle brand
             if (scrapedProduct.brand) {
                 const brandValue = typeof scrapedProduct.brand === 'string'
                     ? scrapedProduct.brand
@@ -598,7 +512,7 @@ module.exports = ({ strapi }) => ({
                         .brandIdCheck(brandValue, product.name);
 
                     if (brandId) {
-                        product.brand = { id: brandId, name: brandName }; // ✅ Για αποθήκευση στη DB
+                        product.brand = { id: brandId, name: brandName };
                     }
                 }
             }
@@ -612,7 +526,6 @@ module.exports = ({ strapi }) => ({
     },
 
     findIdentifiersFromChars(prod_chars) {
-
         let mpn = prod_chars.find(({ name }) => name === "Part Number")?.value;
         let barcode = prod_chars.find(({ name }) => name === "EAN Number")?.value;
         let weightChar = prod_chars.find(({ name }) => name === "Μεικτό βάρος");
@@ -624,7 +537,6 @@ module.exports = ({ strapi }) => ({
             let weightName = weightChar?.name.toLowerCase();
             let combinedText = `${scrappedWeight} ${weightName}`.toLowerCase();
 
-            // Εξάγουμε μόνο τον αριθμό από το value
             const numericValue = scrappedWeight.replace(/[^\d.,]/g, '').replace(',', '.').trim();
             const parsedValue = parseFloat(numericValue);
 
@@ -642,7 +554,6 @@ module.exports = ({ strapi }) => ({
 
     createAttributes(attributes, product, entry, importRef) {
         try {
-
             const chars = []
             if (entry.name.toLowerCase() === 'oktabit') {
                 for (const [key, value] of Object.entries(attributes)) {
@@ -651,8 +562,7 @@ module.exports = ({ strapi }) => ({
                     char.value = value.replaceAll('&apos;', "'").trim()
                     chars.push(char)
                 }
-            }
-            else if (entry.name.toLowerCase() === 'telehermes') {
+            } else if (entry.name.toLowerCase() === 'telehermes') {
                 if (Array.isArray(attributes)) {
                     for (let productChar of attributes) {
                         if (productChar.$.key.trim() === "Κατάσταση" ||
@@ -666,8 +576,7 @@ module.exports = ({ strapi }) => ({
                             chars.push(char)
                         }
                     }
-                }
-                else {
+                } else {
                     if (attributes.$.key.trim() === "Κατάσταση" ||
                         attributes.$.key.trim() === "Διαθεσιμότητα" ||
                         attributes.$.value.trim() === "[NULL]")
@@ -677,10 +586,8 @@ module.exports = ({ strapi }) => ({
                     char.name = this.createFields('$.key', attributes)
                     char.value = this.createFields('$.value', attributes)
                     chars.push(char)
-
                 }
-            }
-            else if (entry.name.toLowerCase() === 'smart4all') {
+            } else if (entry.name.toLowerCase() === 'smart4all') {
                 if (Array.isArray(attributes)) {
                     for (let productChar of attributes) {
                         const char = {}
@@ -688,71 +595,58 @@ module.exports = ({ strapi }) => ({
                         char.value = this.createFields('FEATURE_VALUE', productChar)
                         chars.push(char)
                     }
-                }
-                else {
+                } else {
                     const char = {}
                     char.name = this.createFields('FEATURE_NAME', attributes)
                     char.value = this.createFields('FEATURE_VALUE', attributes)
                     chars.push(char)
                 }
-            }
-            else if (entry.name.toLowerCase() === 'westnet') {
+            } else if (entry.name.toLowerCase() === 'westnet') {
                 if (Array.isArray(attributes)) {
                     for (let productChar of attributes) {
-                        {
-                            if (productChar.name && productChar.value) {
-                                const char = {}
-                                char.name = this.createFields('name', productChar)
-                                char.value = this.createFields('value', productChar)
-                                chars.push(char)
-                            }
+                        if (productChar.name && productChar.value) {
+                            const char = {}
+                            char.name = this.createFields('name', productChar)
+                            char.value = this.createFields('value', productChar)
+                            chars.push(char)
                         }
                     }
-                }
-                else {
+                } else {
                     try {
                         if (Array.isArray(attributes)) {
                             for (let productChar of attributes) {
-
                                 if (productChar.name && productChar.value) {
                                     const char = {}
                                     char.name = this.createFields('name', productChar.trim())
                                     char.value = this.createFields('value', productChar.trim())
                                     chars.push(char)
-                                }
-                                else if (productChar.Name && productChar.Value) {
+                                } else if (productChar.Name && productChar.Value) {
                                     const char = {}
                                     char.name = this.createFields('Name', productChar.trim())
                                     char.value = this.createFields('Value', productChar.trim())
                                     chars.push(char)
                                 }
                             }
-                        }
-                        else {
+                        } else {
                             if (attributes.name && attributes.value) {
                                 const char = {}
                                 char.name = this.createFields('name', attributes.trim())
                                 char.value = this.createFields('value', attributes.trim())
                                 chars.push(char)
-                            }
-                            else if (attributes.Name && attributes.Value) {
+                            } else if (attributes.Name && attributes.Value) {
                                 const char = {}
                                 char.name = this.createFields('Name', attributes.trim())
                                 char.value = this.createFields('value', attributes.trim())
                                 chars.push(char)
                             }
                         }
-
                     } catch (error) {
                         console.error(error)
                     }
                 }
-            }
-            else if (entry.name.toLowerCase() === 'globalsat') {
+            } else if (entry.name.toLowerCase() === 'globalsat') {
                 const charStings = attributes.split("|")
-
                 for (let charSting of charStings) {
-
                     const charSplit = charSting.split(":")
                     if (charSplit[0].trim() !== "") {
                         const char = {}
@@ -762,15 +656,6 @@ module.exports = ({ strapi }) => ({
                     }
                 }
             }
-            // else if (entry.name.toLowerCase() === 'dotmedia') {
-
-            //     for (let productChar of attributes.attr.Specification) {
-            //         const char = {}
-            //         char.name = productChar.Name[0]
-            //         char.value = productChar.Value[0]
-            //         chars.push(char)
-            //     }
-            // }
 
             const parsedChars = strapi
                 .plugin('import-products')
@@ -782,19 +667,16 @@ module.exports = ({ strapi }) => ({
         } catch (error) {
             console.error(error)
         }
-
     },
 
     createProductWeight(product, categoryInfo) {
         try {
-            // Αν υπάρχει ήδη βάρος, επιστροφή
             if (product.weight && product.weight > 0) {
                 return parseInt(product.weight);
             }
 
             let weight = 0;
 
-            // 1η προτεραιότητα: Υπολογισμός από διαστάσεις
             if (product.length && product.width && product.height) {
                 const length = Number(product.length);
                 const width = Number(product.width);
@@ -808,7 +690,6 @@ module.exports = ({ strapi }) => ({
                 }
             }
 
-            // 2η προτεραιότητα: Υπολογισμός από φόρο ανακύκλωσης
             if (product.recycle_tax) {
                 const tax = parseFloat(product.recycle_tax);
 
@@ -824,44 +705,22 @@ module.exports = ({ strapi }) => ({
                 }
             }
 
-            // 3η προτεραιότητα: Μέσος όρος κατηγορίας
             if (categoryInfo?.average_weight && categoryInfo.average_weight > 0) {
                 weight = parseInt(categoryInfo.average_weight);
                 return weight;
             }
 
-            // 4η προτεραιότητα: Default τιμή
             return 1000;
 
         } catch (error) {
             console.error('Error calculating product weight:', error, 'Product:', product.mpn || product.id);
-            return 1000; // Fallback σε περίπτωση σφάλματος
+            return 1000;
         }
     },
 
-    // async checkProductAndBrand(mpn, name, barcode, brand, model) {
-    //     try {
-    //         const { entryCheck } = await this.checkIfProductExists(mpn, barcode, name, model);
-
-    //         const { brandId } = await this.brandIdCheck(brand, name);
-
-    //         return { entryCheck, brandId }
-
-
-    //     } catch (error) {
-    //         console.error(error)
-    //     }
-
-    // },
-
-    /**
-     * Safe brandIdCheck - improved version
-     * Should replace the existing one in productHelpers.js
-     */
     async brandIdCheck(brandName, name) {
         try {
             if (!brandName || brandName === 'undefined' || brandName.trim() === '') {
-                // Try to find brand from product name
                 const cacheService = strapi.plugin('import-products').service('cacheService');
                 const foundBrand = cacheService.findBrandInProductName(name);
                 return {
@@ -872,7 +731,6 @@ module.exports = ({ strapi }) => ({
 
             const brandTrimmed = brandName.trim();
 
-            // ✅ 1. Check cache first (ALWAYS!)
             const cacheService = strapi.plugin('import-products').service('cacheService');
             let brandFromCache = cacheService.getBrandByName(brandTrimmed);
 
@@ -883,8 +741,6 @@ module.exports = ({ strapi }) => ({
                 };
             }
 
-            // ✅ 2. Query database to check if brand exists
-            // This handles cases where brand wasn't in initial cache
             const existingBrand = await strapi.db.query('api::brand.brand').findOne({
                 where: {
                     $or: [
@@ -905,7 +761,6 @@ module.exports = ({ strapi }) => ({
             });
 
             if (existingBrand) {
-                // ✅ Add to cache for future use
                 cacheService.cache.brands.set(brandTrimmed.toLowerCase(), existingBrand);
                 cacheService.cache.brands.set(existingBrand.slug, existingBrand);
                 return {
@@ -914,7 +769,6 @@ module.exports = ({ strapi }) => ({
                 };
             }
 
-            // ✅ 3. Create new brand only if it doesn't exist
             const brandSlug = strapi.plugin('import-products')
                 .service('importHelpers')
                 .createSlug(brandTrimmed, null);
@@ -928,7 +782,6 @@ module.exports = ({ strapi }) => ({
                     },
                 });
 
-                // ✅ Add to cache
                 cacheService.cache.brands.set(brandTrimmed.toLowerCase(), newBrand);
                 cacheService.cache.brands.set(brandSlug, newBrand);
 
@@ -938,11 +791,9 @@ module.exports = ({ strapi }) => ({
                 };
 
             } catch (createError) {
-                // ✅ Handle "already exists" error from race condition
                 if (createError.message?.includes('unique') || createError.details?.errors?.[0]?.message?.includes('unique')) {
                     console.warn(`Brand ${brandTrimmed} was created by another process, querying again...`);
 
-                    // Query again
                     const retryBrand = await strapi.db.query('api::brand.brand').findOne({
                         where: { name: { $eqi: brandTrimmed } },
                         select: ['id', 'name', 'slug']
@@ -959,18 +810,12 @@ module.exports = ({ strapi }) => ({
                 }
 
                 console.error(`Error creating brand ${brandTrimmed}:`, createError.message);
-                return {
-                    brandId: null,
-                    brandName: null
-                };
+                return { brandId: null, brandName: null };
             }
 
         } catch (error) {
             console.error('Error in brandIdCheck:', error.message, brandName);
-            return {
-                brandId: null,
-                brandName: null
-            };
+            return { brandId: null, brandName: null };
         }
     },
 
@@ -983,8 +828,6 @@ module.exports = ({ strapi }) => ({
                 })
 
             let productName = product.name.replace(/\//g, "_");
-            // const slug = slugify(`${productName}-${product.mpn}`, { lower: true, remove: /[*+~=#.,°;_()/'"!:@]/g })
-            // const canonicalURL = `http://localhost:3000/product/${slug}`
 
             let metaDescription = `${productName}${product.short_description}`.length > 160 ?
                 `${productName}${product.short_description}`.substring(0, 159) :
@@ -998,28 +841,21 @@ module.exports = ({ strapi }) => ({
             return [{
                 metaTitle: productName.substring(0, 59),
                 metaDescription: metaDescription,
-                metaImage: {
-                    id: imgid
-                },
+                metaImage: { id: imgid },
                 keywords: `${keywords}`,
-                // canonicalURL: canonicalURL,
                 metaViewport: "width=device-width, initial-scale=1",
                 metaSocial: [
                     {
                         socialNetwork: "Facebook",
                         title: productName.substring(0, 59),
                         description: `${productName}`.substring(0, 64),
-                        image: {
-                            id: imgid
-                        },
+                        image: { id: imgid },
                     },
                     {
                         socialNetwork: "Twitter",
                         title: productName.substring(0, 59),
                         description: `${productName}`.substring(0, 64),
-                        image: {
-                            id: imgid
-                        },
+                        image: { id: imgid },
                     }
                 ]
             }]
@@ -1035,33 +871,23 @@ module.exports = ({ strapi }) => ({
             const avgWeight = categoryInfo?.average_weight ? parseInt(categoryInfo.average_weight) : null;
             const currentWeight = entryCheck.weight ? parseInt(entryCheck.weight) : 0;
 
-            // Αν έχουμε νέο βάρος από το scraping
             if (productWeight !== null) {
-                // Προτεραιότητα: product weight > average weight
                 const newWeight = productWeight || avgWeight;
-
-                // Update μόνο αν το νέο βάρος είναι διαφορετικό από το τρέχον
                 if (newWeight > 0 && currentWeight !== newWeight) {
                     data.weight = newWeight;
                     dbChange.typeOfChange = 'updated';
                 }
-            }
-            // Αν ΔΕΝ έχουμε βάρος από scraping αλλά δεν υπάρχει καθόλου βάρος στη βάση
-            else if (currentWeight === 0 && avgWeight !== null) {
-                // Χρησιμοποίησε το average weight μόνο σαν fallback
+            } else if (currentWeight === 0 && avgWeight !== null) {
                 data.weight = avgWeight;
                 dbChange.typeOfChange = 'updated';
             }
-            // Αλλιώς κρατάμε το υπάρχον βάρος (δεν κάνουμε τίποτα)
 
         } catch (error) {
             console.error('Error updating product weight:', error, 'Product:', entryCheck.id);
-            // Fallback: Βάλε default βάρος ΜΟΝΟ αν δεν υπάρχει καθόλου
             if (!entryCheck.weight || entryCheck.weight === 0) {
                 data.weight = 1000;
                 dbChange.typeOfChange = 'updated';
             }
         }
     }
-
 });

@@ -47,7 +47,6 @@ module.exports = ({ strapi }) => ({
             if (fs.existsSync(`./public/cookies/${supplier}Cookies.json`)) {
                 const data = await fs.promises.readFile(`./public/cookies/${supplier}Cookies.json`, 'utf8');
 
-                // Check if file is empty or contains only whitespace
                 if (!data || data.trim().length === 0) {
                     console.log("Cookie file is empty, skipping...\n");
                     return;
@@ -55,14 +54,12 @@ module.exports = ({ strapi }) => ({
 
                 const cookies = JSON.parse(data);
 
-                // Check if cookies array is empty
                 if (!Array.isArray(cookies) || cookies.length === 0) {
                     console.log("No cookies to load\n");
                     return;
                 }
 
                 await page.setCookie(...cookies);
-                // console.log("Cookies loaded successfully\n");
             }
         } catch (error) {
             console.log("Error loading cookies:", error.message);
@@ -163,7 +160,6 @@ module.exports = ({ strapi }) => ({
                                                 subCategories2.push({ title: sub2.title, link: sub2.link })
                                             }
                                         }
-
                                         subCategories.push({ title: sub.title, link: sub.link, subCategories: subCategories2 })
                                     }
                                 }
@@ -181,7 +177,6 @@ module.exports = ({ strapi }) => ({
                                         subCategories2.push({ title: sub2.title, link: sub2.link })
                                     }
                                 }
-
                                 subCategories.push({ title: sub.title, link: sub.link, subCategories: subCategories2 })
                             }
                         }
@@ -231,7 +226,6 @@ module.exports = ({ strapi }) => ({
                                             subCategories2.push({ title: sub2.title, link: sub2.link })
                                         }
                                     }
-
                                     subCategories.push({ title: sub.title, link: sub.link, subCategories: subCategories2 })
                                 }
                             }
@@ -248,7 +242,6 @@ module.exports = ({ strapi }) => ({
                                         subCategories2.push({ title: sub2.title, link: sub2.link })
                                     }
                                 }
-
                                 subCategories.push({ title: sub.title, link: sub.link, subCategories: subCategories2 })
                             }
                         }
@@ -269,11 +262,7 @@ module.exports = ({ strapi }) => ({
                 return { success: false, reason: 'invalid_data' };
             }
 
-            // ✅ 1. Apply transformations via adapter
-            // The adapter's transformProduct is called BEFORE this
-            // So product is already enriched with characteristics, weight, dimensions, etc.
-
-            // ✅ 2. Create product fields from scraped data
+            // ✅ Create product fields from scraped data
             const product = await strapi
                 .plugin('import-products')
                 .service('productHelpers')
@@ -284,35 +273,31 @@ module.exports = ({ strapi }) => ({
                 return { success: false, reason: 'no_identifiers' };
             }
 
-            // ✅ 3. Categorize: check cache and decide create or update
+            // ✅ Categorize: check cache and decide create or update
             const { toCreate, toUpdate } = await strapi
                 .plugin('import-products')
                 .service('batchHelpers')
                 .categorizeProducts([product], scrapedProduct.entry, importRef);
 
-            // ✅ 4. Process: create or update
+            // ✅ Process: create or update
             if (toCreate.length > 0) {
-                // New product
                 const result = await strapi
                     .plugin('import-products')
                     .service('importHelpers')
                     .createEntry(product, importRef);
 
                 if (result?.success && result.product) {
-                    // ✅ Add to cache for future matching
                     strapi
                         .plugin('import-products')
                         .service('cacheService')
                         .addProductToCache(result.product);
 
-                    // console.log(`✅ Created: ${product.name.substring(0, 50)}`);
                     return { success: true, action: 'created', id: result.id };
                 } else {
                     console.log(`❌ Failed to create: ${product.name.substring(0, 50)}`);
                     return { success: false, reason: result?.reason || 'creation_failed' };
                 }
             } else if (toUpdate.length > 0) {
-                // Existing product - update
                 const { product: existingProduct, existingProduct: dbProduct } = toUpdate[0];
 
                 const result = await strapi
@@ -321,7 +306,6 @@ module.exports = ({ strapi }) => ({
                     .updateEntry(dbProduct, product, importRef);
 
                 if (result?.success) {
-                    // console.log(`🔄 Updated: ${product.name.substring(0, 50)}`);
                     return { success: true, action: 'updated', id: dbProduct.id };
                 } else {
                     console.log(`❌ Failed to update: ${product.name.substring(0, 50)}`);
@@ -340,16 +324,8 @@ module.exports = ({ strapi }) => ({
 
     /**
      * Update and filter scraped products
-     * NEW: Uses cache AND checks by supplierProductId
-     * ALSO: Returns mapping of product -> existingId for quick updates
-     * 
-     * @param {Array} products - Scraped products from category listing
-     * @param {string} category - Category name
-     * @param {string} subcategory - Subcategory name
-     * @param {string} sub2category - Sub2category name
-     * @param {Object} importRef - Import reference
-     * @param {Object} entry - Supplier entry
-     * @returns {Object} { products: [], updateProducts: [] }
+     * Uses cache AND checks by supplierProductId
+     * Returns mapping of product -> existingId for quick updates
      */
     async updateAndFilterScrapProducts(products, category, subcategory, sub2category, importRef, entry) {
         try {
@@ -357,7 +333,6 @@ module.exports = ({ strapi }) => ({
             const updateProducts = [];
             let stockLevelFilter = [];
 
-            // Get stock filter
             for (let stock of importRef.stock_map) {
                 stockLevelFilter.push(stock.name_in_xml);
             }
@@ -366,31 +341,28 @@ module.exports = ({ strapi }) => ({
             let maxPrice;
             if (importRef.categoryMap.maximumPrice && importRef.categoryMap.maximumPrice > 0) {
                 maxPrice = importRef.categoryMap.maximumPrice;
-            }
-            else {
+            } else {
                 maxPrice = 100000;
             }
 
             for (let product of products) {
-                console.log("product:", product, "importRef:", importRef)
                 // Set category info
                 product.entry = entry;
                 product.category = { title: category };
                 product.subcategory = { title: subcategory };
                 product.sub2category = { title: sub2category };
 
-                //filter product
+                // ✅ Κεντρικό φιλτράρισμα — περιλαμβάνει brand check, stock, price
                 if (!this.filterScrappedProducts(product, stockLevelFilter, minPrice, maxPrice, importRef.brand_excl_map)) {
-                    continue
+                    continue;
                 }
-
 
                 // Filter by price
                 if (!product.wholesale) {
                     continue;
                 }
 
-                // ✅ 1. First try to find by supplierProductId (most reliable)
+                // ✅ Try to find by supplierProductId (most reliable)
                 let existingBySupplier = null;
                 if (product.supplierCode) {
                     existingBySupplier = await strapi.db.query('api::product.product').findOne({
@@ -414,19 +386,15 @@ module.exports = ({ strapi }) => ({
                     });
 
                     if (existingBySupplier) {
-                        // console.log(`📦 Found existing product by supplierProductId: ${product.name}`);
                         product._existingId = existingBySupplier.id;
-
                         updateProducts.push(product);
                         continue;
                     }
                 }
 
-                // Keep product for processing (whether new or existing)
                 newProducts.push(product);
             }
 
-            // ✅ Return both products and map
             return {
                 products: newProducts,
                 updateProducts: updateProducts
@@ -438,11 +406,12 @@ module.exports = ({ strapi }) => ({
         }
     },
 
+    /**
+     * Κεντρική filter function για scrapped products
+     * Ελέγχει: brand block, stock level, price range
+     */
     filterScrappedProducts(product, stockLevelFilter, minPrice, maxPrice, brand_excl_map = []) {
         try {
-
-            let isPassingFilters = true
-
             // ✅ Brand block check
             if (product.brand && brand_excl_map?.length) {
                 const brandValue = typeof product.brand === 'string'
@@ -458,18 +427,19 @@ module.exports = ({ strapi }) => ({
                 }
             }
 
-
+            // ✅ Stock level check
             if (!stockLevelFilter.includes(product.stock_level)) {
-                isPassingFilters = false
+                return false;
             }
 
+            // ✅ Price range check
             if (Number.isNaN(product.wholesale) || product.wholesale < minPrice || product.wholesale > maxPrice) {
-                isPassingFilters = false
+                return false;
             }
 
-            return isPassingFilters
+            return true;
         } catch (error) {
-            console.log(error)
+            console.log(error);
         }
     },
 });
