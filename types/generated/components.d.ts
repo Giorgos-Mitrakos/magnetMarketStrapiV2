@@ -555,7 +555,7 @@ export interface ProductsInfo extends Schema.Component {
     retail_price: Attribute.Decimal;
     stock_level: Attribute.String;
     supplierProductId: Attribute.String;
-    supplierProductURL: Attribute.String;
+    supplierProductURL: Attribute.Text;
     translated_status: Attribute.Enumeration<
       [
         'InStock',

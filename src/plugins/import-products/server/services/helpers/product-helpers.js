@@ -41,7 +41,8 @@ module.exports = ({ strapi }) => ({
                     'dotmedia',
                     'novatron',
                     'quest',
-                    'logicom'
+                    'logicom',
+                    'iason'
                 ];
 
                 if (supplier && suppliersWithCustomImages.includes(supplier.toLowerCase())) {
@@ -98,6 +99,10 @@ module.exports = ({ strapi }) => ({
                     return true;
                 }
 
+                if (supplierLower === 'iason') {
+                    return true; // Το φιλτράρισμα γίνεται στο import() του adapter
+                }
+
                 return false;
             }
 
@@ -145,6 +150,13 @@ module.exports = ({ strapi }) => ({
                     .service('productHelpers')
                     .createFields(importParams.quantity, productData)
                     : null;
+
+                if (supplier.toLowerCase() === 'westnet') {
+                    const stockLevelAdjust = productData.quantity > 0 && productData.quantity < 5 ? 'Low Stock' :
+                        productData.quantity >= 5 ? 'Medium Stock' : 'Out of Stock'
+
+                    stockLevel = stockLevelAdjust
+                }
 
                 const hasStockLevel = stockLevel !== null && stockLevel !== undefined && String(stockLevel).trim() !== '';
                 const hasQuantity = quantity !== null && quantity !== undefined;
@@ -630,13 +642,13 @@ module.exports = ({ strapi }) => ({
                         } else {
                             if (attributes.name && attributes.value) {
                                 const char = {}
-                                char.name = this.createFields('name', attributes.trim())
-                                char.value = this.createFields('value', attributes.trim())
+                                char.name = this.createFields('name', attributes)
+                                char.value = this.createFields('value', attributes)
                                 chars.push(char)
                             } else if (attributes.Name && attributes.Value) {
                                 const char = {}
-                                char.name = this.createFields('Name', attributes.trim())
-                                char.value = this.createFields('value', attributes.trim())
+                                char.name = this.createFields('Name', attributes)
+                                char.value = this.createFields('value', attributes)
                                 chars.push(char)
                             }
                         }
@@ -653,6 +665,19 @@ module.exports = ({ strapi }) => ({
                         char.name = charSplit[0]?.trim()
                         char.value = charSplit[1]?.trim()
                         chars.push(char)
+                    }
+                }
+            } else if (entry.name.toLowerCase() === 'iason') {
+                // ✅ Τα attributes έχουν ήδη normalized από normalizeProperties
+                // Μορφή: [{ name: 'Χρώμα', value: 'Cyan' }, ...]
+                const propArray = Array.isArray(attributes) ? attributes : [attributes];
+
+                for (const prop of propArray) {
+                    if (prop?.name && prop?.value && String(prop.value).trim() !== '[NULL]') {
+                        chars.push({
+                            name: String(prop.name).trim(),
+                            value: String(prop.value).trim()
+                        });
                     }
                 }
             }

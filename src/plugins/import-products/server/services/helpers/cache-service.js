@@ -226,7 +226,7 @@ module.exports = ({ strapi }) => ({
     },
 
     getExistingProduct(mpn, barcode, model, name) {
-        const norm = (str) => str?.trim().toLowerCase() || '';
+        const norm = (str) => str != null ? String(str).trim().toLowerCase() : '';
 
         const normMPN = norm(mpn);
         const normBarcode = norm(barcode);

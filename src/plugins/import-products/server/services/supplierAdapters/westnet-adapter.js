@@ -18,6 +18,7 @@ module.exports = ({ strapi }) => {
                 subcategory: null,
                 sub2category: null,
                 stock_level: 'availability',
+                quantity: 'availability',
                 wholesale: 'price',
                 retail_price: null,
                 recycle_tax: 'recycle_tax',
@@ -80,6 +81,8 @@ module.exports = ({ strapi }) => {
                         importRef.brand_excl_map
                     );
 
+                    console.log(availableProducts.length)
+
                 return { products: availableProducts };
 
             } catch (error) {
@@ -95,6 +98,11 @@ module.exports = ({ strapi }) => {
             // Clean prices
             product.wholesale = this.cleanPrice((product.wholesale || "0").replace(',', '.').trim());
             product.recycle_tax = this.cleanPrice((product.recycle_tax || "0").replace(',', '.').trim());
+
+            const stockLevel = product.quantity > 0 && product.quantity < 5 ? 'Low Stock' :
+                product.quantity >= 5 ? 'Medium Stock' : 'Out of Stock'
+
+            product.stock_level = 'Low Stock'
 
             // Clean description
             product.description = product.description

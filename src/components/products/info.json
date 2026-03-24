@@ -25,7 +25,7 @@
       "description": "Available quantity from supplier"
     },
     "supplierProductURL": {
-      "type": "string",
+      "type": "text",
       "description": "Link to product on supplier's site"
     },
     "recycle_tax": {

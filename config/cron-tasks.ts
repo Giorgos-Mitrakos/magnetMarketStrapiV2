@@ -115,7 +115,7 @@ export default {
                 .parseOktabitXml({ entry });
         },
         options: {
-            rule: "15 5,9,11,13,15,20 * * *",
+            rule: "45 6,8,10,12,14,16,20 * * *",
         },
     },
 
@@ -235,7 +235,7 @@ export default {
                 .parseCpiXml({ entry });
         },
         options: {
-            rule: "25 5,9,12,15,18 * * *",
+            rule: "47 5,9,12,15,18 * * *",
         },
     },
 
@@ -356,6 +356,30 @@ export default {
         },
         options: {
             rule: "50 * * * *",
+        },
+    },
+
+    updateIason4All: {
+        task: async ({ strapi }) => {
+            // Add your own logic here (e.g. send a queue of email, create a database backup, etc.).
+            const entry = await strapi.db.query('plugin::import-products.importxml').findOne({
+                where: { name: "Iason" },
+                populate: {
+                    importedFile: true,
+                    stock_map: {
+                        fields: ['name'],
+                        sort: 'name:asc',
+                    },
+                },
+            })
+
+            await strapi
+                .plugin('import-products')
+                .service('iasonService')
+                .parseIasonXml({ entry });
+        },
+        options: {
+            rule: "43 8,10,12,14,16,18,22 * * *",
         },
     },
 

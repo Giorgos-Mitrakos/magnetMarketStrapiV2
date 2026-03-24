@@ -107,12 +107,12 @@ module.exports = ({ strapi }) => ({
         //         .service('parseService')
         //         .parseNetoneXml(ctx.request.body);
         // }
-        // else if (ctx.request.body.entry.name.toLowerCase() === 'iason') {
-        //     ctx.body = await strapi
-        //         .plugin('import-products')
-        //         .service('parseService')
-        //         .parseIasonXml(ctx.request.body);
-        // }
+        else if (ctx.request.body.entry.name.toLowerCase() === 'iason') {
+            ctx.body = await strapi
+                .plugin('import-products')
+                .service('iasonService')
+                .parseIasonXml(ctx.request.body);
+        }
         // else if (ctx.request.body.entry.name.toLowerCase() === 'allwan') {
         //     ctx.body = await strapi
         //         .plugin('import-products')
