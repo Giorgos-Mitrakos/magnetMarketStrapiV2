@@ -90,9 +90,6 @@ module.exports = ({ strapi }) => {
                 // Απαραίτητο γιατί τα Iason tags έχουν type attribute
                 const normalizedItems = items.map(item => this.normalizeIasonItem(item));
 
-                // Debug: τσέκαρε αν normalization δούλεψε
-                console.log('Sample normalized:', normalizedItems[0]?.availability, normalizedItems[0]?.quantity);
-
                 const availableProducts = strapi
                     .plugin('import-products')
                     .service('productHelpers')
@@ -118,12 +115,12 @@ module.exports = ({ strapi }) => {
         }
 
         async transformProduct(product, rawData, importRef) {
-            product.wholesale = this.cleanPrice(product.wholesale);
-            product.retail_price = "0";
-            product.recycle_tax = this.cleanPrice(product.recycle_tax);
+            product.wholesale = parseFloat(this.cleanPrice(product.wholesale)) || 0;
+            product.retail_price = 0;
+            product.recycle_tax = parseFloat(this.cleanPrice(product.recycle_tax)) || 0;  // ✅ number όχι string
+
             product.description = "";
 
-            // ✅ Weight: Iason δίνει σε kg → μετατροπή σε γραμμάρια
             if (product.weight) {
                 const weightKg = parseFloat(String(product.weight).replace(',', '.').trim());
                 if (!isNaN(weightKg) && weightKg > 0) {
@@ -131,8 +128,6 @@ module.exports = ({ strapi }) => {
                 }
             }
 
-            // ✅ Αποθηκεύουμε προσωρινά το base image URL
-            // Το πλήρες resolve γίνεται στο resolveImages() μόνο για νέα προϊόντα
             const baseImageUrl = rawData['image-url'];
             if (baseImageUrl && typeof baseImageUrl === 'string' && baseImageUrl.trim()) {
                 product.imagesSrc = [{ url: baseImageUrl.trim() }];
@@ -150,7 +145,7 @@ module.exports = ({ strapi }) => {
 
             for (const product of toCreate) {
                 const baseUrl = product.imagesSrc?.[0]?.url;
-                console.log(baseUrl)
+
                 const images = await this.buildIasonImageUrls(baseUrl);
 
                 if (images.length > 0) {
@@ -170,20 +165,21 @@ module.exports = ({ strapi }) => {
          */
         normalizeIasonItem(item) {
             const normalized = {};
-            const stringFields = ['international-code', 'barcode', 'sku', 'name', 'brand',
-                'availability', 'category', 'image-url'];
 
             for (const [key, val] of Object.entries(item)) {
                 if (key === 'properties') {
                     normalized[key] = this.normalizeProperties(val);
                 } else if (Array.isArray(val)) {
                     const first = val[0];
-                    const raw = (first && typeof first === 'object' && '_' in first) ? first._ : (first ?? null);
-                    // ✅ String fields → String(), numeric fields → αφήνουμε ως number
-                    normalized[key] = (raw != null && stringFields.includes(key)) ? String(raw) : raw;
-                } else if (val && typeof val === 'object' && '_' in val) {
-                    const raw = val._;
-                    normalized[key] = (raw != null && stringFields.includes(key)) ? String(raw) : raw;
+                    if (first && typeof first === 'object') {
+                        // ✅ Αν έχει _ → πάρε την τιμή, αλλιώς null (κενό tag)
+                        normalized[key] = '_' in first ? first._ : null;
+                    } else {
+                        normalized[key] = first ?? null;
+                    }
+                } else if (val && typeof val === 'object') {
+                    // ✅ Αν έχει _ → τιμή, αλλιώς null (κενό tag με μόνο attributes)
+                    normalized[key] = '_' in val ? val._ : null;
                 } else {
                     normalized[key] = val;
                 }

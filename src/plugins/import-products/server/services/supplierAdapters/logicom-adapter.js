@@ -84,9 +84,10 @@ module.exports = ({ strapi }) => {
         }
 
         async transformProduct(product, rawData, importRef) {
-            product.wholesale = this.cleanPrice(product.wholesale);
-            product.retail_price = "0";
-            product.recycle_tax = this.cleanPrice(product.recycle_tax);
+            product.wholesale = parseFloat(this.cleanPrice(product.wholesale)) || 0;
+            product.retail_price = 0;
+            product.recycle_tax = parseFloat(this.cleanPrice(product.recycle_tax)) || 0;  // ✅ number όχι string
+
             product.description = "";
             // imagesSrc: set στο resolveImages() μόνο για νέα προϊόντα
         }

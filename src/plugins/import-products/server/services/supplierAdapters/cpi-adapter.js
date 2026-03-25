@@ -100,11 +100,11 @@ module.exports = ({ strapi }) => {
 
             product.retail_price = product.retail_price
                 ? this.cleanPrice(String(product.retail_price).replace('.', ''))
-                : "0";
+                : 0;
 
             product.recycle_tax = product.recycle_tax
                 ? this.cleanPrice(String(product.recycle_tax).replace('.', ''))
-                : "0";
+                : 0;
 
             // Clean description
             product.description = product.description
