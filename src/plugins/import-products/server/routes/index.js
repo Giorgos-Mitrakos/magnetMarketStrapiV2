@@ -73,5 +73,43 @@ module.exports = [
     path: '/sync-brand-blocking/:entryId',
     handler: 'importxml.syncBrandBlocking',
     config: { policies: [] }
+  },
+
+  {
+    // ⚠️ Setup only - κάλεσέ το μία φορά για να πάρεις credentials
+    method: 'GET',
+    path: '/logicom-api/credentials',
+    handler: 'logicomApi.getCredentials',
+    config: { policies: [] }
+  },
+  {
+    method: 'GET',
+    path: '/logicom-api/health',
+    handler: 'logicomApi.health',
+    config: { policies: [] }
+  },
+  {
+    method: 'GET',
+    path: '/logicom-api/token',
+    handler: 'logicomApi.generateToken',
+    config: { policies: [] }
+  },
+  {
+    method: 'GET',
+    path: '/logicom-api/products',
+    handler: 'logicomApi.getProducts',
+    config: { policies: [] }
+  },
+  {
+    method: 'GET',
+    path: '/logicom-api/inventory',
+    handler: 'logicomApi.getInventory',
+    config: { policies: [] }
+  },
+  {
+    method: 'GET',
+    path: '/logicom-api/price',
+    handler: 'logicomApi.getPrice',
+    config: { policies: [] }
   }
 ];

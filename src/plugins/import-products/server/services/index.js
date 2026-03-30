@@ -30,6 +30,7 @@ const aciService = require('./supplierServices/aciService');
 const stefinetService = require('./supplierServices/stefinetService');
 const smart4allService = require('./supplierServices/smart4allService');
 const logicomService = require('./supplierServices/logicomService.js');
+const logicomApiService = require('./supplierServices/Logicomapiservice.js');
 const iasonService = require('./supplierServices/iasonService.js');
 
 const cacheService = require('./helpers/cache-service');
@@ -58,6 +59,7 @@ const questAdapter = require('./supplierAdapters/quest-adapter.js');
 const novatronAdapter = require('./supplierAdapters/novatron-adapter.js');
 const globalsatScrapAdapter = require('./supplierAdapters/globalsat-scrap-adapter.js');
 const logicomAdapter = require('./supplierAdapters/logicom-adapter.js');
+const logicomApiAdapter = require('./supplierAdapters/logicom-api-adapter.js');
 const iasonAdapter = require('./supplierAdapters/iason-adapter.js');
 
 module.exports = {
@@ -89,6 +91,7 @@ module.exports = {
   questAdapter,
   novatronAdapter,
   iasonAdapter,
+  logicomApiAdapter,
 
   // Supplier services
   importxmlService,
@@ -120,5 +123,6 @@ module.exports = {
   stefinetService,
   smart4allService,
   logicomService,
-  iasonService
+  iasonService,
+  logicomApiService,
 };

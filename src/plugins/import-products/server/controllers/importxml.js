@@ -17,11 +17,18 @@ module.exports = ({ strapi }) => ({
 
     async runimport(ctx) {
 
-        if (ctx.request.body.entry.name === 'Logicom') {
+        // if (ctx.request.body.entry.name === 'Logicom') {
+        //     ctx.body = await strapi
+        //         .plugin('import-products')
+        //         .service('logicomService')
+        //         .parseLogicomXml(ctx.request.body);
+        // }
+        // else 
+        if (ctx.request.body.entry.name.toLowerCase() === 'logicom') {
             ctx.body = await strapi
                 .plugin('import-products')
-                .service('logicomService')
-                .parseLogicomXml(ctx.request.body);
+                .service('logicomApiService')
+                .parseLogicomApi(ctx.request.body);
         }
         else if (ctx.request.body.entry.name === 'Oktabit') {
             ctx.body = await strapi
@@ -165,32 +172,32 @@ module.exports = ({ strapi }) => ({
     },
 
     async syncBrandBlocking(ctx) {
-    try {
-        const { entryId } = ctx.params;
+        try {
+            const { entryId } = ctx.params;
 
-        const entry = await strapi.db.query('plugin::import-products.importxml').findOne({
-            where: { id: entryId },
-            select: ['id', 'name']
-        });
+            const entry = await strapi.db.query('plugin::import-products.importxml').findOne({
+                where: { id: entryId },
+                select: ['id', 'name']
+            });
 
-        if (!entry) return ctx.notFound('Supplier not found');
+            if (!entry) return ctx.notFound('Supplier not found');
 
-        const importHelpers = strapi.plugin('import-products').service('importHelpers');
+            const importHelpers = strapi.plugin('import-products').service('importHelpers');
 
-        // ✅ Τρέχει παράλληλα και τα δύο
-        const [blockResult, unblockResult] = await Promise.all([
-            importHelpers.unpublishBlockedBrandProducts(entry),
-            importHelpers.republishUnblockedBrandProducts(entry)
-        ]);
+            // ✅ Τρέχει παράλληλα και τα δύο
+            const [blockResult, unblockResult] = await Promise.all([
+                importHelpers.unpublishBlockedBrandProducts(entry),
+                importHelpers.republishUnblockedBrandProducts(entry)
+            ]);
 
-        ctx.send({
-            message: `Sync complete for supplier: ${entry.name}`,
-            unpublished: blockResult.unpublished,
-            republished: unblockResult.republished
-        });
+            ctx.send({
+                message: `Sync complete for supplier: ${entry.name}`,
+                unpublished: blockResult.unpublished,
+                republished: unblockResult.republished
+            });
 
-    } catch (error) {
-        ctx.internalServerError(error.message);
+        } catch (error) {
+            ctx.internalServerError(error.message);
+        }
     }
-}
 });

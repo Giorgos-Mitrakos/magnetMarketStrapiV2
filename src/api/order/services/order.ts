@@ -221,7 +221,7 @@ export default factories.createCoreService('api::order.order', ({ strapi }) => (
             ];
 
             const products: IProduct[] = await strapi.entityService.findMany('api::product.product', {
-                fields: ['id', 'name', 'price', 'sale_price', 'is_sale'],
+                fields: ['id', 'name', 'price', 'sale_price', 'is_sale', 'mpn', 'barcode'],
                 filters: { id: { $in: productIds }, status: { $in: availableStatus } },
             })
 
@@ -242,7 +242,9 @@ export default factories.createCoreService('api::order.order', ({ strapi }) => (
                     ...item,
                     is_sale: product.is_sale || false,
                     sale_price: product.sale_price || null,
-                    price: product.price
+                    price: product.price,
+                    mpn: product.mpn,
+                    barcode: product.barcode || null
                 }
             })
 
