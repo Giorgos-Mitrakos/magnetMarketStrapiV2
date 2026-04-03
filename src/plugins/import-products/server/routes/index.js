@@ -80,13 +80,19 @@ module.exports = [
     method: 'GET',
     path: '/logicom-api/credentials',
     handler: 'logicomApi.getCredentials',
-    config: { policies: [] }
+    config: {
+      policies: [],
+      auth: false
+    }
   },
   {
     method: 'GET',
     path: '/logicom-api/health',
     handler: 'logicomApi.health',
-    config: { policies: [] }
+    config: {
+      policies: [],
+      auth: false
+    }
   },
   {
     method: 'GET',

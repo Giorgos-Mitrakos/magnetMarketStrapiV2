@@ -1,8 +1,8 @@
 'use strict';
 
 const CryptoJS = require('crypto-js');
-const fs       = require('fs');
-const path     = require('path');
+const fs = require('fs');
+const path = require('path');
 
 const CREDENTIALS_FILE = path.join(process.cwd(), 'logicom-credentials.json');
 
@@ -16,11 +16,11 @@ function getBaseUrl() {
 function aesEncrypt(plaintext, key) {
     const keyPadded = key.padEnd(32, '\0').substring(0, 32);
     const keyWA = CryptoJS.enc.Utf8.parse(keyPadded);
-    const ivWA  = CryptoJS.enc.Hex.parse('00000000000000000000000000000000');
+    const ivWA = CryptoJS.enc.Hex.parse('00000000000000000000000000000000');
 
     const encrypted = CryptoJS.AES.encrypt(plaintext, keyWA, {
-        iv:      ivWA,
-        mode:    CryptoJS.mode.CBC,
+        iv: ivWA,
+        mode: CryptoJS.mode.CBC,
         padding: CryptoJS.pad.Pkcs7
     });
 
@@ -32,8 +32,8 @@ function getTimestamp() {
 }
 
 function getEnvCredentials() {
-    const customerId     = process.env.LOGICOM_CUSTOMER_ID;
-    const consumerKey    = process.env.LOGICOM_CONSUMER_KEY;
+    const customerId = process.env.LOGICOM_CUSTOMER_ID;
+    const consumerKey = process.env.LOGICOM_CONSUMER_KEY;
     const consumerSecret = process.env.LOGICOM_CONSUMER_SECRET;
     const accessTokenKey = process.env.LOGICOM_ACCESS_TOKEN_KEY;
 
@@ -60,31 +60,37 @@ async function generateAccessToken() {
     const response = await fetch(`${getBaseUrl()}/GenerateAccessToken`, {
         method: 'GET',
         headers: {
-            'CustomerID':        customerId,
-            'Timestamp':         timestamp,
-            'BCode':             bCode,
+            'CustomerID': customerId,
+            'Timestamp': timestamp,
+            'BCode': bCode,
             'GenerateSignature': generateSignature,
-            'Accept':            'application/json'
+            'Accept': 'application/json'
         }
     });
 
     const text = await response.text();
     if (!response.ok) throw new Error(`GenerateAccessToken failed (${response.status}): ${text}`);
 
-    return { token: text.trim(), timestamp };
+    // ✅ Αφαίρεσε εισαγωγικά αν το response είναι "\"token\""
+    let token = text.trim();
+    if (token.startsWith('"') && token.endsWith('"')) {
+        token = token.slice(1, -1);
+    }
+
+    return { token, timestamp };
 }
 
 function buildHeaders(accessToken, timestamp) {
     const { customerId, accessTokenKey } = getEnvCredentials();
     const encrypted = aesEncrypt(`${accessToken}${timestamp}`, accessTokenKey);
-    const signature  = Buffer.from(encrypted).toString('base64');
+    const signature = Buffer.from(encrypted).toString('base64');
 
     return {
         'Authorization': accessToken,
-        'Timestamp':     timestamp,
-        'Signature':     signature,
-        'CustomerId':    customerId,
-        'Accept':        'application/json'
+        'Timestamp': timestamp,
+        'Signature': signature,
+        'CustomerId': customerId,
+        'Accept': 'application/json'
     };
 }
 
@@ -118,7 +124,7 @@ module.exports = {
                 headers: {
                     'Username': username,
                     'Password': password,
-                    'Accept':   'application/json'
+                    'Accept': 'application/json'
                 }
             });
 
@@ -127,24 +133,30 @@ module.exports = {
             let data;
             try { data = JSON.parse(text); } catch { data = text; }
 
+            fs.writeFileSync(
+                path.join(process.cwd(), 'logicom-raw-response.json'),
+                JSON.stringify(data, null, 2),
+                'utf8'
+            );
+
             if (!response.ok) {
                 ctx.status = response.status;
-                ctx.body = { success: false, status: response.status, raw: text };
+                ctx.body = { success: false, status: response.status, raw: text, full: data };
                 return;
             }
 
             // ✅ Αποθήκευση σε JSON αρχείο
             const saved = {
-                savedAt:        new Date().toISOString(),
-                baseUrl:        getBaseUrl(),
-                CustomerId:     data.CustomerId,
-                ConsumerKey:    data.ConsumerKey,
+                savedAt: new Date().toISOString(),
+                baseUrl: getBaseUrl(),
+                CustomerId: data.CustomerId,
+                ConsumerKey: data.ConsumerKey,
                 ConsumerSecret: data.ConsumerSecret,
                 AccessTokenKey: data.AccessTokenKey,
-                envTemplate:    [
+                envTemplate: [
                     `LOGICOM_BASE_URL=https://quickconnect.logicompartners.com/api`,
-                    `LOGICOM_CUSTOMER_ID=${data.CustomerId     || ''}`,
-                    `LOGICOM_CONSUMER_KEY=${data.ConsumerKey   || ''}`,
+                    `LOGICOM_CUSTOMER_ID=${data.CustomerId || ''}`,
+                    `LOGICOM_CONSUMER_KEY=${data.ConsumerKey || ''}`,
                     `LOGICOM_CONSUMER_SECRET=${data.ConsumerSecret || ''}`,
                     `LOGICOM_ACCESS_TOKEN_KEY=${data.AccessTokenKey || ''}`
                 ].join('\n')
@@ -154,10 +166,11 @@ module.exports = {
             console.log(`✅ Credentials saved: ${CREDENTIALS_FILE}`);
 
             ctx.body = {
-                success:     true,
-                message:     '✅ Credentials saved to logicom-credentials.json — copy envTemplate to .env',
-                savedTo:     CREDENTIALS_FILE,
-                credentials: saved
+                success: true,
+                message: '✅ Credentials saved to logicom-credentials.json — copy envTemplate to .env',
+                savedTo: CREDENTIALS_FILE,
+                credentials: saved,
+                rawResponse: data
             };
 
         } catch (err) {
@@ -172,12 +185,12 @@ module.exports = {
      */
     async health(ctx) {
         ctx.body = {
-            status:  'ok',
+            status: 'ok',
             baseUrl: getBaseUrl(),
             envSet: {
-                LOGICOM_CUSTOMER_ID:      !!process.env.LOGICOM_CUSTOMER_ID,
-                LOGICOM_CONSUMER_KEY:     !!process.env.LOGICOM_CONSUMER_KEY,
-                LOGICOM_CONSUMER_SECRET:  !!process.env.LOGICOM_CONSUMER_SECRET,
+                LOGICOM_CUSTOMER_ID: !!process.env.LOGICOM_CUSTOMER_ID,
+                LOGICOM_CONSUMER_KEY: !!process.env.LOGICOM_CONSUMER_KEY,
+                LOGICOM_CONSUMER_SECRET: !!process.env.LOGICOM_CONSUMER_SECRET,
                 LOGICOM_ACCESS_TOKEN_KEY: !!process.env.LOGICOM_ACCESS_TOKEN_KEY,
             }
         };
@@ -191,11 +204,11 @@ module.exports = {
         try {
             const { token, timestamp } = await generateAccessToken();
             ctx.body = {
-                success:   true,
-                baseUrl:   getBaseUrl(),
-                token:     `${token.substring(0, 40)}...`,
+                success: true,
+                baseUrl: getBaseUrl(),
+                token: `${token.substring(0, 40)}...`,
                 timestamp,
-                message:   '✅ Authentication successful'
+                message: '✅ Authentication successful'
             };
         } catch (err) {
             ctx.status = 500;
@@ -218,14 +231,22 @@ module.exports = {
                 .forEach(p => { if (ctx.query[p]) url.searchParams.set(p, ctx.query[p]); });
 
             const response = await fetch(url.toString(), { method: 'GET', headers });
-            const data = await response.json();
+            const text = await response.text();
+            let data;
+            try {
+                const parsed = JSON.parse(text);
+                // Αν είναι string ξανά (double-encoded), parse ξανά
+                data = typeof parsed === 'string' ? JSON.parse(parsed) : parsed;
+            } catch {
+                data = text;
+            }
 
             ctx.body = {
-                success:      response.ok,
-                status:       response.status,
-                baseUrl:      getBaseUrl(),
+                success: response.ok,
+                status: response.status,
+                baseUrl: getBaseUrl(),
                 productCount: Array.isArray(data.Message) ? data.Message.length : 0,
-                nextItemNo:   data.NextItemNo || null,
+                nextItemNo: data.NextItemNo || null,
                 data
             };
         } catch (err) {
@@ -252,7 +273,15 @@ module.exports = {
             url.searchParams.set('ProductId', ctx.query.ProductId);
 
             const response = await fetch(url.toString(), { method: 'GET', headers });
-            const data = await response.json();
+            const text = await response.text();
+            let data;
+            try {
+                const parsed = JSON.parse(text);
+                // Αν είναι string ξανά (double-encoded), parse ξανά
+                data = typeof parsed === 'string' ? JSON.parse(parsed) : parsed;
+            } catch {
+                data = text;
+            }
 
             ctx.body = { success: response.ok, status: response.status, baseUrl: getBaseUrl(), data };
         } catch (err) {
@@ -280,7 +309,15 @@ module.exports = {
             url.searchParams.set('Currency', ctx.query.Currency || 'EUR');
 
             const response = await fetch(url.toString(), { method: 'GET', headers });
-            const data = await response.json();
+            const text = await response.text();
+            let data;
+            try {
+                const parsed = JSON.parse(text);
+                // Αν είναι string ξανά (double-encoded), parse ξανά
+                data = typeof parsed === 'string' ? JSON.parse(parsed) : parsed;
+            } catch {
+                data = text;
+            }
 
             ctx.body = { success: response.ok, status: response.status, baseUrl: getBaseUrl(), data };
         } catch (err) {

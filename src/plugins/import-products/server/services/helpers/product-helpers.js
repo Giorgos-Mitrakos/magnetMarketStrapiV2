@@ -680,6 +680,16 @@ module.exports = ({ strapi }) => ({
                         });
                     }
                 }
+            } else if (entry.name.toLowerCase() === 'logicom') {
+                const specArray = Array.isArray(attributes) ? attributes : [attributes];
+                for (const spec of specArray) {
+                    if (spec?.Name && spec?.Value) {
+                        chars.push({
+                            name: spec.Name.trim(),
+                            value: String(spec.Value).trim()
+                        });
+                    }
+                }
             }
 
             const parsedChars = strapi

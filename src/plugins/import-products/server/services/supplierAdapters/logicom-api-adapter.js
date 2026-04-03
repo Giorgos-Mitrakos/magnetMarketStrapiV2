@@ -1,8 +1,6 @@
 'use strict';
 
 const CryptoJS = require('crypto-js');
-const fs       = require('fs');
-const path     = require('path');
 
 /**
  * Logicom API Adapter
@@ -13,9 +11,6 @@ const path     = require('path');
  *   LOGICOM_CONSUMER_KEY=
  *   LOGICOM_CONSUMER_SECRET=
  *   LOGICOM_ACCESS_TOKEN_KEY=
- *
- *   # Testing: δείχνει στο server proxy αντί για Logicom απευθείας
- *   # Production: δείχνει απευθείας στο Logicom API
  *   LOGICOM_BASE_URL=https://quickconnect.logicompartners.com/api
  */
 module.exports = ({ strapi }) => {
@@ -72,10 +67,9 @@ module.exports = ({ strapi }) => {
         // AES-256-CBC με crypto-js
         // ─────────────────────────────────────────────
         aesEncrypt(plaintext, key) {
-            // Pad/truncate key σε 32 bytes
             const keyPadded = key.padEnd(32, '\0').substring(0, 32);
-            const keyWA  = CryptoJS.enc.Utf8.parse(keyPadded);
-            const ivWA   = CryptoJS.enc.Hex.parse('00000000000000000000000000000000'); // zero IV
+            const keyWA = CryptoJS.enc.Utf8.parse(keyPadded);
+            const ivWA  = CryptoJS.enc.Hex.parse('00000000000000000000000000000000');
 
             const encrypted = CryptoJS.AES.encrypt(plaintext, keyWA, {
                 iv:      ivWA,
@@ -124,11 +118,16 @@ module.exports = ({ strapi }) => {
                 throw new Error(`GenerateAccessToken failed (${response.status}): ${text}`);
             }
 
-            return { token: text.trim(), timestamp };
+            // ✅ Αφαίρεσε εισαγωγικά αν το response είναι "\"token\""
+            let token = text.trim();
+            if (token.startsWith('"') && token.endsWith('"')) {
+                token = token.slice(1, -1);
+            }
+
+            return { token, timestamp };
         }
 
         buildHeaders(accessToken, timestamp) {
-            // Signature = Base64( Base64( encrypt(token + timestamp) ) )
             const encrypted = this.aesEncrypt(`${accessToken}${timestamp}`, this.accessTokenKey);
             const signature  = Buffer.from(encrypted).toString('base64');
 
@@ -139,6 +138,19 @@ module.exports = ({ strapi }) => {
                 'CustomerId':    this.customerId,
                 'Accept':        'application/json'
             };
+        }
+
+        // ─────────────────────────────────────────────
+        // PARSE RESPONSE - double-encoded JSON fix
+        // ─────────────────────────────────────────────
+        async parseResponse(response) {
+            const text = await response.text();
+            try {
+                const parsed = JSON.parse(text);
+                return typeof parsed === 'string' ? JSON.parse(parsed) : parsed;
+            } catch {
+                return text;
+            }
         }
 
         // ─────────────────────────────────────────────
@@ -156,7 +168,7 @@ module.exports = ({ strapi }) => {
                 const allProducts  = [];
                 let previousItemNo = '';
                 let pageCount      = 0;
-                const MAX_PAGES    = 1000; // safety cap
+                const MAX_PAGES    = 1000;
 
                 console.log('   Logicom API: Starting full product sync...');
 
@@ -178,7 +190,7 @@ module.exports = ({ strapi }) => {
                         break;
                     }
 
-                    const json = await response.json();
+                    const json = await this.parseResponse(response);
 
                     if (json.StatusCode !== 1 || !Array.isArray(json.Message) || json.Message.length === 0) {
                         console.log(`   Logicom API: No more products at page ${pageCount}`);
@@ -224,16 +236,15 @@ module.exports = ({ strapi }) => {
 
         /**
          * Normalize Logicom API product για filterData/createProductFields
-         * Flatten nested objects σε top-level fields
          */
         normalizeProduct(p) {
             return {
-                SKU:           String(p.SKU || ''),
-                Name:          p.Name || '',
-                Description:   p.Description || '',
-                Manufacturer:  p.Manufacturer || '',
-                Category:      p.Category || '',
-                Barcode:       String(p.Barcode || ''),
+                SKU:            String(p.SKU || ''),
+                Name:           p.Name || '',
+                Description:    p.Description || '',
+                Manufacturer:   p.Manufacturer || '',
+                Category:       p.Category || '',
+                Barcode:        String(p.Barcode || ''),
                 Specifications: p.Specifications || [],
 
                 // Synthetic fields από nested objects
@@ -250,9 +261,9 @@ module.exports = ({ strapi }) => {
         // TRANSFORM PRODUCT
         // ─────────────────────────────────────────────
         async transformProduct(product, rawData, importRef) {
-            product.wholesale    = parseFloat(this.cleanPrice(product.wholesale))    || 0;
+            product.wholesale    = parseFloat(this.cleanPrice(product.wholesale))   || 0;
             product.retail_price = 0;
-            product.recycle_tax  = parseFloat(this.cleanPrice(product.recycle_tax))  || 0;
+            product.recycle_tax  = parseFloat(this.cleanPrice(product.recycle_tax)) || 0;
             product.description  = (product.description || '').replace(/(<([^>]+)>)/ig, '').trim();
 
             // Αποθηκεύουμε images για χρήση στο resolveImages()
@@ -261,7 +272,20 @@ module.exports = ({ strapi }) => {
         }
 
         // ─────────────────────────────────────────────
+        // VALIDATE IMAGE URL
+        // ─────────────────────────────────────────────
+        async validateImageUrl(url) {
+            try {
+                const response = await fetch(url, { method: 'HEAD' });
+                return response.ok;
+            } catch {
+                return false;
+            }
+        }
+
+        // ─────────────────────────────────────────────
         // RESOLVE IMAGES - μόνο για νέα προϊόντα
+        // Δοκιμάζει large πρώτα, fallback σε medium
         // ─────────────────────────────────────────────
         async resolveImages(toCreate, importRef) {
             const resolved = [];
@@ -269,16 +293,36 @@ module.exports = ({ strapi }) => {
             for (const product of toCreate) {
                 const images = product._images || [];
 
-                if (images.length > 0) {
-                    // Προτεραιότητα: large > medium > other
-                    const large  = images.filter(u => u.includes('/large/'));
-                    const medium = images.filter(u => u.includes('/medium/'));
-                    const other  = images.filter(u => !u.includes('/large/') && !u.includes('/medium/'));
+                if (images.length === 0) {
+                    console.log(`   ⚠️  No images for ${product.mpn} - skipping`);
+                    continue;
+                }
 
-                    const chosen = large.length  > 0 ? large  :
-                                   medium.length > 0 ? medium : other;
+                // ✅ Κρατάμε μόνο medium, αφαιρούμε duplicates βάσει filename
+                const seen = new Set();
+                const mediumImages = images
+                    .filter(u => u.includes('/medium/'))
+                    .filter(url => {
+                        const filename = url.split('/').pop();
+                        if (seen.has(filename)) return false;
+                        seen.add(filename);
+                        return true;
+                    });
 
-                    product.imagesSrc = chosen.map(url => ({ url }));
+                const finalImages = [];
+
+                for (const mediumUrl of mediumImages) {
+                    // ✅ Δοκίμασε large πρώτα - αν υπάρχει πάρτο, αλλιώς κράτα medium
+                    const largeUrl = mediumUrl.replace('/medium/', '/large/');
+                    if (await this.validateImageUrl(largeUrl)) {
+                        finalImages.push({ url: largeUrl });
+                    } else {
+                        finalImages.push({ url: mediumUrl });
+                    }
+                }
+
+                if (finalImages.length > 0) {
+                    product.imagesSrc = finalImages;
                     delete product._images;
                     resolved.push(product);
                 } else {
