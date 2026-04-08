@@ -97,7 +97,8 @@ module.exports = ({ strapi }) => {
                         normalizedItems,
                         importRef.categoryMap,
                         importRef.mapFields,
-                        this.name
+                        this.name,
+                        importRef.brand_excl_map
                     );
 
                 console.log(`Iason available products: ${availableProducts.length}`);

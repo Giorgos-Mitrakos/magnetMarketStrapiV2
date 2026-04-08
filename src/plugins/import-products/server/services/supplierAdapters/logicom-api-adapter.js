@@ -20,11 +20,11 @@ module.exports = ({ strapi }) => {
 
         constructor(entry) {
             super(entry);
-            this.customerId      = process.env.LOGICOM_CUSTOMER_ID;
-            this.consumerKey     = process.env.LOGICOM_CONSUMER_KEY;
-            this.consumerSecret  = process.env.LOGICOM_CONSUMER_SECRET;
-            this.accessTokenKey  = process.env.LOGICOM_ACCESS_TOKEN_KEY;
-            this.baseUrl         = process.env.LOGICOM_BASE_URL || 'https://quickconnect.logicompartners.com/api';
+            this.customerId = process.env.LOGICOM_CUSTOMER_ID;
+            this.consumerKey = process.env.LOGICOM_CONSUMER_KEY;
+            this.consumerSecret = process.env.LOGICOM_CONSUMER_SECRET;
+            this.accessTokenKey = process.env.LOGICOM_ACCESS_TOKEN_KEY;
+            this.baseUrl = process.env.LOGICOM_BASE_URL || 'https://quickconnect.logicompartners.com/api';
         }
 
         // ─────────────────────────────────────────────
@@ -37,7 +37,9 @@ module.exports = ({ strapi }) => {
                 category: 'Category',
                 subcategory: null,
                 sub2category: null,
-                stock_level: '_inventory',
+                stock_level: null,
+                quantity: '_inventory',
+                preOrder: 'preOrder',
                 wholesale: '_price',
                 retail_price: null,
                 recycle_tax: '_recycleTax',
@@ -51,7 +53,7 @@ module.exports = ({ strapi }) => {
                 description: 'Description',
                 short_description: null,
                 image: null,
-                additional_images: null,
+                additional_images: '_images',
                 additional_files: null,
                 supplierProductURL: null,
                 attributes: 'Specifications',
@@ -69,11 +71,11 @@ module.exports = ({ strapi }) => {
         aesEncrypt(plaintext, key) {
             const keyPadded = key.padEnd(32, '\0').substring(0, 32);
             const keyWA = CryptoJS.enc.Utf8.parse(keyPadded);
-            const ivWA  = CryptoJS.enc.Hex.parse('00000000000000000000000000000000');
+            const ivWA = CryptoJS.enc.Hex.parse('00000000000000000000000000000000');
 
             const encrypted = CryptoJS.AES.encrypt(plaintext, keyWA, {
-                iv:      ivWA,
-                mode:    CryptoJS.mode.CBC,
+                iv: ivWA,
+                mode: CryptoJS.mode.CBC,
                 padding: CryptoJS.pad.Pkcs7
             });
 
@@ -104,24 +106,37 @@ module.exports = ({ strapi }) => {
             const response = await fetch(`${this.baseUrl}/GenerateAccessToken`, {
                 method: 'GET',
                 headers: {
-                    'CustomerID':        this.customerId,
-                    'Timestamp':         timestamp,
-                    'BCode':             bCode,
+                    'CustomerID': this.customerId,
+                    'Timestamp': timestamp,
+                    'BCode': bCode,
                     'GenerateSignature': generateSignature,
-                    'Accept':            'application/json'
+                    'Accept': 'application/json'
                 }
             });
 
             const text = await response.text();
+            if (!response.ok) throw new Error(`GenerateAccessToken failed (${response.status}): ${text}`);
 
-            if (!response.ok) {
-                throw new Error(`GenerateAccessToken failed (${response.status}): ${text}`);
+            let token = text.trim();
+
+            // ✅ Αν είναι JSON (από proxy που δεν έχει ενημερωθεί), πάρε το token field
+            try {
+                const parsed = JSON.parse(token);
+                if (parsed.token) {
+                    token = parsed.token;
+                }
+            } catch {
+                // plain text token - ΟΚ
             }
 
-            // ✅ Αφαίρεσε εισαγωγικά αν το response είναι "\"token\""
-            let token = text.trim();
+            // Αφαίρεσε εισαγωγικά αν χρειάζεται
             if (token.startsWith('"') && token.endsWith('"')) {
                 token = token.slice(1, -1);
+            }
+
+            // ✅ Βεβαιώσου ότι είναι ASCII
+            if (!/^[\x00-\xFF]*$/.test(token)) {
+                throw new Error('Token contains non-ASCII characters - proxy not updated yet');
             }
 
             return { token, timestamp };
@@ -129,14 +144,14 @@ module.exports = ({ strapi }) => {
 
         buildHeaders(accessToken, timestamp) {
             const encrypted = this.aesEncrypt(`${accessToken}${timestamp}`, this.accessTokenKey);
-            const signature  = Buffer.from(encrypted).toString('base64');
+            const signature = Buffer.from(encrypted).toString('base64');
 
             return {
                 'Authorization': accessToken,
-                'Timestamp':     timestamp,
-                'Signature':     signature,
-                'CustomerId':    this.customerId,
-                'Accept':        'application/json'
+                'Timestamp': timestamp,
+                'Signature': signature,
+                'CustomerId': this.customerId,
+                'Accept': 'application/json'
             };
         }
 
@@ -147,7 +162,11 @@ module.exports = ({ strapi }) => {
             const text = await response.text();
             try {
                 const parsed = JSON.parse(text);
-                return typeof parsed === 'string' ? JSON.parse(parsed) : parsed;
+                const json = typeof parsed === 'string' ? JSON.parse(parsed) : parsed;
+
+                // ✅ Normalize: αν έχει data wrapper (από proxy) επέστρεψε το περιεχόμενο
+                // αλλιώς επέστρεψε ως έχει (από Logicom απευθείας)
+                return json.data ? json.data : json;
             } catch {
                 return text;
             }
@@ -165,10 +184,10 @@ module.exports = ({ strapi }) => {
 
                 console.log(`   Logicom API baseUrl: ${this.baseUrl}`);
 
-                const allProducts  = [];
+                const allProducts = [];
                 let previousItemNo = '';
-                let pageCount      = 0;
-                const MAX_PAGES    = 1000;
+                let pageCount = 0;
+                const MAX_PAGES = 3000;
 
                 console.log('   Logicom API: Starting full product sync...');
 
@@ -198,6 +217,7 @@ module.exports = ({ strapi }) => {
                     }
 
                     const normalized = json.Message.map(p => this.normalizeProduct(p));
+
                     allProducts.push(...normalized);
 
                     console.log(`   Page ${pageCount}: +${json.Message.length} (total: ${allProducts.length})`);
@@ -222,7 +242,8 @@ module.exports = ({ strapi }) => {
                         allProducts,
                         importRef.categoryMap,
                         importRef.mapFields,
-                        this.name
+                        this.name,
+                        importRef.brand_excl_map
                     );
 
                 console.log(`   Logicom API available: ${availableProducts.length}`);
@@ -239,18 +260,19 @@ module.exports = ({ strapi }) => {
          */
         normalizeProduct(p) {
             return {
-                SKU:            String(p.SKU || ''),
-                Name:           p.Name || '',
-                Description:    p.Description || '',
-                Manufacturer:   p.Manufacturer || '',
-                Category:       p.Category || '',
-                Barcode:        String(p.Barcode || ''),
+                SKU: String(p.SKU || ''),
+                Name: p.Name || '',
+                Description: p.Description || '',
+                Manufacturer: p.Manufacturer || '',
+                Category: p.Category || '',
+                Barcode: String(p.Barcode || ''),
                 Specifications: p.Specifications || [],
 
                 // Synthetic fields από nested objects
-                _price:      p.Price?.PriceExclVAT || '0',
-                _recycleTax: p.Price?.RecycleTax   || '0',
-                _inventory:  String(p.Inventory?.Quantity || '0'),
+                _price: p.Price?.PriceExclVAT || '0',
+                _recycleTax: p.Price?.RecycleTax || '0',
+                _inventory: String(p.Inventory?.Quantity || '0'),
+                preOrder: String(p.Inventory?.PO?.Quantity),
 
                 // Images array - έτοιμα URLs από το API
                 _images: Array.isArray(p.Images) ? p.Images : []
@@ -261,13 +283,21 @@ module.exports = ({ strapi }) => {
         // TRANSFORM PRODUCT
         // ─────────────────────────────────────────────
         async transformProduct(product, rawData, importRef) {
-            product.wholesale    = parseFloat(this.cleanPrice(product.wholesale))   || 0;
+            product.wholesale = parseFloat(this.cleanPrice(product.wholesale)) || 0;
             product.retail_price = 0;
-            product.recycle_tax  = parseFloat(this.cleanPrice(product.recycle_tax)) || 0;
-            product.description  = (product.description || '').replace(/(<([^>]+)>)/ig, '').trim();
+            product.recycle_tax = parseFloat(this.cleanPrice(product.recycle_tax)) || 0;
+            product.description = (product.description || '').replace(/(<([^>]+)>)/ig, '').trim();
+
+            const stockLevel = Number(product.quantity) === 0 && Number(product.preOrder) !== 0 ? 'Is Expected' :
+                Number(product.quantity) === 0 ? 'Out of Stock' :
+                    Number(product.quantity) > 0 && Number(product.quantity) < 5 ? 'Low Stock' :
+                        Number(product.quantity) >= 5 && Number(product.quantity) < 10 ? 'Medium Stock' :
+                            Number(product.quantity) >= 10 ? 'In Stock' : 'Out of Stock'
+
+            product.stock_level = stockLevel
 
             // Αποθηκεύουμε images για χρήση στο resolveImages()
-            product._images   = rawData._images || [];
+            product._images = rawData._images || [];
             product.imagesSrc = [];
         }
 

@@ -158,6 +158,8 @@ module.exports = ({ strapi }) => ({
                     stockLevel = stockLevelAdjust
                 }
 
+
+
                 const hasStockLevel = stockLevel !== null && stockLevel !== undefined && String(stockLevel).trim() !== '';
                 const hasQuantity = quantity !== null && quantity !== undefined;
 
@@ -418,6 +420,7 @@ module.exports = ({ strapi }) => ({
                 barcode: this.createFields(mapFields.barcode, dt),
                 stock_level: this.createFields(mapFields.stock_level, dt),
                 quantity: this.createFields(mapFields.quantity, dt),
+                preOrder: this.createFields(mapFields.preOrder, dt),
                 wholesale: this.createFields(mapFields.wholesale, dt),
                 retail_price: this.createFields(mapFields.retail_price, dt),
                 recycle_tax: this.createFields(mapFields.recycle_tax, dt),

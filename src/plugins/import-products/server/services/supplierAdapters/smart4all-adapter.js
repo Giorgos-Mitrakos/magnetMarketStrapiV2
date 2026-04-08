@@ -77,7 +77,8 @@ module.exports = ({ strapi }) => {
                 const availableProducts = this.filterDataWithSupplierCode(
                     xml.mywebstore.products[0].product,
                     importRef.categoryMap,
-                    importRef.mapFields
+                    importRef.mapFieldsthis.name,  // ✅ Pass supplier name,
+                    importRef.brand_excl_map
                 );
 
                 return { products: availableProducts };
