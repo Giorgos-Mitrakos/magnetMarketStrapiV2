@@ -177,61 +177,48 @@ module.exports = ({ strapi }) => {
         // ─────────────────────────────────────────────
         async fetchData(importRef) {
             try {
-                if (!this.customerId || !this.consumerKey || !this.consumerSecret || !this.accessTokenKey) {
-                    console.error('Logicom API: Missing credentials in .env');
-                    return { message: 'Error', error: 'Missing credentials' };
-                }
-
-                console.log(`   Logicom API baseUrl: ${this.baseUrl}`);
-
                 const allProducts = [];
                 let previousItemNo = '';
                 let pageCount = 0;
                 const MAX_PAGES = 3000;
 
-                console.log('   Logicom API: Starting full product sync...');
-
                 while (pageCount < MAX_PAGES) {
                     pageCount++;
 
-                    // Fresh token ανά page (λήγει σε 1 λεπτό)
-                    const { token, timestamp } = await this.generateAccessToken();
-                    const headers = this.buildHeaders(token, timestamp);
+                    try {
+                        const { token, timestamp } = await this.generateAccessToken();
 
-                    const url = new URL(`${this.baseUrl}/GetProducts`);
-                    url.searchParams.set('Currency', 'EUR');
-                    if (previousItemNo) url.searchParams.set('PreviousItemNo', previousItemNo);
+                        const headers = this.buildHeaders(token, timestamp);
+                        const url = new URL(`${this.baseUrl}/GetProducts`);
+                        url.searchParams.set('Currency', 'EUR');
+                        if (previousItemNo) url.searchParams.set('PreviousItemNo', previousItemNo);
 
-                    const response = await fetch(url.toString(), { method: 'GET', headers });
+                        const response = await fetch(url.toString(), { method: 'GET', headers });
 
-                    if (!response.ok) {
-                        console.error(`GetProducts page ${pageCount} failed: ${response.status}`);
+                        if (!response.ok) {
+                            break;
+                        }
+
+                        const json = await this.parseResponse(response);
+
+                        if (json.StatusCode !== 1 || !Array.isArray(json.Message) || json.Message.length === 0) {
+                            break;
+                        }
+
+                        const normalized = json.Message.map(p => this.normalizeProduct(p));
+                        allProducts.push(...normalized);
+
+                        if (!json.NextItemNo) {
+                            break;
+                        }
+
+                        previousItemNo = json.NextItemNo;
+                        await new Promise(resolve => setTimeout(resolve, 300));
+
+                    } catch (pageError) {
                         break;
                     }
-
-                    const json = await this.parseResponse(response);
-
-                    if (json.StatusCode !== 1 || !Array.isArray(json.Message) || json.Message.length === 0) {
-                        console.log(`   Logicom API: No more products at page ${pageCount}`);
-                        break;
-                    }
-
-                    const normalized = json.Message.map(p => this.normalizeProduct(p));
-
-                    allProducts.push(...normalized);
-
-                    console.log(`   Page ${pageCount}: +${json.Message.length} (total: ${allProducts.length})`);
-
-                    if (!json.NextItemNo) {
-                        console.log('   Logicom API: Last page reached');
-                        break;
-                    }
-
-                    previousItemNo = json.NextItemNo;
-                    await new Promise(resolve => setTimeout(resolve, 300));
                 }
-
-                console.log(`   Logicom API: Total fetched: ${allProducts.length}`);
 
                 if (allProducts.length === 0) return { message: 'No products' };
 
@@ -250,6 +237,15 @@ module.exports = ({ strapi }) => {
                 return { products: availableProducts };
 
             } catch (error) {
+                await strapi.service('api::order.order').sendEmail({
+                    request: {
+                        body: {
+                            to: ['giorgos_mitrakos@yahoo.com'],
+                            text: `message Error: ${error}`,
+                            subject: "Test Logicom"
+                        }
+                    }
+                });
                 console.error('Error fetching Logicom API data:', error);
                 return { message: 'Error', error: error.message };
             }
@@ -270,11 +266,10 @@ module.exports = ({ strapi }) => {
 
                 // Synthetic fields από nested objects
                 _price: p.Price?.PriceExclVAT || '0',
+                _specialPrice: p.Price?.SpecialPrice || null,  // ✅ ΝΕΟ
                 _recycleTax: p.Price?.RecycleTax || '0',
                 _inventory: String(p.Inventory?.Quantity || '0'),
                 preOrder: String(p.Inventory?.PO?.Quantity),
-
-                // Images array - έτοιμα URLs από το API
                 _images: Array.isArray(p.Images) ? p.Images : []
             };
         }
@@ -283,20 +278,40 @@ module.exports = ({ strapi }) => {
         // TRANSFORM PRODUCT
         // ─────────────────────────────────────────────
         async transformProduct(product, rawData, importRef) {
-            product.wholesale = parseFloat(this.cleanPrice(product.wholesale)) || 0;
+            const cleanPrice = (val) => {
+                if (!val) return 0;
+                return parseFloat(String(val).replace(/,/g, '')) || 0;
+            };
+
+            // ✅ Χρησιμοποιούμε τα normalized fields από normalizeProduct
+            const specialPrice = rawData._specialPrice;
+            const regularPrice = rawData._price;
+
+            const hasSpecialPrice = specialPrice &&
+                String(specialPrice).trim() !== '' &&
+                cleanPrice(specialPrice) > 0;
+
+            if (hasSpecialPrice) {
+                product.wholesale = cleanPrice(specialPrice);
+                product.in_offer = true;
+            } else {
+                product.wholesale = cleanPrice(regularPrice);
+                product.in_offer = false;
+            }
+
             product.retail_price = 0;
-            product.recycle_tax = parseFloat(this.cleanPrice(product.recycle_tax)) || 0;
+            product.recycle_tax = cleanPrice(rawData._recycleTax);
             product.description = (product.description || '').replace(/(<([^>]+)>)/ig, '').trim();
 
-            const stockLevel = Number(product.quantity) === 0 && Number(product.preOrder) !== 0 ? 'Is Expected' :
-                Number(product.quantity) === 0 ? 'Out of Stock' :
-                    Number(product.quantity) > 0 && Number(product.quantity) < 5 ? 'Low Stock' :
-                        Number(product.quantity) >= 5 && Number(product.quantity) < 10 ? 'Medium Stock' :
-                            Number(product.quantity) >= 10 ? 'In Stock' : 'Out of Stock'
+            const qty = Number(product.quantity) || 0;
+            const preOrder = Number(product.preOrder) || 0;
 
-            product.stock_level = stockLevel
+            product.stock_level =
+                qty === 0 && preOrder > 0 ? 'Is Expected' :
+                    qty === 0 ? 'Out of Stock' :
+                        qty < 5 ? 'Low Stock' :
+                            qty < 10 ? 'Medium Stock' : 'In Stock';
 
-            // Αποθηκεύουμε images για χρήση στο resolveImages()
             product._images = rawData._images || [];
             product.imagesSrc = [];
         }

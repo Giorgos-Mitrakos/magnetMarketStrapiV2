@@ -168,6 +168,11 @@ module.exports = ({ strapi }) => ({
     handleExistingSupplier(supplierInfo, index, product, data, dbChange, isDotMedia, importRef) {
         let currentSupplier = supplierInfo[index];
 
+        // ✅ Καθάρισε κενά price_progress entries πριν οποιαδήποτε επεξεργασία
+        currentSupplier.price_progress = (currentSupplier.price_progress || []).filter(pp =>
+            pp && pp.wholesale !== null && pp.wholesale !== undefined
+        );
+
         const currentWholesale = strapi.plugin('import-products').service('priceHelpers').formatPrice(currentSupplier.wholesale);
         const productWholesalePrice = strapi.plugin('import-products').service('priceHelpers').formatPrice(product.wholesale);
         const currentRetailPrice = strapi.plugin('import-products').service('priceHelpers').formatPrice(currentSupplier.retail_price);
@@ -206,6 +211,7 @@ module.exports = ({ strapi }) => ({
 
     updatePriceWithHistory(supplier, product, data, dbChange, supplierInfo, index, importRef) {
         const priceProgress = supplier.price_progress;
+
         const newPriceProgress = strapi
             .plugin('import-products')
             .service('supplierHelpers')
@@ -247,14 +253,13 @@ module.exports = ({ strapi }) => ({
                 .service('priceHelpers')
                 .formatPrice(product.initial_retail_price);
         }
-
+        
         if (product.recycle_tax) {
             supplier.recycle_tax = strapi
                 .plugin('import-products')
                 .service('priceHelpers')
                 .formatPrice(product.recycle_tax);
         }
-
         // ✅ ΔΕΝ χρειάζεται να ξανα-assign στο array - το object ενημερώθηκε by reference
         data.supplierInfo = supplierInfo;
         dbChange.typeOfChange = 'updated';
