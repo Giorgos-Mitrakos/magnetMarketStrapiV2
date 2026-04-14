@@ -158,8 +158,6 @@ module.exports = ({ strapi }) => ({
                     stockLevel = stockLevelAdjust
                 }
 
-
-
                 const hasStockLevel = stockLevel !== null && stockLevel !== undefined && String(stockLevel).trim() !== '';
                 const hasQuantity = quantity !== null && quantity !== undefined;
 
@@ -301,30 +299,55 @@ module.exports = ({ strapi }) => ({
 
             function filterPriceRange(priceRange) {
                 let minPrice = categoryMap.minimumPrice ? parseFloat(categoryMap.minimumPrice) : 0;
-                let maxPrice;
-                if (categoryMap.maximumPrice && categoryMap.maximumPrice > 0) {
-                    maxPrice = parseFloat(categoryMap.maximumPrice);
-                } else {
-                    maxPrice = 100000;
-                }
+                let maxPrice = (categoryMap.maximumPrice && categoryMap.maximumPrice > 0)
+                    ? parseFloat(categoryMap.maximumPrice)
+                    : 100000;
 
                 const productPrice = strapi
                     .plugin('import-products')
                     .service('productHelpers')
-                    .createFields(importParams.wholesale, priceRange)
+                    .createFields(importParams.wholesale, priceRange);
 
-                let suggested = strapi
+                const suggested = strapi
                     .plugin('import-products')
                     .service('productHelpers')
-                    .createFields(importParams.retail_price, priceRange)
+                    .createFields(importParams.retail_price, priceRange);
 
-                if (!productPrice && !suggested) { return false }
+                if (!productPrice && !suggested) return false;
 
-                if (parseFloat(productPrice).toFixed(2) >= minPrice && parseFloat(productPrice).toFixed(2) <= maxPrice) {
-                    return true
-                } else {
-                    return false
+                const cleanedPrice = parsePrice(productPrice);
+
+                if (isNaN(cleanedPrice)) return false;
+
+                return cleanedPrice >= minPrice && cleanedPrice <= maxPrice;
+            }
+
+            function parsePrice(value) {
+                if (!value) return 0;
+                const str = String(value).trim();
+
+                const hasComma = str.includes(',');
+                const hasDot = str.includes('.');
+
+                if (hasComma && hasDot) {
+                    const lastComma = str.lastIndexOf(',');
+                    const lastDot = str.lastIndexOf('.');
+
+                    if (lastDot > lastComma) {
+                        // ✅ US format: 1,433.18 → κόμμα=χιλιάδων, τελεία=δεκαδικό
+                        return parseFloat(str.replace(/,/g, '')) || 0;
+                    } else {
+                        // ✅ EU format: 4.950,00 → τελεία=χιλιάδων, κόμμα=δεκαδικό
+                        return parseFloat(str.replace(/\./g, '').replace(',', '.')) || 0;
+                    }
                 }
+
+                if (hasComma && !hasDot) {
+                    // Μόνο κόμμα: 4,51 → δεκαδικό
+                    return parseFloat(str.replace(',', '.')) || 0;
+                }
+
+                return parseFloat(str) || 0;
             }
 
             return newData
@@ -927,5 +950,5 @@ module.exports = ({ strapi }) => ({
                 dbChange.typeOfChange = 'updated';
             }
         }
-    }
+    },
 });

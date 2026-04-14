@@ -135,24 +135,28 @@ module.exports = [
     method: 'GET',
     path: '/logicom-api/GenerateAccessToken',
     handler: 'logicomApi.proxyGenerateAccessToken',
-    config: { policies: [] }
+    config: { policies: [],
+      auth: false }
   },
   {
     method: 'GET',
     path: '/logicom-api/GetProducts',
     handler: 'logicomApi.proxyGetProducts',
-    config: { policies: [] }
+    config: { policies: [],
+      auth: false }
   },
   {
     method: 'GET',
     path: '/logicom-api/GetInventory',
     handler: 'logicomApi.proxyGetInventory',
-    config: { policies: [] }
+    config: { policies: [],
+      auth: false }
   },
   {
     method: 'GET',
     path: '/logicom-api/GetPrice',
     handler: 'logicomApi.proxyGetPrice',
-    config: { policies: [] }
+    config: { policies: [],
+      auth: false }
   },
 ];

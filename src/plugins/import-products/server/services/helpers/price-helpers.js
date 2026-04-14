@@ -194,26 +194,6 @@ module.exports = ({ strapi }) => ({
     }
   },
 
-  // ════════════════════════════════════════════════════════════
-  // ΝΕΟΣ ΥΠΟΛΟΓΙΣΜΟΣ SITE PRICE από Skroutz price
-  // Λύνει το circular reference αλγεβρικά:
-  // P = S - (skroutzCost - P × siteCostPct) × customerShare
-  // P × (1 - siteCostPct × customerShare) = S - skroutzCost × customerShare
-  // ════════════════════════════════════════════════════════════
-  // ════════════════════════════════════════════════════════════
-  // Μοιρασμός ΠΡΑΓΜΑΤΙΚΗΣ εξοικονόμησης μεταξύ πελάτη/πωλητή:
-  //
-  //   saving = (cs×S + skroutzMgmt) - (cp×P + siteMgmt)
-  //          = cs×S - cp×P - D    (D = siteMgmt - skroutzMgmt)
-  //
-  //   P = S - saving × share
-  //   P(1 - cp×share) = S(1 - cs×share) + D×share
-  //   P = [S(1 - cs×share) + D×share] / (1 - cp×share)
-  //
-  //   D = 0  → ταυτίζεται με παλιά φόρμουλα
-  //   D < 0  → site φθηνότερο (site κοστίζει λιγότερο, περισσότερο να μοιραστεί)
-  //   D > 0  → site ακριβότερο (site κοστίζει περισσότερο, λιγότερο να μοιραστεί)
-  // ════════════════════════════════════════════════════════════
   calculateOptimalSitePrice(skroutzPrice, skroutzCommission, siteCommission, minSitePrice, customerSharePct, mgmtCostDiff = 0) {
     const siteCostPct = siteCommission / 100;
     const skroutzCostPct = skroutzCommission / 100;

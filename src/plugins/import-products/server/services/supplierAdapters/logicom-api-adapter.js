@@ -182,11 +182,30 @@ module.exports = ({ strapi }) => {
                 let pageCount = 0;
                 const MAX_PAGES = 3000;
 
+                // ✅ Token reuse - ανανέωση μόνο όταν χρειάζεται
+                let currentToken = null;
+                let tokenTimestamp = null;
+                const TOKEN_TTL = 50; // 50 δευτερόλεπτα (safe margin από το 60)
+
+                const getValidToken = async () => {
+                    const now = Math.floor(Date.now() / 1000);
+                    if (!currentToken || !tokenTimestamp || (now - tokenTimestamp) >= TOKEN_TTL) {
+                        const { token, timestamp } = await this.generateAccessToken();
+                        currentToken = token;
+                        tokenTimestamp = now;
+                    }
+                    // ✅ Επέστρεψε token + ΤΡΕΧΟΝ timestamp (όχι το αρχικό)
+                    return {
+                        token: currentToken,
+                        timestamp: String(Math.floor(Date.now() / 1000))
+                    };
+                };
+
                 while (pageCount < MAX_PAGES) {
                     pageCount++;
 
                     try {
-                        const { token, timestamp } = await this.generateAccessToken();
+                        const { token, timestamp } = await getValidToken();
 
                         const headers = this.buildHeaders(token, timestamp);
                         const url = new URL(`${this.baseUrl}/GetProducts`);
@@ -201,6 +220,9 @@ module.exports = ({ strapi }) => {
 
                         const json = await this.parseResponse(response);
 
+                        // ✅ Log ΠΑΝΤΑ, όχι μόνο όταν κάνει break
+                        console.log(`Page ${pageCount} - StatusCode: ${json?.StatusCode}, Message: ${json?.Message?.length}, keys: ${Object.keys(json || {}).join(',')}`);
+
                         if (json.StatusCode !== 1 || !Array.isArray(json.Message) || json.Message.length === 0) {
                             break;
                         }
@@ -213,7 +235,7 @@ module.exports = ({ strapi }) => {
                         }
 
                         previousItemNo = json.NextItemNo;
-                        await new Promise(resolve => setTimeout(resolve, 300));
+                        await new Promise(resolve => setTimeout(resolve, 100));
 
                     } catch (pageError) {
                         break;
