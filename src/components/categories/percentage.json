@@ -6,9 +6,6 @@
   },
   "options": {},
   "attributes": {
-    "percentage": {
-      "type": "decimal"
-    },
     "brand_perc": {
       "displayName": "brand_percent",
       "type": "component",

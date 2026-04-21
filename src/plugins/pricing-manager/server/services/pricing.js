@@ -27,10 +27,12 @@ module.exports = ({ strapi }) => ({
 
       const productPrices = products.map(product => {
         const wholesale = this.getMinSupplierPrice(product);
+        const recycleTax = this.getRecycleTax(product);
         const shipping = this.getShippingCost(product);
 
         return this.calculatePrice({
           wholesalePrice: wholesale,
+          recycleTax: recycleTax,
           shippingCost: shipping,
           platformConfig: config,
         });
@@ -54,48 +56,65 @@ module.exports = ({ strapi }) => ({
   /**
    * Υπολογίζει τιμή με breakdown
    */
-  calculatePrice({ wholesalePrice, shippingCost, platformConfig }) {
-    const managementCost = platformConfig.management_cost || 0;
-    const packagingCost = platformConfig.packaging_cost || 0;
-    const platformCommission = platformConfig.platform_commission || 0;
-    const profitMargin = platformConfig.profit_margin || 0;
+  calculatePrice({ wholesalePrice, recycleTax = 0, shippingCost, platformConfig }) {
+    const vat = Number(process.env.GENERAL_TAX_RATE) / 100 || 0.24;
+    const managementCost = platformConfig.management_cost ?? Number(process.env.GENERAL_CATEGORY_MANAGMENT) ?? 2;
+    const packagingCost = platformConfig.packaging_cost ?? Number(process.env.GENERAL_CATEGORY_PACKAGING) ?? 1;
+    const platformCommission = platformConfig.platform_commission ?? Number(process.env.GENERAL_CATEGORY_PERCENTAGE) ?? 20;
+    const profitMargin = platformConfig.profit_margin ?? Number(process.env.GENERAL_CATEGORY_PROFIT) ?? 10;
+    const guaranteedProfit = platformConfig.guaranteed_minimum_income ?? Number(process.env.GUARANTEED_MINMIMUM_INCOME) ?? 3;
 
-    // 1. Total cost
-    const totalCost = wholesalePrice + shippingCost + managementCost + packagingCost;
+    const ws = parseFloat(wholesalePrice) || 0;
+    const rt = parseFloat(recycleTax) || 0;
+    const sc = parseFloat(shippingCost) || 0;
+    const mc = parseFloat(managementCost) || 0;
+    const pc = parseFloat(packagingCost) || 0;
+    const gp = parseFloat(guaranteedProfit) || 0;
 
-    // 2. With profit
-    const priceWithProfit = totalCost * (1 + profitMargin / 100);
+    // ✅ ΑΛΛΑΓΗ 1: baseCost χωρίς profit
+    const baseCost = ws + rt + sc + mc + pc;
 
-    // 3. With VAT
-    const priceWithVAT = priceWithProfit * (1 + VAT);
+    // ✅ ΑΛΛΑΓΗ 2: profit μόνο πάνω στο wholesale + guaranteed ξεχωριστά
+    const profit = baseCost * (profitMargin / 100) + gp;
+    const priceWithProfit = baseCost + profit;
 
-    // 4. With commission
-    const calculatedPrice = priceWithVAT / (1 - platformCommission / 100);
+    // ✅ ΑΛΛΑΓΗ 3: διορθωμένο VAT (1 + vat, όχι 100 + vat)
+    const priceWithVAT = priceWithProfit * (1 + vat);
+
+    // ✅ ΑΛΛΑΓΗ 4: νέος τύπος gross-up για commission
+    const commission = platformCommission / 100;
+    const calculatedPrice = priceWithVAT / (1 - (1 + vat) * commission);
 
     // 5. Round up
-    const finalPrice = Math.ceil(calculatedPrice * 10) / 10;
+    const finalPrice = Math.round((Math.ceil(calculatedPrice * 10) / 10) * 100) / 100;
 
-    // Calculate actual profit
-    const netReceived = finalPrice * (1 - platformCommission / 100);
-    const netReceivedNoVAT = netReceived / (1 + VAT);
-    const profit = netReceivedNoVAT - totalCost;
-    const actualMargin = (profit / totalCost) * 100;
+    // Κέρδος breakdown
+    const netReceived = finalPrice * (1 - commission);
+    const netReceivedNoVAT = netReceived / (1 + vat);
+    const actualProfit = Math.round((netReceivedNoVAT - baseCost) * 100) / 100;
+    const profitPct = baseCost > 0 ? Math.round(actualProfit / baseCost * 10000) / 100 : 0;
+
 
     return {
-      finalPrice: Math.round(finalPrice * 100) / 100,
-      totalCost: Math.round(totalCost * 100) / 100,
-      profit: Math.round(profit * 100) / 100,
-      actualMargin: Math.round(actualMargin * 100) / 100,
+      finalPrice,
+      baseCost: Math.round(baseCost * 100) / 100,
+      profit: actualProfit,
+      profitPct,
       breakdown: {
-        wholesalePrice,
-        shippingCost,
-        managementCost,
-        packagingCost,
-        totalCost,
+        wholesalePrice: ws,
+        recycleTax: rt,
+        shippingCost: sc,
+        managementCost: mc,
+        packagingCost: pc,
+        guaranteedProfit: gp,
+        baseCost: Math.round(baseCost * 100) / 100,
+        profitAmount: Math.round(profit * 100) / 100,
         priceWithProfit: Math.round(priceWithProfit * 100) / 100,
+        vatAmount: Math.round((priceWithVAT - priceWithProfit) * 100) / 100,
         priceWithVAT: Math.round(priceWithVAT * 100) / 100,
-        platformCommission: Math.round(finalPrice * platformCommission / 100 * 100) / 100,
+        commissionAmount: Math.round(finalPrice * commission * 100) / 100,
         netReceived: Math.round(netReceived * 100) / 100,
+        netReceivedNoVAT: Math.round(netReceivedNoVAT * 100) / 100,
       },
     };
   },
@@ -115,6 +134,20 @@ module.exports = ({ strapi }) => ({
     }
 
     return Math.min(...availableSuppliers.map(s => s.wholesale || 0));
+  },
+
+  getRecycleTax(product) {
+    if (!product.supplierInfo || product.supplierInfo.length === 0) {
+      return 0;
+    }
+
+    const availableSuppliers = product.supplierInfo.filter(s => s.in_stock);
+
+    if (availableSuppliers.length === 0) {
+      return product.supplierInfo[0].recycle_tax || 0;
+    }
+
+    return Math.max(...availableSuppliers.map(s => s.recycle_tax || 0));
   },
 
   /**

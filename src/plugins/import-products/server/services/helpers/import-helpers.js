@@ -173,6 +173,18 @@ module.exports = ({ strapi }) => ({
             return { success: false, reason: 'brand_blocked' };
         }
 
+        const sanitize = (text) => text
+            ?.replace(/([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g, '')
+            ?.replace(/[\u{10000}-\u{10FFFF}]/gu, '')
+            .replaceAll('&apos;', "'")
+            .replaceAll('&quot;', '"')
+            .replaceAll('&gt;', ">")
+            .replaceAll('&lt;', "<")
+            .replaceAll('&nbsp;', " ")
+            .replace(/[\u2000-\u2BFF]/g, "")
+            .trim()
+            || '';
+
         try {
             const categoryInfo = await strapi
                 .plugin('import-products')
@@ -217,8 +229,8 @@ module.exports = ({ strapi }) => ({
             ]
 
             const data = {
-                name: product.name.replaceAll('&apos;', "'"),
-                slug: this.createSlug(product.name, product.mpn),
+                name: sanitize(product.name),
+                slug: this.createSlug(sanitize(product.name), product.mpn),
                 category: categoryInfo.id,
                 price: parseFloat(productPrices.generalPrice.price).toFixed(2),
                 is_fixed_price: product.is_fixed_price,
@@ -248,18 +260,11 @@ module.exports = ({ strapi }) => ({
             }
 
             if (product.description) {
-                data.description = product.description
-                    .replaceAll('&apos;', "'")
-                    .replaceAll('&quot;', '"')
-                    .replaceAll('&gt;', ">")
-                    .replaceAll('&lt;', "<")
-                    .replaceAll('&nbsp;', " ")
-                    .replace(/[\u2000-\u2BFF]/g, "")
-                    .trim()
+                data.description = sanitize(product.description);
             }
 
             if (product.short_description) {
-                data.short_description = product.short_description.trim()
+                data.short_description = sanitize(product.short_description);
             }
 
             if (product.brand) {

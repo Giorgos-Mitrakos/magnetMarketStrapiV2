@@ -38,9 +38,15 @@ module.exports = ({ strapi }) => ({
                 try {
                     const arrayBuffer = await response.arrayBuffer();
                     buffer = Buffer.from(arrayBuffer);
+
+                    // ✅ Έλεγχος κενού buffer
+                    if (!buffer || buffer.length < 100) {
+                        console.error("Empty or invalid buffer for image:", imgUrl.url, "size:", buffer?.length);
+                        continue;
+                    }
                 } catch (err) {
                     console.error("Failed to convert image to buffer:", imgUrl.url, err);
-                    break;
+                    continue;
                 }
 
                 const tmpPath = `./public/tmp/${productName}_${index}.webp`;

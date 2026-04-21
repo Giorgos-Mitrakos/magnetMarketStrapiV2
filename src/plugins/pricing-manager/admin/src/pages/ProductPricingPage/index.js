@@ -158,7 +158,7 @@ const ProductPricingPage = () => {
     <>
       <HeaderLayout
         title={product.name}
-        subtitle={`SKU: ${product.sku || '—'} | ${product.brand?.name || '—'} | ${product.category?.name || '—'}`}
+        subtitle={`SKU: ${product.id || '—'} | ${product.brand?.name || '—'} | ${product.category?.name || '—'}`}
         navigationAction={
           <Button
             variant="tertiary"

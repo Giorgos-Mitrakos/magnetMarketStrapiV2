@@ -475,22 +475,29 @@ module.exports = ({ strapi }) => ({
   // ════════════════════════════════════════════════════════════
   // calculatePlatformPrice — αναλλοίωτος (Skroutz & Shopflix)
   // ════════════════════════════════════════════════════════════
-  calculatePlatformPrice({ wholesalePrice, recycleTax, shippingCost, platformConfig }) {
+  calculatePlatformPrice({ wholesalePrice, recycleTax=0, shippingCost, platformConfig }) {
+    const vat = Number(process.env.GENERAL_TAX_RATE) / 100 ?? 0.24;
     const managementCost = platformConfig.management_cost ?? Number(process.env.GENERAL_CATEGORY_MANAGMENT) ?? 2;
     const packagingCost = platformConfig.packaging_cost ?? Number(process.env.GENERAL_CATEGORY_PACKAGING) ?? 1;
     const platformCommission = platformConfig.platform_commission ?? Number(process.env.GENERAL_CATEGORY_PERCENTAGE) ?? 20;
     const profitMargin = platformConfig.profit_margin ?? Number(process.env.GENERAL_CATEGORY_PROFIT) ?? 10;
     const guaranteedProfit = platformConfig.guaranteed_minimum_income ?? Number(process.env.GUARANTEED_MINMIMUM_INCOME) ?? 3;
 
-    const totalCost = this.parseFloatSafe(wholesalePrice) +
+    // ✅ ΑΛΛΑΓΗ 1: profit μόνο πάνω στο wholesale, guaranteedProfit ξεχωριστά
+    const baseCost = this.parseFloatSafe(wholesalePrice) +
       this.parseFloatSafe(recycleTax) +
       this.parseFloatSafe(shippingCost) +
       this.parseFloatSafe(managementCost) +
-      this.parseFloatSafe(packagingCost) +
-      this.parseFloatSafe(guaranteedProfit);
-    const priceWithProfit = totalCost * ((100 + profitMargin) / 100);
-    const priceWithVAT = priceWithProfit * ((100 + Number(process.env.GENERAL_TAX_RATE)) / 100);
-    const calculatedPrice = priceWithVAT / ((100 - platformCommission) / 100);
+      this.parseFloatSafe(packagingCost);
+
+    const profit = baseCost * (profitMargin / 100)
+      + this.parseFloatSafe(guaranteedProfit);
+
+    const priceWithProfit = baseCost + profit;
+
+    const priceWithVAT = priceWithProfit * (1 + vat);
+    const commission = platformCommission / 100;
+    const calculatedPrice = priceWithVAT / (1 - (1 + vat) * commission);
     const finalPrice = this.roundUpToFirstDecimal(calculatedPrice);
 
     return Math.round(finalPrice * 100) / 100;

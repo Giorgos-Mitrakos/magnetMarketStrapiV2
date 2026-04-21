@@ -17,15 +17,23 @@ import pluginId from '../../pluginId';
 
 const getPlatformConfig = (category, platformName, brandId, defaults) => {
   const catPercentage = category?.cat_percentage || [];
-  const platformCfg   = catPercentage.find(c => c.name?.toLowerCase() === platformName.toLowerCase());
+  const platformCfg = catPercentage.find(c => c.name?.toLowerCase() === platformName.toLowerCase());
 
-  if (!platformCfg) return { ...defaults };
+  // Όταν δεν υπάρχει config, επιστρέφουμε με τα ΣΩΣΤΑ keys που περιμένουν οι calc συναρτήσεις
+  if (!platformCfg) return {
+    platform_commission: defaults.commission,
+    management_cost: defaults.managementCost,
+    profit_margin: defaults.profitMargin,
+    packaging_cost: defaults.packagingCost,
+    guaranteed_minimum_income: defaults.guaranteedMinIncome,
+  };
 
   let config = {
-    platform_commission: platformCfg.platform_commission || defaults.commission,
-    management_cost:     platformCfg.platform_man_cost   || defaults.managementCost,
-    profit_margin:       platformCfg.profit_margin       || defaults.profitMargin,
-    packaging_cost:      platformCfg.packaging_cost      || defaults.packagingCost,
+    platform_commission: platformCfg.platform_commission ?? defaults.commission,
+    management_cost: platformCfg.platform_man_cost ?? defaults.managementCost,
+    profit_margin: platformCfg.profit_margin ?? defaults.profitMargin,
+    packaging_cost: platformCfg.packaging_cost ?? defaults.packagingCost,
+    guaranteed_minimum_income: platformCfg.add_to_price ?? defaults.guaranteedMinIncome, // ✅ προστέθηκε
   };
 
   if (brandId && platformCfg.brand_perc?.length > 0) {
@@ -39,43 +47,62 @@ const getPlatformConfig = (category, platformName, brandId, defaults) => {
 const calcPlatformPrice = (wholesale, recycleTax, shippingCost, config, TAX_RATE) => {
   if (!config || !wholesale) return null;
 
-  const mgmt       = config.management_cost           || 2;
-  const pkg        = config.packaging_cost            || 1;
-  const commission = config.platform_commission       || 20;
-  const margin     = config.profit_margin             || 10;
-  const recycle    = recycleTax                       || 0;
+  const vat = TAX_RATE / 100;
+  const mgmt = config.management_cost ?? 2;   // ✅ ?? παντού
+  const pkg = config.packaging_cost ?? 1;
+  const commission = config.platform_commission ?? 20;
+  const margin = config.profit_margin ?? 10;
+  const recycle = recycleTax ?? 0;
   const guaranteed = config.guaranteed_minimum_income ?? 3;
+  const comm = commission / 100;
 
-  const totalCost       = wholesale + recycle + shippingCost + mgmt + pkg + guaranteed;
-  const priceWithProfit = totalCost * ((100 + margin) / 100);
-  const priceWithVAT    = priceWithProfit * ((100 + TAX_RATE) / 100);
-  const calculated      = priceWithVAT / ((100 - commission) / 100);
-  const finalPrice      = Math.round((Math.ceil(calculated * 10) / 10) * 100) / 100;
+  // Φάση 1: Σχηματισμός τιμής
+  const baseCost = wholesale + recycle + shippingCost + mgmt + pkg;
+  const profit = wholesale * (margin / 100) + guaranteed;
+  const priceWithProfit = baseCost + profit;
+  const priceWithVAT = priceWithProfit * (1 + vat);
+  const calculated = priceWithVAT / (1 - (1 + vat) * comm);
+  const finalPrice = Math.round((Math.ceil(calculated * 10) / 10) * 100) / 100;
 
-  const netReceived      = finalPrice * (1 - commission / 100);
-  const netReceivedNoVAT = netReceived / (1 + TAX_RATE / 100);
-  const profit           = Math.round((netReceivedNoVAT - totalCost) * 100) / 100;
-  const profitPct        = totalCost > 0 ? Math.round(profit / totalCost * 10000) / 100 : 0;
+  // ✅ Φάση 2: Σωστή ανάλυση ΦΠΑ
+  // Πληρώνεις ΦΠΑ στην εφορία για ΟΛΟΚΛΗΡΗ την τιμή πώλησης
+  const outputVAT = Math.round(finalPrice * vat / (1 + vat) * 100) / 100;
+  const finalPriceExVAT = Math.round(finalPrice / (1 + vat) * 100) / 100;
+
+  // Η commission υπολογίζεται στη τελική τιμή (χωρίς ΦΠΑ)
+  const commissionAmount = Math.round(finalPrice * comm * 100) / 100;
+
+  // Καθαρά έσοδα εκτός ΦΠΑ = τιμή εκτός ΦΠΑ - commission
+  // (μαθηματικά ίδιο με: finalPrice * (1-comm) / (1+vat))
+  const netReceivedNoVAT = Math.round((finalPriceExVAT - commissionAmount) * 100) / 100;
+  const netReceived = Math.round((finalPrice * (1 - comm * (1 + vat)) - (1 + vat) * mgmt) * 100) / 100;
+
+  const actualProfit = Math.round((netReceivedNoVAT - baseCost) * 100) / 100;
+  const profitPct = baseCost > 0 ? Math.round(actualProfit / baseCost * 10000) / 100 : 0;
 
   return {
     price: finalPrice,
-    profit,
+    profit: actualProfit,
     profitPct,
     breakdown: {
-      wholesale:        Math.round(wholesale        * 100) / 100,
-      recycleTax:       Math.round(recycle          * 100) / 100,
-      shipping:         Math.round(shippingCost     * 100) / 100,
-      management:       Math.round(mgmt             * 100) / 100,
-      packaging:        Math.round(pkg              * 100) / 100,
-      guaranteed:       Math.round(guaranteed       * 100) / 100,
-      totalCost:        Math.round(totalCost        * 100) / 100,
-      profitAmount:     Math.round((priceWithProfit - totalCost) * 100) / 100,
-      priceNoVAT:       Math.round(priceWithProfit  * 100) / 100,
-      vatAmount:        Math.round((priceWithVAT - priceWithProfit) * 100) / 100,
-      priceWithVAT:     Math.round(priceWithVAT     * 100) / 100,
-      commissionAmount: Math.round(finalPrice * commission / 100 * 100) / 100,
-      netReceived:      Math.round(netReceived      * 100) / 100,
-      netReceivedNoVAT: Math.round(netReceivedNoVAT * 100) / 100,
+      // Κόστη
+      wholesale: Math.round(wholesale * 100) / 100,
+      recycleTax: Math.round(recycle * 100) / 100,
+      shipping: Math.round(shippingCost * 100) / 100,
+      management: Math.round(mgmt * 100) / 100,
+      packaging: Math.round(pkg * 100) / 100,
+      guaranteed: Math.round(guaranteed * 100) / 100,
+      baseCost: Math.round(baseCost * 100) / 100,
+      profitAmount: Math.round(profit * 100) / 100,
+      priceNoVAT: Math.round(priceWithProfit * 100) / 100,
+      vatAmount: Math.round((priceWithVAT - priceWithProfit) * 100) / 100,
+      priceWithVAT: Math.round(priceWithVAT * 100) / 100,
+      // ✅ Νέα VAT ανάλυση
+      outputVAT,        // ΦΠΑ που οφείλεις στην εφορία (επί όλης της τιμής)
+      finalPriceExVAT,  // Τιμή πώλησης εκτός ΦΠΑ
+      commissionAmount,  // Commission που κρατάει η πλατφόρμα (χωρίς ΦΠΑ)
+      netReceived,
+      netReceivedNoVAT
     },
   };
 };
@@ -85,63 +112,74 @@ const roundUpToFirstDecimal = (price) => Math.ceil(price * 10) / 10;
 
 // ίδιο με calculateOptimalSitePrice του backend (με mgmtCostDiff)
 const calcOptimalSitePrice = (skroutzPrice, skroutzCommission, siteCommission, minSitePrice, customerSharePct, mgmtCostDiff = 0) => {
-  const siteCostPct    = siteCommission    / 100;
+  const siteCostPct = siteCommission / 100;
   const skroutzCostPct = skroutzCommission / 100;
-  const share          = customerSharePct  / 100;
-  const D              = mgmtCostDiff;
+  const share = customerSharePct / 100;
+  const D = mgmtCostDiff;
 
-  const numerator    = skroutzPrice * (1 - skroutzCostPct * share) + D * share;
-  const denominator  = 1 - (siteCostPct * share);
+  const numerator = skroutzPrice * (1 - skroutzCostPct * share) + D * share;
+  const denominator = 1 - (siteCostPct * share);
   const rawSitePrice = numerator / denominator;
-  const sitePrice    = roundUpToFirstDecimal(rawSitePrice);
+  const sitePrice = roundUpToFirstDecimal(rawSitePrice);
 
   if (sitePrice < minSitePrice) return Math.round(roundUpToFirstDecimal(minSitePrice) * 100) / 100;
   return Math.round(sitePrice * 100) / 100;
 };
 
 const calcSiteProfit = (sitePrice, wholesale, recycleTax, shippingCost, config, TAX_RATE) => {
-  const mgmt       = config.management_cost           || 2;
-  const pkg        = config.packaging_cost            || 1;
-  const commission = config.platform_commission       || 20;
-  const recycle    = recycleTax                       || 0;
+  const vat = TAX_RATE / 100;
+  const mgmt = config.management_cost ?? 2;   // ✅
+  const pkg = config.packaging_cost ?? 1;
+  const commission = config.platform_commission ?? 20;
+  const recycle = recycleTax ?? 0;
   const guaranteed = config.guaranteed_minimum_income ?? 3;
+  const comm = commission / 100;
 
-  const totalCost        = wholesale + recycle + shippingCost + mgmt + pkg + guaranteed;
-  const netReceived      = sitePrice * (1 - commission / 100);
-  const netReceivedNoVAT = netReceived / (1 + TAX_RATE / 100);
-  const vatAmount        = sitePrice - sitePrice / (1 + TAX_RATE / 100);
-  const profit           = Math.round((netReceivedNoVAT - totalCost) * 100) / 100;
-  const profitPct        = totalCost > 0 ? Math.round(profit / totalCost * 10000) / 100 : 0;
+  const totalCost = wholesale + recycle + shippingCost + mgmt + pkg + guaranteed;
+  const outputVAT = Math.round(sitePrice * vat / (1 + vat) * 100) / 100;
+  const sitePriceExVAT = Math.round(sitePrice / (1 + vat) * 100) / 100;
+  const commissionGross = Math.round(sitePrice * comm * 100) / 100;
+  const vatOnCommission = Math.round(commissionGross * vat / (1 + vat) * 100) / 100;
+  const netReceivedNoVAT = Math.round((sitePriceExVAT - commissionGross + vatOnCommission) * 100) / 100;
+  const netReceived = Math.round(sitePrice * (1 - comm) * 100) / 100;
+  const profit = Math.round((netReceivedNoVAT - totalCost) * 100) / 100;
+  const profitPct = totalCost > 0 ? Math.round(profit / totalCost * 10000) / 100 : 0;
 
   return {
     profit,
     profitPct,
     breakdown: {
-      wholesale:        Math.round(wholesale        * 100) / 100,
-      recycleTax:       Math.round(recycle          * 100) / 100,
-      shipping:         Math.round(shippingCost     * 100) / 100,
-      management:       Math.round(mgmt             * 100) / 100,
-      packaging:        Math.round(pkg              * 100) / 100,
-      guaranteed:       Math.round(guaranteed       * 100) / 100,
-      totalCost:        Math.round(totalCost        * 100) / 100,
-      commissionAmount: Math.round(sitePrice * commission / 100 * 100) / 100,
-      vatAmount:        Math.round(vatAmount        * 100) / 100,
-      netReceived:      Math.round(netReceived      * 100) / 100,
-      netReceivedNoVAT: Math.round(netReceivedNoVAT * 100) / 100,
+      wholesale: Math.round(wholesale * 100) / 100,
+      recycleTax: Math.round(recycle * 100) / 100,
+      shipping: Math.round(shippingCost * 100) / 100,
+      management: Math.round(mgmt * 100) / 100,
+      packaging: Math.round(pkg * 100) / 100,
+      guaranteed: Math.round(guaranteed * 100) / 100,
+      totalCost: Math.round(totalCost * 100) / 100,
+      outputVAT,
+      commissionGross,
+      vatOnCommission,
+      netReceived,
+      netReceivedNoVAT
     },
   };
 };
 
 const calcBreakEven = (wholesale, recycleTax, shippingCost, config, TAX_RATE) => {
   if (!config || !wholesale) return null;
-  const mgmt       = config.management_cost           || 2;
-  const pkg        = config.packaging_cost            || 1;
-  const commission = config.platform_commission       || 20;
-  const recycle    = recycleTax                       || 0;
-  const guaranteed = config.guaranteed_minimum_income ?? 3;
+  const vat = TAX_RATE / 100;
+  const mgmt = config.management_cost ?? 2;
+  const pkg = config.packaging_cost ?? 1;
+  const commission = config.platform_commission ?? 20;
+  const recycle = recycleTax ?? 0;
+  const comm = commission / 100;
 
-  const totalCost = wholesale + recycle + shippingCost + mgmt + pkg + guaranteed;
-  return Math.round(totalCost * (1 + TAX_RATE / 100) / (1 - commission / 100) * 100) / 100;
+  const totalCost = wholesale + recycle + shippingCost + mgmt + pkg;
+
+  // ✅ Ίδιος τύπος gross-up με calcPlatformPrice
+  return Math.round(
+    (totalCost * (1 + vat)) / (1 - (1 + vat) * comm) * 100
+  ) / 100;
 };
 
 // ── Reusable row ──────────────────────────────────────────────
@@ -170,31 +208,36 @@ const PlatformCard = ({ title, data, commission, bg = 'neutral100', tc = 'neutra
         </Flex>
       </Flex>
 
-      <Typography variant="pi" textColor="neutral400" style={{ fontStyle: 'italic' }}>Φάση 1 — Τιμή Πώλησης</Typography>
-      <BRow label="Χονδρική"                                     value={data.breakdown.wholesale}    color={tc} />
+      {/* Φάση 1: Σχηματισμός Τιμής */}
+      <Typography variant="pi" textColor="neutral400" style={{ fontStyle: 'italic' }}>
+        Φάση 1 — Σχηματισμός Τιμής Πώλησης
+      </Typography>
+      <BRow label="Χονδρική" value={data.breakdown.wholesale} color={tc} />
       {data.breakdown.recycleTax > 0 &&
-        <BRow label="Ανακύκλωση"                                 value={data.breakdown.recycleTax}   color={tc} />}
-      <BRow label="Μεταφορικά"                                   value={data.breakdown.shipping}     color={tc} />
-      <BRow label="Διαχείριση"                                   value={data.breakdown.management}   color={tc} />
-      <BRow label="Συσκευασία"                                   value={data.breakdown.packaging}    color={tc} />
-      <BRow label="Εγγυημένο κέρδος"                             value={data.breakdown.guaranteed}   color={tc} />
-      <BRow label="= Κόστος"                                     value={data.breakdown.totalCost}    color={tc} bold />
-      <BRow label="+ Κέρδος (margin %)"                          value={data.breakdown.profitAmount} color="success600" />
-      <BRow label="= Χωρίς ΦΠΑ"                                 value={data.breakdown.priceNoVAT}   color={tc} />
-      <BRow label={`+ ΦΠΑ ${taxRate}%`}                         value={data.breakdown.vatAmount}    color={tc} />
-      <BRow label="= Βάση (πριν gross-up)"                       value={data.breakdown.priceWithVAT} color="neutral400" />
-      <BRow label={`÷ (1 - ${commission}%) → Τιμή Πώλησης`}     value={data.price}                  color={tc} bold border />
+        <BRow label="Ανακύκλωση" value={data.breakdown.recycleTax} color={tc} />}
+      <BRow label="Μεταφορικά" value={data.breakdown.shipping} color={tc} />
+      <BRow label="Διαχείριση" value={data.breakdown.management} color={tc} />
+      <BRow label="Συσκευασία" value={data.breakdown.packaging} color={tc} />
+      <BRow label="Εγγυημένο κέρδος" value={data.breakdown.guaranteed} color={tc} />
+      <BRow label="= Βάση Κόστους" value={data.breakdown.baseCost} color={tc} bold />
+      <BRow label="+ Κέρδος (margin %)" value={data.breakdown.profitAmount} color="success600" />
+      <BRow label="= Τιμή χωρίς ΦΠΑ" value={data.breakdown.priceNoVAT} color={tc} />
+      <BRow label={`+ ΦΠΑ ${taxRate}%`} value={data.breakdown.vatAmount} color={tc} />
+      <BRow label="= Τιμή + ΦΠΑ (βάση gross-up)" value={data.breakdown.priceWithVAT} color="neutral400" />
+      <BRow label={`Τιμή Πώλησης`} value={data.price} color={tc} bold border />
 
+      {/* Φάση 2: Ανάλυση Εσόδων & ΦΠΑ */}
       <Box paddingTop={2}>
-        <Typography variant="pi" textColor="neutral400" style={{ fontStyle: 'italic' }}>Φάση 2 — Κέρδος</Typography>
-        <BRow label="Τιμή Πώλησης"                               value={data.price}                      color={tc} />
-        <BRow label={`- Commission (${commission}%)`}             value={data.breakdown.commissionAmount} color="danger600" neg />
-        <BRow label="= Καθαρά Έσοδα (με ΦΠΑ)"                   value={data.breakdown.netReceived}       color={tc} />
-        <BRow label={`- ΦΠΑ ${taxRate}%`}                       value={data.breakdown.vatAmount}         color={tc} neg />
-        <BRow label="= Καθαρά Έσοδα (χωρίς ΦΠΑ)"                value={data.breakdown.netReceivedNoVAT} color={tc} />
-        <BRow label="- Κόστος"                                    value={data.breakdown.totalCost}        color={tc} neg />
-        <BRow label="= Κέρδος €"                                  value={data.profit}                     color="success700" bold border />
-        <BRow label="= Κέρδος % επί κόστους"                     value={data.profitPct}                  color="success700" bold suffix="%" />
+        <Typography variant="pi" textColor="neutral400" style={{ fontStyle: 'italic' }}>
+          Φάση 2 — Έσοδα & Συμψηφισμός ΦΠΑ
+        </Typography>
+        <BRow label="Τιμή Πώλησης" value={data.price} color={tc} />
+        <BRow label={`- Commission ${commission}% (καθαρή)`} value={data.breakdown.commissionAmount} color="danger600" neg />
+        <BRow label={`- ΦΠΑ ${taxRate}% (→ εφορία)`} value={data.breakdown.outputVAT} color="danger600" neg />
+        <BRow label="= Καθαρά Έσοδα" value={data.breakdown.netReceivedNoVAT} color={tc} bold border />
+        <BRow label="- Βάση Κόστους" value={data.breakdown.baseCost} color={tc} neg />
+        <BRow label="= Κέρδος €" value={data.profit} color="success700" bold border />
+        <BRow label="= Κέρδος % επί κόστους" value={data.profitPct} suffix={%}></BRow>
       </Box>
     </Box>
   );
@@ -202,7 +245,7 @@ const PlatformCard = ({ title, data, commission, bg = 'neutral100', tc = 'neutra
 
 // ══════════════════════════════════════════════════════════════
 const ProductStatsPanel = ({ product }) => {
-  const { get }    = useFetchClient();
+  const { get } = useFetchClient();
   const [settings, setSettings] = useState(null);
 
   useEffect(() => {
@@ -215,53 +258,53 @@ const ProductStatsPanel = ({ product }) => {
     const TAX_RATE = settings.taxRate;
     const SHIPPING = settings.shippingPrice;
     const defaults = {
-      commission:          settings.commission,
-      managementCost:      settings.managementCost,
-      profitMargin:        settings.profitMargin,
-      packagingCost:       settings.packagingCost,
+      commission: settings.commission,
+      managementCost: settings.managementCost,
+      profitMargin: settings.profitMargin,
+      packagingCost: settings.packagingCost,
       guaranteedMinIncome: settings.guaranteedMinIncome,
     };
 
-    const category         = product.category;
+    const category = product.category;
     const customerSharePct = category?.customer_share_pct ?? settings.customerSharePct;
-    const brandId          = product.brand?.id;
+    const brandId = product.brand?.id;
 
-    const skroutzConfig  = getPlatformConfig(category, 'skroutz',  brandId, defaults);
-    const siteConfig     = getPlatformConfig(category, 'general',  brandId, defaults);
+    const skroutzConfig = getPlatformConfig(category, 'skroutz', brandId, defaults);
+    const siteConfig = getPlatformConfig(category, 'general', brandId, defaults);
     const shopflixConfig = getPlatformConfig(category, 'shopflix', brandId, defaults);
 
-    const suppliers   = product.supplierInfo || [];
+    const suppliers = product.supplierInfo || [];
     const inStockSups = suppliers.filter(s => s.in_stock && parseFloat(s.wholesale) > 0);
     const minSupplier = inStockSups.length > 0
       ? inStockSups.reduce((p, c) => parseFloat(p.wholesale) < parseFloat(c.wholesale) ? p : c)
       : null;
 
-    const wholesale    = minSupplier ? parseFloat(minSupplier.wholesale) : null;
-    const recycleTax   = parseFloat(minSupplier?.recycle_tax) || 0;
+    const wholesale = minSupplier ? parseFloat(minSupplier.wholesale) : null;
+    const recycleTax = parseFloat(minSupplier?.recycle_tax) ?? 0;
     // shipping από τον supplier (ίδιο με backend: supplier?.shipping || GENERAL_SHIPPING_PRICE)
-    const shippingCost = parseFloat(minSupplier?.shipping) || SHIPPING;
+    const shippingCost = parseFloat(minSupplier?.shipping) ?? SHIPPING;
 
-    const skroutz  = wholesale ? calcPlatformPrice(wholesale, recycleTax, shippingCost, skroutzConfig,  TAX_RATE) : null;
+    const skroutz = wholesale ? calcPlatformPrice(wholesale, recycleTax, shippingCost, skroutzConfig, TAX_RATE) : null;
     const shopflix = wholesale ? calcPlatformPrice(wholesale, recycleTax, shippingCost, shopflixConfig, TAX_RATE) : null;
 
-    const skroutzCommission  = skroutzConfig?.platform_commission  || defaults.commission;
-    const siteCommission     = siteConfig?.platform_commission     || defaults.commission;
-    const shopflixCommission = shopflixConfig?.platform_commission || defaults.commission;
+    const skroutzCommission = skroutzConfig?.platform_commission ?? defaults.commission;
+    const siteCommission = siteConfig?.platform_commission ?? defaults.commission;
+    const shopflixCommission = shopflixConfig?.platform_commission ?? defaults.commission;
 
     // Safety floor: wholesale + recycle + shipping + mgmt + pkg + guaranteed + ΦΠΑ (ίδιο με backend)
     const minSitePrice = wholesale
       ? (wholesale + recycleTax + shippingCost
-          + (siteConfig?.management_cost            || 2)
-          + (siteConfig?.packaging_cost             || 1)
-          + (siteConfig?.guaranteed_minimum_income  || 3)
-        ) * (1 + TAX_RATE / 100)
+        + (siteConfig?.management_cost ?? 2)
+        + (siteConfig?.packaging_cost ?? 1)
+        + (siteConfig?.guaranteed_minimum_income ?? 3)
+      ) * (1 + TAX_RATE / 100)
       : null;
 
     // Διαφορά management+packaging costs: site vs skroutz
     // Χρησιμοποιείται για να μοιραστεί η ΠΡΑΓΜΑΤΙΚΗ εξοικονόμηση (ίδιο με backend)
     const mgmtCostDiff = wholesale
       ? (siteConfig.management_cost + siteConfig.packaging_cost) -
-        (skroutzConfig.management_cost + skroutzConfig.packaging_cost)
+      (skroutzConfig.management_cost + skroutzConfig.packaging_cost)
       : 0;
 
     const sitePrice = skroutz && minSitePrice
@@ -272,11 +315,11 @@ const ProductStatsPanel = ({ product }) => {
       ? calcSiteProfit(sitePrice, wholesale, recycleTax, shippingCost, siteConfig, TAX_RATE)
       : null;
 
-    const breakEvenSkroutz  = wholesale ? calcBreakEven(wholesale, recycleTax, shippingCost, skroutzConfig,  TAX_RATE) : null;
-    const breakEvenSite     = wholesale ? calcBreakEven(wholesale, recycleTax, shippingCost, siteConfig,     TAX_RATE) : null;
+    const breakEvenSkroutz = wholesale ? calcBreakEven(wholesale, recycleTax, shippingCost, skroutzConfig, TAX_RATE) : null;
+    const breakEvenSite = wholesale ? calcBreakEven(wholesale, recycleTax, shippingCost, siteConfig, TAX_RATE) : null;
     const breakEvenShopflix = wholesale ? calcBreakEven(wholesale, recycleTax, shippingCost, shopflixConfig, TAX_RATE) : null;
 
-    const skroutzPlatform  = product.platforms?.find(p => p.platform === 'Skroutz');
+    const skroutzPlatform = product.platforms?.find(p => p.platform === 'Skroutz');
     const shopflixPlatform = product.platforms?.find(p => p.platform === 'Shopflix');
 
     return {
@@ -284,9 +327,9 @@ const ProductStatsPanel = ({ product }) => {
       skroutz, shopflix, sitePrice, siteStats,
       skroutzCommission, siteCommission, shopflixCommission,
       customerSharePct, skroutzPlatform, shopflixPlatform,
-      discount:      skroutz && sitePrice ? Math.round((skroutz.price - sitePrice) / skroutz.price * 10000) / 100 : null,
+      discount: skroutz && sitePrice ? Math.round((skroutz.price - sitePrice) / skroutz.price * 10000) / 100 : null,
       discountEuros: skroutz && sitePrice ? Math.round((skroutz.price - sitePrice) * 100) / 100 : null,
-      extraProfit:   skroutz && siteStats ? Math.round((siteStats.profit - skroutz.profit) * 100) / 100 : null,
+      extraProfit: skroutz && siteStats ? Math.round((siteStats.profit - skroutz.profit) * 100) / 100 : null,
       breakEvenSkroutz, breakEvenSite, breakEvenShopflix,
     };
   }, [product, settings]);
@@ -321,7 +364,7 @@ const ProductStatsPanel = ({ product }) => {
                 <Flex justifyContent="space-between" alignItems="center">
                   <Box>
                     <Typography variant="omega" fontWeight="semiBold" textColor="neutral800">{s.name}</Typography>
-                    <Typography variant="pi" textColor="neutral500">Κωδικός: {s.supplier_code || '—'}</Typography>
+                    <Typography variant="pi" textColor="neutral500">Κωδικός: {s.supplierProductId || '—'}</Typography>
                   </Box>
                   <Box style={{ textAlign: 'right' }}>
                     <Typography variant="omega" fontWeight="bold" textColor="neutral800">
@@ -360,7 +403,7 @@ const ProductStatsPanel = ({ product }) => {
           <Typography variant="sigma" textColor="neutral800">Τρέχουσες Τιμές</Typography>
 
           {[
-            { label: 'Skroutz',  platform: stats.skroutzPlatform },
+            { label: 'Skroutz', platform: stats.skroutzPlatform },
             { label: 'Shopflix', platform: stats.shopflixPlatform },
           ].map(({ label, platform }) => platform ? (
             <Box key={label} padding={3} background="neutral100" hasRadius>
@@ -419,23 +462,26 @@ const ProductStatsPanel = ({ product }) => {
                   </Flex>
                 </Flex>
 
-                <BRow label="Χονδρική"                                       value={stats.siteStats.breakdown.wholesale}        color="success600" />
+                <BRow label="Χονδρική" value={stats.siteStats.breakdown.wholesale} color="success600" />
                 {stats.siteStats.breakdown.recycleTax > 0 &&
-                  <BRow label="Ανακύκλωση"                                   value={stats.siteStats.breakdown.recycleTax}       color="success600" />}
-                <BRow label="Μεταφορικά"                                     value={stats.siteStats.breakdown.shipping}         color="success600" />
-                <BRow label="Διαχείριση"                                     value={stats.siteStats.breakdown.management}       color="success600" />
-                <BRow label="Συσκευασία"                                     value={stats.siteStats.breakdown.packaging}        color="success600" />
-                <BRow label="Εγγυημένο κέρδος"                                 value={stats.siteStats.breakdown.guaranteed}       color="success600" />
-                <BRow label="= Κόστος"                                       value={stats.siteStats.breakdown.totalCost}        color="success700" bold />
-                <BRow label={`- Commission (${stats.siteCommission}%)`}      value={stats.siteStats.breakdown.commissionAmount} color="danger600"  neg />
-                <BRow label={`- ΦΠΑ ${stats.TAX_RATE}%`}                    value={stats.siteStats.breakdown.vatAmount}        color="success600" neg />
-                <BRow label="= Net (χωρίς ΦΠΑ)"                             value={stats.siteStats.breakdown.netReceivedNoVAT} color="success700" />
-                <BRow label="- Κόστος"                                       value={stats.siteStats.breakdown.totalCost}        color="success600" neg />
-                <BRow label="= Κέρδος €"                                     value={stats.siteStats.profit}                    color="success700" bold border />
-                <BRow label="= Κέρδος % επί κόστους"                        value={stats.siteStats.profitPct}                 color="success700" bold suffix="%" />
-                <Box paddingTop={2} style={{ borderTop: '1px solid #a3e6b0', marginTop: 4 }}>
-                  <BRow label="Τιμή Πώλησης" value={stats.sitePrice} color="success700" bold />
+                  <BRow label="Ανακύκλωση" value={stats.siteStats.breakdown.recycleTax} color="success600" />}
+                <BRow label="Μεταφορικά" value={stats.siteStats.breakdown.shipping} color="success600" />
+                <BRow label="Διαχείριση" value={stats.siteStats.breakdown.management} color="success600" />
+                <BRow label="Συσκευασία" value={stats.siteStats.breakdown.packaging} color="success600" />
+                <BRow label="Εγγυημένο κέρδος" value={stats.siteStats.breakdown.guaranteed} color="success600" />
+                <BRow label="= Κόστος" value={stats.siteStats.breakdown.totalCost} color="success700" bold />
+                <Box paddingTop={2} paddingBottom={1}>
+                  <Typography variant="pi" textColor="success400" style={{ fontStyle: 'italic' }}>Συμψηφισμός ΦΠΑ</Typography>
                 </Box>
+                <BRow label="Τιμή Πώλησης" value={stats.sitePrice} color="success600" />
+                <BRow label={`- ΦΠΑ ${stats.TAX_RATE}% εξερχόμενο (→ εφορία)`} value={stats.siteStats.breakdown.outputVAT} color="danger600" neg />
+                <BRow label="= Τιμή εκτός ΦΠΑ" value={stats.siteStats.breakdown.netReceivedNoVAT + stats.siteStats.breakdown.commissionGross - stats.siteStats.breakdown.vatOnCommission} color="success600" />
+                <BRow label={`- Commission (${stats.siteCommission}%)`} value={stats.siteStats.breakdown.commissionGross} color="danger600" neg />
+                <BRow label="+ ΦΠΑ Commission (συμψηφισμός)" value={stats.siteStats.breakdown.vatOnCommission} color="success500" />
+                <BRow label="= Καθαρά Έσοδα εκτός ΦΠΑ" value={stats.siteStats.breakdown.netReceivedNoVAT} color="success700" bold border />
+                <BRow label="- Κόστος" value={stats.siteStats.breakdown.totalCost} color="success600" neg />
+                <BRow label="= Κέρδος €" value={stats.siteStats.profit} color="success700" bold border />
+                <BRow label="= Κέρδος % επί κόστους" value={stats.siteStats.profitPct} color="success700" bold suffix="%" />
               </Box>
             )}
 
@@ -471,9 +517,9 @@ const ProductStatsPanel = ({ product }) => {
           <Typography variant="pi" textColor="neutral500">Κατώτατη τιμή πώλησης για να μην έχεις ζημία</Typography>
 
           {[
-            { label: 'Skroutz',  value: stats.breakEvenSkroutz,  current: stats.skroutzPlatform  ? parseFloat(stats.skroutzPlatform.price)  : null },
-            { label: 'Site',     value: stats.breakEvenSite,      current: stats.sitePrice },
-            { label: 'Shopflix', value: stats.breakEvenShopflix,  current: stats.shopflixPlatform ? parseFloat(stats.shopflixPlatform.price) : null },
+            { label: 'Skroutz', value: stats.breakEvenSkroutz, current: stats.skroutzPlatform ? parseFloat(stats.skroutzPlatform.price) : null },
+            { label: 'Site', value: stats.breakEvenSite, current: stats.sitePrice },
+            { label: 'Shopflix', value: stats.breakEvenShopflix, current: stats.shopflixPlatform ? parseFloat(stats.shopflixPlatform.price) : null },
           ].map(({ label, value, current }) => (
             <Flex key={label} justifyContent="space-between" alignItems="center"
               padding={3} background="danger100" style={{ borderRadius: 4 }}

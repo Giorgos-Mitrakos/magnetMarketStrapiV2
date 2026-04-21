@@ -3,6 +3,7 @@ import type { Attribute, Schema } from '@strapi/strapi';
 export interface CategoriesBrandPercent extends Schema.Component {
   collectionName: 'components_categories_brand_percents';
   info: {
+    description: '';
     displayName: 'brand_percent';
   };
   attributes: {
@@ -11,7 +12,6 @@ export interface CategoriesBrandPercent extends Schema.Component {
       'oneToOne',
       'api::brand.brand'
     >;
-    percentage: Attribute.Decimal & Attribute.Required;
     profit_margin: Attribute.Decimal &
       Attribute.Required &
       Attribute.SetMinMax<
@@ -61,7 +61,6 @@ export interface CategoriesPercentage extends Schema.Component {
         number
       > &
       Attribute.DefaultTo<0>;
-    percentage: Attribute.Decimal;
     platform_commission: Attribute.Decimal &
       Attribute.Required &
       Attribute.SetMinMax<

@@ -50,6 +50,7 @@ const CategoryPricingPage = () => {
             profit_margin: config.profit_margin || 0,
             packaging_cost: config.packaging_cost || 0,
             brand_perc: config.brand_perc || [],
+            guaranteed_minimum_income:config.add_to_price || 0
           };
         });
       }

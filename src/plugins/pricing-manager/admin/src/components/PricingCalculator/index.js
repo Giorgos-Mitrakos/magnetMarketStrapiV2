@@ -18,28 +18,40 @@ const SHIPPING = 3;
 // HELPERS — ίδια λογική με το setPrice.js
 // ══════════════════════════════════════════════════════════════
 
-const calculateSkroutzPrice = (wholesale, shippingCost, config) => {
+const calculateSkroutzPrice = (wholesale, recycleTax = 0, shippingCost, config) => {
   const managementCost = parseFloat(config.management_cost) || 0;
   const packagingCost = parseFloat(config.packaging_cost) || 0;
-  const platformCommission = parseFloat(config.platform_commission) || 0;
-  const profitMargin = parseFloat(config.profit_margin) || 0;
+  const comm = parseFloat(config.platform_commission) || 0;
+  const margin = parseFloat(config.profit_margin) || 0;
+  const guaranteed = parseFloat(config.guaranteed_minimum_income) ?? 3;
+  const recycle = parseFloat(recycleTax) || 0;
 
-  const totalCost = wholesale + shippingCost + managementCost + packagingCost;
-  const priceWithProfit = totalCost * (1 + profitMargin / 100);
+  const baseCost = wholesale + recycle + shippingCost + managementCost + packagingCost;
+  const profit = baseCost * (margin / 100) + guaranteed;
+  const priceWithProfit = baseCost + profit;
   const priceWithVAT = priceWithProfit * (1 + VAT);
-  const calculated = priceWithVAT / (1 - platformCommission / 100);
+  const commRate = comm / 100;
+  const calculated = priceWithVAT / (1 - (1 + VAT) * commRate);
   const finalPrice = Math.round((Math.ceil(calculated * 10) / 10) * 100) / 100;
 
   // Κέρδος
-  const netReceived = finalPrice * (1 - platformCommission / 100);
+  const netReceived = finalPrice * (1 - commRate);
   const netReceivedNoVAT = netReceived / (1 + VAT);
-  const profit = netReceivedNoVAT - totalCost;
+  const actualProfit = netReceivedNoVAT - baseCost;
+
+  console.log("guaranteed:", guaranteed,
+    "priceWithProfit:", priceWithProfit,
+    "priceWithVAT:", priceWithVAT,
+    "calculated:", calculated,
+    "price:", finalPrice, "totalCost:", Math.round(baseCost * 100) / 100,
+    "profit:", Math.round(actualProfit * 100) / 100,
+    "commission:", Math.round(finalPrice * commRate * 100) / 100)
 
   return {
     price: finalPrice,
-    totalCost: Math.round(totalCost * 100) / 100,
-    profit: Math.round(profit * 100) / 100,
-    commission: Math.round(finalPrice * platformCommission / 100 * 100) / 100,
+    totalCost: Math.round(baseCost * 100) / 100,
+    profit: Math.round(actualProfit * 100) / 100,
+    commission: Math.round(finalPrice * commRate * 100) / 100,
   };
 };
 
@@ -116,6 +128,12 @@ const PricingCalculator = ({ category, platformConfigs, categoryConfig }) => {
     return Math.min(...available.map(s => parseFloat(s.wholesale)));
   };
 
+  const getRecycleTax = (product) => {
+    const available = (product.supplierInfo || []).filter(s => s.in_stock === true && s.recycle_tax > 0);
+    if (available.length === 0) return 0;
+    return Math.max(...available.map(s => parseFloat(s.recycle_tax)));
+  };
+
   const handleCalculate = () => {
     setIsCalculating(true);
     setTimeout(() => {
@@ -135,10 +153,11 @@ const PricingCalculator = ({ category, platformConfigs, categoryConfig }) => {
 
     const productAnalyses = sampleProducts.map(product => {
       const wholesale = getMinWholesale(product);
+      const recycleTax = getRecycleTax(product);
       if (wholesale <= 0) return null;
 
       // Skroutz τιμή
-      const skroutz = calculateSkroutzPrice(wholesale, SHIPPING, skroutzConfig);
+      const skroutz = calculateSkroutzPrice(wholesale, recycleTax, SHIPPING, skroutzConfig);
 
       // Site τιμή — από Skroutz price
       const sitePrice = calculateOptimalSitePrice(skroutz.price, skroutzCommission, siteCommission, customerSharePct);
@@ -180,8 +199,9 @@ const PricingCalculator = ({ category, platformConfigs, categoryConfig }) => {
     const shareImpact = [40, 50, 60, 70, 80].map(share => {
       const analyses = sampleProducts.map(product => {
         const wholesale = getMinWholesale(product);
+        const recycleTax = getRecycleTax(product);
         if (wholesale <= 0) return null;
-        const skroutz = calculateSkroutzPrice(wholesale, SHIPPING, skroutzConfig);
+        const skroutz = calculateSkroutzPrice(wholesale, recycleTax, SHIPPING, skroutzConfig);
         const sitePrice = calculateOptimalSitePrice(skroutz.price, skroutzCommission, siteCommission, share);
         const sitePricing = calculateSiteProfit(sitePrice, wholesale, SHIPPING, siteConfig);
         return {

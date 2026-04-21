@@ -431,10 +431,12 @@ module.exports = ({ strapi }) => ({
             const product = {
                 entry,
                 related_import: entry.id,
-                name: this.createFields(mapFields.name, dt),
+                name: this.createFields(mapFields.name, dt)
+                    ?.replace(/[\u{10000}-\u{10FFFF}]/gu, ''),
                 supplierCode: this.createFields(mapFields.supplierCode, dt),
                 description: this.createFields(mapFields.description, dt)
-                    ?.replace(/([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g, ''),
+                    ?.replace(/([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g, '')
+                    ?.replace(/[\u{10000}-\u{10FFFF}]/gu, ''),
                 short_description: this.createFields(mapFields.short_description, dt),
                 category: { title: category },
                 subcategory: { title: subcategory },
@@ -509,9 +511,12 @@ module.exports = ({ strapi }) => ({
                 description: scrapedProduct.description
                     ? scrapedProduct.description
                         .replace(/([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g, '')
+                        .replace(/[\u{10000}-\u{10FFFF}]/gu, '')  // ✅ ΝΕΟ
                         .trim()
                     : '',
-                short_description: scrapedProduct.short_description?.trim() || '',
+                short_description: scrapedProduct.short_description
+                    ?.replace(/[\u{10000}-\u{10FFFF}]/gu, '')
+                    ?.trim() || '',
                 category: scrapedProduct.category,
                 subcategory: scrapedProduct.subcategory,
                 sub2category: scrapedProduct.sub2category,

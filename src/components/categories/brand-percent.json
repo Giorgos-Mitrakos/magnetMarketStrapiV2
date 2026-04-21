@@ -1,7 +1,8 @@
 {
   "collectionName": "components_categories_brand_percents",
   "info": {
-    "displayName": "brand_percent"
+    "displayName": "brand_percent",
+    "description": ""
   },
   "options": {},
   "attributes": {
@@ -9,10 +10,6 @@
       "type": "relation",
       "relation": "oneToOne",
       "target": "api::brand.brand"
-    },
-    "percentage": {
-      "type": "decimal",
-      "required": true
     },
     "profit_margin": {
       "type": "decimal",
