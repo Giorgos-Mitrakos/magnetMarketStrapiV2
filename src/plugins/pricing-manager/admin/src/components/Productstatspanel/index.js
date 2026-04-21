@@ -237,7 +237,7 @@ const PlatformCard = ({ title, data, commission, bg = 'neutral100', tc = 'neutra
         <BRow label="= Καθαρά Έσοδα" value={data.breakdown.netReceivedNoVAT} color={tc} bold border />
         <BRow label="- Βάση Κόστους" value={data.breakdown.baseCost} color={tc} neg />
         <BRow label="= Κέρδος €" value={data.profit} color="success700" bold border />
-        <BRow label="= Κέρδος % επί κόστους" value={data.profitPct} suffix={%}></BRow>
+        <BRow label="= Κέρδος % επί κόστους" value={data.profitPct} suffix='%'></BRow>
       </Box>
     </Box>
   );
