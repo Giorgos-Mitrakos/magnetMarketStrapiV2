@@ -900,16 +900,16 @@ const OpportunityPage = () => {
                     <Typography variant="sigma" marginBottom={2}>Opportunity Components</Typography>
                     <MetricRow
                       label="Price Advantage"
-                      value={`${opportunityBreakdown.price_advantage?.score || 0}/50`}
+                      value={`${opportunityBreakdown.price_advantage?.score || 0}/70`}
                     />
                     <MetricRow
                       label="Timing"
                       value={`${opportunityBreakdown.timing?.score || 0}/30`}
                     />
-                    <MetricRow
+                    {/* <MetricRow
                       label="Liquidity Factor"
                       value={`${opportunityBreakdown.liquidity_factor?.score || 0}/20`}
-                    />
+                    /> */}
                   </GridItem>
 
                   <GridItem col={4}>

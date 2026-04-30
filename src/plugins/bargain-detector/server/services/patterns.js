@@ -608,19 +608,31 @@ module.exports = ({ strapi }) => ({
     const weeks = (lastDate - firstDate) / (1000 * 60 * 60 * 24 * 7);
 
     const avgDeclinePerWeek = totalDrop / weeks;
-    const targetPrice = lastPrice * 0.7;
-    const dropNeeded = ((lastPrice - targetPrice) / lastPrice) * 100;
-    const weeksUntilBottom = dropNeeded / avgDeclinePerWeek;
 
-    const projectedBottomDate = new Date(lastDate);
-    projectedBottomDate.setDate(projectedBottomDate.getDate() + weeksUntilBottom * 7);
+    // Projected bottom: χρησιμοποίησε το historic min αν υπάρχει,
+    // αλλιώς εκτίμησε με βάση το ρυθμό πτώσης (max -50% από lastPrice)
+    const allPrices = recentHistory.map(h => h.wholesale);
+    const historicMin = Math.min(...allPrices);
+    const targetPrice = historicMin < lastPrice
+      ? historicMin                         // ξέρουμε το πραγματικό min
+      : lastPrice * 0.5;                    // εκτίμηση: -50% (conservative αντί -30%)
+
+    const dropNeeded = ((lastPrice - targetPrice) / lastPrice) * 100;
+    const weeksUntilBottom = avgDeclinePerWeek > 0 ? dropNeeded / avgDeclinePerWeek : null;
+
+    const projectedBottomDate = weeksUntilBottom !== null ? new Date(lastDate) : null;
+    if (projectedBottomDate) {
+      projectedBottomDate.setDate(projectedBottomDate.getDate() + weeksUntilBottom * 7);
+    }
 
     return {
       detected: true,
       avg_decline_per_week: avgDeclinePerWeek,
       projected_bottom: targetPrice,
       weeks_until_bottom: weeksUntilBottom,
-      projected_bottom_date: { expected_date: projectedBottomDate, confidence: 'low' },
+      projected_bottom_date: projectedBottomDate
+        ? { expected_date: projectedBottomDate, confidence: 'low' }
+        : null,
       confidence: Math.min(declineRatio, 0.75)
     };
   },

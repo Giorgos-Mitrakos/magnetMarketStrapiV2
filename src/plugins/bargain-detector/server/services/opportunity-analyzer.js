@@ -61,7 +61,7 @@ module.exports = ({ strapi }) => ({
       if (clearanceDetection && !isDismissed) {
         const clearanceRec = clearanceDetection.recommendation;
         
-        finalRecommendation = 'clearance_opportunity';
+        finalRecommendation = 'clearance_urgent';
         finalRationale = clearanceRec.rationale;
         finalAction = clearanceRec.action;
         finalStockDays = clearanceRec.stock_days;
@@ -316,7 +316,120 @@ module.exports = ({ strapi }) => ({
       });
     }
 
-    // ... (rest of existing insights - same as before)
+    // === RISK INSIGHTS ===
+
+    if (scores.risk_score >= 70) {
+      insights.push({
+        type: 'high_risk',
+        severity: 'warning',
+        message: `High risk score (${scores.risk_score}/100) — αγορά με προσοχή`,
+        details: {
+          risk_score: scores.risk_score,
+          interpretation: 'Υψηλή αστάθεια τιμών ή αναξιόπιστα δεδομένα supplier'
+        }
+      });
+    }
+
+    if (metrics.coefficientOfVariation > 15) {
+      insights.push({
+        type: 'high_volatility',
+        severity: 'warning',
+        message: `Volatile pricing (CV: ${metrics.coefficientOfVariation?.toFixed(1)}%) — η τιμή αλλάζει συχνά και απρόβλεπτα`,
+        details: {
+          cv: metrics.coefficientOfVariation,
+          std_dev_30d: metrics.stdDev30d,
+          interpretation: 'Δύσκολο να προβλέψεις αν η τιμή θα συνεχίσει να πέφτει ή θα ανακάμψει'
+        }
+      });
+    }
+
+    // === TREND INSIGHTS ===
+
+    const trendDir = metrics.trend?.direction;
+    if (trendDir === 'strong_down' || trendDir === 'down') {
+      insights.push({
+        type: 'downward_trend',
+        severity: 'positive',
+        message: `Downward price trend (${trendDir}) — καλή στιγμή αγοράς`,
+        details: {
+          direction: trendDir,
+          strength: metrics.trend?.strength,
+          interpretation: trendDir === 'strong_down' ? 'Ισχυρή καθοδική τάση — πιθανή ευκαιρία τώρα' : 'Σταδιακή πτώση — παρακολούθησε'
+        }
+      });
+    } else if (trendDir === 'reversing') {
+      insights.push({
+        type: 'trend_reversing',
+        severity: 'urgent',
+        message: 'Trend reversing — η τιμή μόλις σταμάτησε να πέφτει, ίσως είναι το bottom',
+        details: {
+          interpretation: 'Καλή στιγμή να αγοράσεις πριν ανεβεί ξανά'
+        }
+      });
+    } else if (trendDir === 'strong_up' || trendDir === 'up') {
+      insights.push({
+        type: 'upward_trend',
+        severity: 'warning',
+        message: `Upward price trend (${trendDir}) — η τιμή ανεβαίνει`,
+        details: {
+          direction: trendDir,
+          interpretation: 'Προσοχή — αγόρασε μόνο αν έχεις άμεση ανάγκη'
+        }
+      });
+    }
+
+    // === SUPPLIER COMPETITION INSIGHTS ===
+
+    if (metrics.suppliersDropping >= 2) {
+      insights.push({
+        type: 'multi_supplier_drop',
+        severity: 'positive',
+        message: `${metrics.suppliersDropping} suppliers πέφτουν ταυτόχρονα — market-wide signal`,
+        details: {
+          suppliers_dropping: metrics.suppliersDropping,
+          supplier_count: metrics.supplierCount,
+          interpretation: 'Όταν πολλοί suppliers κατεβαίνουν μαζί, η πτώση είναι πιο αξιόπιστη'
+        }
+      });
+    }
+
+    // Best supplier below own historic min
+    const bestSupplierData = supplierAnalysis.find(
+      s => s.hasData && s.supplier.name === metrics.bestSupplier
+    );
+    if (bestSupplierData && bestSupplierData.distanceFromMin <= 0) {
+      insights.push({
+        type: 'supplier_below_own_min',
+        severity: 'urgent',
+        message: `${metrics.bestSupplier} είναι κάτω από το δικό του historic low — ασυνήθιστη συμπεριφορά`,
+        details: {
+          supplier: metrics.bestSupplier,
+          current_price: bestSupplierData.currentPrice,
+          historic_min: bestSupplierData.historicMin,
+          interpretation: 'Πιθανό ξεσκαρτάρισμα — έλεγξε χειροκίνητα'
+        }
+      });
+    }
+
+    // === PATTERN INSIGHTS ===
+
+    const matchedPatterns = patterns.filter(p => p.matched);
+    if (matchedPatterns.length > 0) {
+      insights.push({
+        type: 'pattern_match',
+        severity: 'positive',
+        message: `${matchedPatterns.length} historical pattern(s) matched — αυτή η κατάσταση έχει ξαναγίνει`,
+        details: {
+          patterns: matchedPatterns.map(p => ({
+            name: p.name,
+            confidence: p.confidence,
+            success_rate: p.times_observed > 0
+              ? (p.times_successful / p.times_observed * 100).toFixed(0) + '%'
+              : 'new'
+          }))
+        }
+      });
+    }
 
     return insights;
   },
@@ -369,8 +482,61 @@ module.exports = ({ strapi }) => ({
         rationale: scores.recommendation_rationale,
         suggested_quantity: this.calculateSuggestedQuantity(product, metrics, scores.suggested_stock_days)
       });
+    } else if (recommendation === 'buy_on_demand') {
+      actions.push({
+        action: 'buy_on_demand',
+        priority: scores.priority === 'high' || scores.priority === 'critical' ? 'high' : 'medium',
+        description: 'Αγόρασε όταν έχεις παραγγελία — μην πάρεις stock προς το παρόν',
+        rationale: scores.recommendation_rationale,
+        note: scores.recommendation_note || null
+      });
+    } else if (recommendation === 'watch') {
+      actions.push({
+        action: 'monitor_price',
+        priority: 'medium',
+        description: 'Παρακολούθησε — ελέγξε ξανά σε 2-3 μέρες',
+        rationale: scores.recommendation_rationale,
+        next_check: {
+          target_opportunity: 65,
+          target_risk: 40
+        }
+      });
+    } else if (recommendation === 'avoid') {
+      actions.push({
+        action: 'avoid_purchase',
+        priority: 'low',
+        description: 'Αποφυγή αγοράς — υψηλό risk',
+        rationale: scores.recommendation_rationale
+      });
+    } else {
+      // wait_for_order
+      actions.push({
+        action: 'wait_for_order',
+        priority: 'low',
+        description: 'Αγόρασε μόνο αν έχεις συγκεκριμένη παραγγελία',
+        rationale: scores.recommendation_rationale
+      });
     }
-    // ... (rest of existing actions)
+
+    // Secondary action: monitor supplier αν είναι κοντά στο historic low
+    if (!clearanceDetection && metrics.distanceFromMin < 10 && metrics.distanceFromMin > 0) {
+      actions.push({
+        action: 'monitor_supplier',
+        priority: 'medium',
+        description: `Τιμή ${metrics.distanceFromMin?.toFixed(1)}% πάνω από historic low — παρακολούθησε για περαιτέρω πτώση`,
+        rationale: 'Κοντά στο historic low αλλά δεν το έχει φτάσει ακόμα'
+      });
+    }
+
+    // Risk warning αν risk score υψηλό
+    if (scores.risk_score >= 60 && recommendation !== 'avoid') {
+      actions.push({
+        action: 'risk_warning',
+        priority: 'medium',
+        description: `Προσοχή: risk score ${scores.risk_score}/100 — αγόρασε μόνο την ποσότητα που χρειάζεσαι`,
+        rationale: 'Υψηλή αστάθεια τιμών — μην overstockάρεις'
+      });
+    }
 
     return actions;
   },

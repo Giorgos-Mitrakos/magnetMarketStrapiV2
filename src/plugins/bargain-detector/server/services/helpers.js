@@ -201,9 +201,13 @@ module.exports = ({ strapi }) => ({
 
     const total = upCount + downCount;
     if (total > 0) {
+      // dominance: πόσο "μονόδρομη" είναι η κατεύθυνση (1.0 = πάντα ίδια φορά)
       const dominance = Math.max(upCount, downCount) / total;
+      // oscillation: 1.0 = τέλεια εναλλαγή (UP/DOWN/UP/DOWN) = ΧΑΟΤΙΚΟ, όχι consistent
+      // Διορθωμένη λογική: oscillation υψηλό = inconsistent
       const oscillation = 1 - Math.abs(0.5 - (upCount / total)) * 2;
-      const directionConsistency = Math.max(dominance, oscillation);
+      // Χρησιμοποίησε dominance (όχι oscillation) ως consistency signal
+      const directionConsistency = dominance;
       consistencyFactors.push(directionConsistency);
     }
 
@@ -216,7 +220,7 @@ module.exports = ({ strapi }) => ({
   /**
    * Load plugin configuration
    */
-  
+
 
   async loadConfig() {
     const now = Date.now();
@@ -231,7 +235,7 @@ module.exports = ({ strapi }) => ({
         { limit: 1 }
       );
 
-      configCache = config || this.getDefaultConfig();
+      configCache = (config && config.length > 0) ? config[0] : this.getDefaultConfig();
       cacheTime = now;
 
       return configCache;
@@ -333,6 +337,22 @@ module.exports = ({ strapi }) => ({
         },
         avoid: {
           max_risk: 70
+        }
+      },
+      pattern_settings: {
+        seasonal: {
+          enabled: true,
+          min_occurrences: 2
+        },
+        day_of_week: {
+          enabled: true,
+          min_samples_per_day: 4   // χαμηλό threshold — τα περισσότερα προϊόντα έχουν λίγα price changes
+        },
+        monthly_cycle: {
+          enabled: true
+        },
+        price_movement: {
+          enabled: true
         }
       }
     };

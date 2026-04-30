@@ -3,6 +3,11 @@
 
 'use strict';
 
+/**
+ * 🔒 Πρέπει να ταυτίζεται με το LIQUIDITY_TRACKING_ENABLED στο metrics.js
+ */
+const LIQUIDITY_TRACKING_ENABLED = false;
+
 module.exports = ({ strapi }) => ({
 
   /**
@@ -279,29 +284,43 @@ module.exports = ({ strapi }) => ({
    * Generate clearance-specific recommendation
    */
   generateClearanceRecommendation(clearance, metrics, product) {
-    const isFastMover = metrics.isFastMover || false;
-    const liquidityScore = metrics.liquidityScore || 0;
     const currentStock = metrics.currentStock || 0;
 
     let action, stockDays, rationale;
 
-    // Fast mover + high confidence = aggressive buy
-    if (isFastMover && clearance.confidence >= 70) {
-      action = 'stock_heavily';
-      stockDays = this.calculateClearanceStockDays(metrics, 'aggressive');
-      rationale = `Clearance από ${clearance.supplier.name} (confidence: ${clearance.confidence}%) + fast-moving product. ΣΤΟΚΑΡΕ ΤΩΡΑ!`;
-    }
-    // Medium liquidity + high confidence = moderate buy
-    else if (liquidityScore >= 40 && clearance.confidence >= 60) {
-      action = 'stock_moderately';
-      stockDays = this.calculateClearanceStockDays(metrics, 'moderate');
-      rationale = `Clearance detected (confidence: ${clearance.confidence}%). Moderate liquidity - πάρε conservative stock.`;
-    }
-    // Slow mover or low confidence = cautious buy
-    else {
-      action = 'buy_opportunistic';
-      stockDays = 7; // Just 1 week
-      rationale = `Possible clearance (confidence: ${clearance.confidence}%). Slow mover - πάρε μικρή ποσότητα για test.`;
+    if (LIQUIDITY_TRACKING_ENABLED) {
+      // Με purchase history: στρατηγική βάσει πόσο γρήγορα πουλάει το προϊόν
+      const isFastMover = metrics.isFastMover || false;
+      const liquidityScore = metrics.liquidityScore || 0;
+
+      if (isFastMover && clearance.confidence >= 70) {
+        action = 'stock_heavily';
+        stockDays = this.calculateClearanceStockDays(metrics, 'aggressive');
+        rationale = `Clearance από ${clearance.supplier.name} (confidence: ${clearance.confidence}%) + fast-moving product. ΣΤΟΚΑΡΕ ΤΩΡΑ!`;
+      } else if (liquidityScore >= 40 && clearance.confidence >= 60) {
+        action = 'stock_moderately';
+        stockDays = this.calculateClearanceStockDays(metrics, 'moderate');
+        rationale = `Clearance detected (confidence: ${clearance.confidence}%). Moderate liquidity - πάρε conservative stock.`;
+      } else {
+        action = 'buy_opportunistic';
+        stockDays = 7;
+        rationale = `Possible clearance (confidence: ${clearance.confidence}%). Slow mover - πάρε μικρή ποσότητα για test.`;
+      }
+    } else {
+      // 🔒 Χωρίς purchase history: στρατηγική βάσει μόνο confidence
+      if (clearance.confidence >= 75) {
+        action = 'stock_heavily';
+        stockDays = this.calculateClearanceStockDays(metrics, 'aggressive');
+        rationale = `Clearance από ${clearance.supplier.name} (confidence: ${clearance.confidence}%). Υψηλή βεβαιότητα - ΣΤΟΚΑΡΕ ΤΩΡΑ!`;
+      } else if (clearance.confidence >= 55) {
+        action = 'stock_moderately';
+        stockDays = this.calculateClearanceStockDays(metrics, 'moderate');
+        rationale = `Clearance detected (confidence: ${clearance.confidence}%). Πάρε moderate stock.`;
+      } else {
+        action = 'buy_opportunistic';
+        stockDays = 7;
+        rationale = `Possible clearance (confidence: ${clearance.confidence}%). Χαμηλή βεβαιότητα - πάρε μικρή ποσότητα για test.`;
+      }
     }
 
     return {
@@ -321,13 +340,19 @@ module.exports = ({ strapi }) => ({
    * Calculate stock days for clearance opportunities
    */
   calculateClearanceStockDays(metrics, strategy) {
+    if (!LIQUIDITY_TRACKING_ENABLED) {
+      // 🔒 Χωρίς purchase history: fixed days ανά στρατηγική
+      if (strategy === 'aggressive') return 30;
+      if (strategy === 'moderate') return 14;
+      return 7; // conservative
+    }
+
     const avgDays = metrics.avgDaysBetweenPurchases || 30;
     const liquidityScore = metrics.liquidityScore || 50;
 
     let multiplier;
-    
+
     if (strategy === 'aggressive') {
-      // More aggressive than normal strong_buy
       if (liquidityScore >= 90) multiplier = 3.0;
       else if (liquidityScore >= 70) multiplier = 2.5;
       else multiplier = 2.0;
@@ -336,7 +361,6 @@ module.exports = ({ strapi }) => ({
       else if (liquidityScore >= 50) multiplier = 1.5;
       else multiplier = 1.0;
     } else {
-      // Conservative
       multiplier = 0.5;
     }
 

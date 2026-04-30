@@ -211,6 +211,7 @@ const OpportunitiesPage = () => {
                 >
                   <SingleSelectOption value="all">All</SingleSelectOption>
                   <SingleSelectOption value="critical">Critical</SingleSelectOption>
+                  <SingleSelectOption value="Flash_clearance">Flash Clearance</SingleSelectOption>
                   <SingleSelectOption value="high">High</SingleSelectOption>
                   <SingleSelectOption value="medium">Medium</SingleSelectOption>
                   <SingleSelectOption value="low">Low</SingleSelectOption>

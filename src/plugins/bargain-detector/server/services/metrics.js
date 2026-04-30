@@ -1,5 +1,7 @@
 'use strict';
 
+const LIQUIDITY_TRACKING_ENABLED = false;
+
 module.exports = ({ strapi }) => ({
   /**
    * Calculate all metrics for a product
@@ -91,9 +93,6 @@ module.exports = ({ strapi }) => ({
     // Price changes
     const priceChangesLast30d = helpers.countPriceChanges(last30d);
 
-    // Trend analysis
-    const trend = this.analyzeTrend(sortedHistory.slice(0, 14));
-
     // ✅ NEW: Use per-supplier data for accurate multi-supplier metrics
     const multiSupplierMetrics = this.calculateMultiSupplierMetrics(
       perSupplierAnalysis.suppliers,
@@ -101,6 +100,14 @@ module.exports = ({ strapi }) => ({
       currentBest,
       helpers
     );
+
+    // Trend — από τον best supplier, όχι από mixed aggregated history.
+    // Το aggregated trend είναι αναξιόπιστο όταν οι suppliers έχουν διαφορετικές τιμές:
+    // π.χ. ένας πέφτει, ένας stable → mixed history δείχνει 'stable' ενώ ο best πέφτει.
+    const bestSupplierForTrend = perSupplierAnalysis.suppliers.find(
+      s => s.hasData && s.supplier.name === bestSupplier?.name
+    );
+    const trend = bestSupplierForTrend?.trend || this.analyzeTrend(sortedHistory.slice(0, 14));
 
     // Flash deal detection
     const flashDeal = this.detectFlashDeal(sortedHistory);
@@ -231,6 +238,9 @@ module.exports = ({ strapi }) => ({
       // Calculate metrics for this supplier only
       const allPrices = sortedHistory.map(h => h.wholesale);
       const avg30d = helpers.average(last30d.map(h => h.wholesale));
+      const last7d = helpers.filterByDays(sortedHistory, 7);
+      const avg7d = helpers.average(last7d.map(h => h.wholesale));
+
       const historicMin = Math.min(...allPrices);
       const historicMax = Math.max(...allPrices);
       const historicAvg = helpers.average(allPrices);
@@ -271,6 +281,7 @@ module.exports = ({ strapi }) => ({
         },
         hasData: true,
         currentPrice,
+        avg7d,
         avg30d,
         historicMin,
         historicMax,
@@ -287,7 +298,7 @@ module.exports = ({ strapi }) => ({
         isHistoricLow: distanceFromMin <= 2,
         isNearHistoricLow: distanceFromMin <= 5,
         priceStability: coefficientOfVariation < 5 ? 'stable' :
-                       coefficientOfVariation < 10 ? 'moderate' : 'volatile',
+          coefficientOfVariation < 10 ? 'moderate' : 'volatile',
         isDropping: dropFrom30d > 5,
         trendStrength: trend.strength || 0
       });
@@ -377,9 +388,47 @@ module.exports = ({ strapi }) => ({
   },
 
   /**
+
+   * Neutral liquidity values — χρησιμοποιούνται όταν το LIQUIDITY_TRACKING_ENABLED = false.
+
+   * Δεν δίνουν bonus ούτε penalty στο scoring.
+
+   */
+
+  getDefaultLiquidityMetrics() {
+
+    return {
+
+      purchaseFrequency: 'unknown',
+
+      avgDaysBetweenPurchases: null,
+
+      totalPurchases: 0,
+
+      totalQuantityPurchased: 0,
+
+      lastPurchaseDate: null,
+
+      daysSinceLastPurchase: null,
+
+      isFastMover: false,
+
+      liquidityScore: 0
+
+    };
+
+  },
+
+  /**
    * Calculate liquidity metrics from purchase history
    */
   calculateLiquidityMetrics(product) {
+    if (!LIQUIDITY_TRACKING_ENABLED) {
+
+      return this.getDefaultLiquidityMetrics();
+
+    }
+
     const purchaseHistory = product.purchace_history || [];
 
     if (purchaseHistory.length === 0) {
@@ -490,8 +539,8 @@ module.exports = ({ strapi }) => ({
       const changePercent = Math.abs(change / recentHistory[i].wholesale);
 
       if (changePercent < 0.005) stable++;
-      else if (change > 0) downs++;
-      else ups++;
+      else if (change > 0) ups++;
+      else downs++;
     }
 
     const total = downs + ups + stable;
