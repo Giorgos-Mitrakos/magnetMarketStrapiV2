@@ -35,6 +35,7 @@ const iasonService = require('./supplierServices/iasonService.js');
 
 const cacheService = require('./helpers/cache-service');
 const batchHelpers = require('./helpers/batch-helpers.js');
+const logger= require('./helpers/logger.js')
 
 // Parsers
 const weightParser = require('./parsers/weight-parser');
@@ -65,6 +66,7 @@ const iasonAdapter = require('./supplierAdapters/iason-adapter.js');
 module.exports = {
   cacheService,
   batchHelpers,
+  logger,
 
   // Base supplier class
   baseSupplier,
