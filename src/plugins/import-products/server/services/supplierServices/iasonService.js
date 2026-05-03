@@ -20,7 +20,10 @@ module.exports = ({ strapi }) => ({
     },
 
     async scrapIasonForCookies(browser, importRef, entry) {
+        const logger = strapi.plugin('import-products').service('logger');
         let page = null;
+
+        
 
         const loadImages = false;
         page = await strapi
@@ -42,6 +45,8 @@ module.exports = ({ strapi }) => ({
 
         if (!page) throw new Error('Page is required');
 
+        logger.logToFile('Navigation to login page successful');
+
         await page.waitForSelector('body', { timeout: 10000 });
         const bodyHandle = await page.$('body');
         if (!bodyHandle) throw new Error('Body not found');
@@ -61,6 +66,7 @@ module.exports = ({ strapi }) => ({
         const passwordValue = process.env.IASON_PASSWORD;
 
         if (!usernameValue || !passwordValue) {
+            logger.logToFile('MISSING CREDENTIALS: IASON_USERNAME not found');
             throw new Error('Login credentials not configured');
         }
 
@@ -86,10 +92,12 @@ module.exports = ({ strapi }) => ({
         ]);
 
         const cookies = await page.cookies();
+        logger.logToFile('Cookies retrieved:', cookies);
 
         const cookieToSend = cookies.filter(x => x.name === 'PHPSESSID')
-        console.log(cookieToSend)
-
+        if (!cookieToSend[0]) {
+            logger.logToFile('PHPSESSID NOT FOUND in cookies');
+        }
         await page.close()
         return cookieToSend[0];
     }
