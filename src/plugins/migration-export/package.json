@@ -1,0 +1,12 @@
+{
+  "name": "migration-export",
+  "version": "0.1.0",
+  "description": "Εξαγωγή δεδομένων (μόνο ανάγνωση) για τη μεταφορά στο νέο σύστημα (magnetmarketV3)",
+  "strapi": {
+    "name": "migration-export",
+    "displayName": "Μεταφορά δεδομένων (εξαγωγή)",
+    "description": "Εξαγωγή δεδομένων (μόνο ανάγνωση) για τη μεταφορά στο νέο σύστημα",
+    "kind": "plugin"
+  },
+  "license": "MIT"
+}

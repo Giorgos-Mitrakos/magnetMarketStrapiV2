@@ -1,6 +1,6 @@
 'use strict';
 
-module.exports = ({ strapi }) => ({
+module.exports = {
     async index(ctx) {
         ctx.body = await strapi
             .plugin('import-products')
@@ -200,4 +200,4 @@ module.exports = ({ strapi }) => ({
             ctx.internalServerError(error.message);
         }
     }
-});
+};

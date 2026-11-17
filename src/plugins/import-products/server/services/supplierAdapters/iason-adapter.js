@@ -47,50 +47,43 @@ module.exports = ({ strapi }) => {
 
     async fetchData(importRef) {
       let browser = null;
+      let page = null;
+		
       try {
         browser = await strapi
           .plugin("import-products")
           .service("scrapHelpers")
           .createBrowser();
 
-        const cookie = await strapi
+       // 1. Καλούμε το service και περιμένουμε το ΑΠΟΤΕΛΕΣΜΑ (όχι Promise)
+        const result = await strapi
           .plugin("import-products")
           .service("iasonService")
           .scrapIasonForCookies(browser, importRef, this.entry);
 
-        const url = `${this.entry.importedURL}`;
-        const config = {
-          headers: {
-            "Accept-Encoding": "gzip,deflate,compress",
-            Cookie: `${cookie.name}=${cookie.value}`,
-          },
-        };
+		  page = result.page;
+		  const url = `${this.entry.importedURL}`;
 
-        const { response, message } = await strapi
-          .plugin("import-products")
-          .service("importHelpers")
-          .getXmlData(url, config);
+        // Το fetch εδώ χρησιμοποιεί ΑΥΤΟΜΑΤΑ τα cookies της σελίδας
+        const data = await page.evaluate(async (xmlUrl) => {
+          const response = await fetch(xmlUrl);
+          if (!response.ok) throw new Error(`HTTP Error ${response.status}`);
+          return await response.text();
+        }, url);
 
-        if (message === "Error") return { message };
-
-        const { data } = await response;
-
-        const xml = await strapi
-          .plugin("import-products")
-          .service("importHelpers")
-          .parseXml(data);
-
+        // Έλεγχος για Security Check
+        if (data.trim().startsWith('<!DOCTYPE html>')) {
+          throw new Error("WAF Block: Security Check triggered");
+        }
+		  
+        const xml = await strapi.plugin("import-products").service("importHelpers").parseXml(data);
         const items = xml?.products?.product;
+
         if (!items || items.length === 0) {
-          console.warn("Iason: No items found in XML");
           return { message: "No products" };
         }
 
-        // ✅ Normalize: { _: 'value', $: { type: '...' } } → 'value'
-        // Απαραίτητο γιατί τα Iason tags έχουν type attribute
-        const normalizedItems = items.map((item) =>
-          this.normalizeIasonItem(item)
-        );
+        const normalizedItems = items.map((item) => this.normalizeIasonItem(item));
 
         const availableProducts = strapi
           .plugin("import-products")
@@ -103,10 +96,8 @@ module.exports = ({ strapi }) => {
             importRef.brand_excl_map
           );
 
-        console.log(`Iason available products: ${availableProducts.length}`);
         return { products: availableProducts };
       } catch (error) {
-        console.error("Error fetching Iason data:", error);
         return { message: "Error", error: error.message };
       } finally {
         if (browser) {

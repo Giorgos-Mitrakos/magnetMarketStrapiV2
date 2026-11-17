@@ -27,6 +27,12 @@ export default ({ env }) => ({
     enabled: true,
     resolve: './src/plugins/bargain-detector'
   },
+  // (2026-10-30) Εξαγωγή δεδομένων για τη μεταφορά στο νέο σύστημα — μόνο ανάγνωση,
+  // ενεργό μόνο με MIGRATION_EXPORT_TOKEN στο .env
+  'migration-export': {
+    enabled: true,
+    resolve: './src/plugins/migration-export'
+  },
   upload: {
     config: {
       providerOptions: {

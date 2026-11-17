@@ -145,13 +145,10 @@ module.exports = ({ strapi }) => ({
   },
 
   async getXmlData(url, config) {
-    const logger = strapi.plugin("import-products").service("logger");
     try {
       const response = await Axios.get(url, config);
       return { response, message: "Ok" };
     } catch (error) {
-      logger.logToFile(`Error in getData: ${error}`);
-
       return { message: "Error" };
     }
   },
